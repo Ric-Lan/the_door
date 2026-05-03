@@ -1,0 +1,353 @@
+# Implementation Plan: The Door Phase 1-min
+
+## Overview
+
+This plan implements The Door Phase 1-min using strict TDD (Test-Driven Development) principles. Tasks are ordered so that tests are written BEFORE their corresponding implementation code, following the red-green-refactor cycle. The project uses Python with pytest + Hypothesis for testing.
+
+**TDD Order:** Project scaffolding → JSON Schemas (contracts) → Test fixtures → Property-based tests → Unit tests → Implementation → Integration tests → CLI & MCP wiring.
+
+## Tasks
+
+- [x] 1. Project scaffolding and folder structure
+  - [x] 1.1 Create pyproject.toml with all dependencies and entry points
+    - Define project metadata, dependencies (tree-sitter-language-pack, networkx, jsonschema, mcp, click), dev dependencies (pytest, hypothesis), and `the-door` CLI entry point
+    - Configure pytest settings (testpaths, markers for unit/property/integration)
+    - _Requirements: 16.1, 16.2, 16.3_
+  - [x] 1.2 Create complete folder structure with `__init__.py` files
+    - Create `src/the_door/` package with `cli/`, `core/extraction/`, `core/topology/`, `core/validation/`, `mcp/tools/` subpackages
+    - Create `tests/` package with `unit/core/extraction/`, `unit/core/topology/`, `unit/core/validation/`, `unit/mcp/`, `property/`, `integration/`, `fixtures/` subfolders
+    - Create `prompts/` and `schemas/` top-level directories
+    - All directories must have `__init__.py` where needed for Python package resolution
+    - _Requirements: 16.1, 16.2, 16.3, 16.4_
+
+- [x] 2. JSON Schema contract files
+  - [x] 2.1 Create `schemas/ast-raw.schema.json`
+    - Define JSON Schema (Draft 2020-12) for Structure JSON: files array, nodes array (with node_id, type enum, name, file, language, decorators, parameters, return_type, docstring, comments), edges array (from, to, type enum), topology array (node_id, in_degree ≥0, out_degree ≥0, topology_rank ≥1, is_entry_point boolean, batch_assignment ≥1)
+    - _Requirements: 17.1, 17.2, 17.3_
+  - [x] 2.2 Create `schemas/l1-output.schema.json`
+    - Define JSON Schema (Draft 2020-12) for L1 Output: l1.summary (non-empty string), l1.features array (feature_id, label, description, trigger enum, trigger_description, confidence enum, confidence_reason, source_nodes, needs_source_review, review_reason), l1.feature_relations array (from_feature, to_feature, relation, relation_type enum, inferred_reason), l1.unclassified_nodes, l1.infrastructure_nodes
+    - Enforce: inferred_reason required when relation_type is "inferred"
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 9.1_
+
+- [x] 3. Data models and type definitions
+  - [x] 3.1 Create core data model dataclasses
+    - Implement FileInfo, ASTNode, Edge, TopologyEntry, StructureJSON, ExtractionError, ExtractionResult in `src/the_door/core/extraction/__init__.py` or a dedicated `models.py`
+    - Implement Feature, FeatureRelation, L1Output in `src/the_door/core/validation/__init__.py` or a dedicated `models.py`
+    - Implement CheckResult, ValidationResult
+    - _Requirements: 1.2, 2.6, 17.1_
+
+- [x] 4. Test fixtures and sample data
+  - [x] 4.1 Create sample codebase fixtures
+    - Create `tests/fixtures/sample_codebases/python_simple/` with a small Python project (2-3 files with functions, classes, methods, decorators, docstrings, imports, call relationships)
+    - Create `tests/fixtures/sample_codebases/typescript_simple/` with a small TypeScript project
+    - Create `tests/fixtures/sample_codebases/multi_language/` with mixed Python + TypeScript files
+    - _Requirements: 18.1_
+  - [x] 4.2 Create sample Structure JSON fixtures
+    - Create `tests/fixtures/sample_structure_json/` with pre-built valid Structure JSON files matching the sample codebases
+    - Include edge cases: empty codebase (empty arrays), single-file codebase, codebase with orphan nodes
+    - _Requirements: 17.1, 17.2, 17.3_
+  - [x] 4.3 Create sample L1 output fixtures
+    - Create `tests/fixtures/sample_l1_output/` with valid L1 output JSON matching sample Structure JSON
+    - Create invalid variants: missing required fields, invalid enum values, prohibited terms in labels, hallucinated node_ids, incomplete coverage, static relations with no AST path, inferred relations missing reason
+    - _Requirements: 9.1, 9.2, 9.3, 10.1, 10.2, 11.1, 11.2, 12.1, 12.2, 13.1, 13.2, 13.3, 13.4_
+
+- [x] 5. Checkpoint — Verify scaffolding
+  - Ensure project installs correctly (`pip install -e .`), pytest discovers test directories, JSON schemas are valid. Ask the user if questions arise.
+
+- [x] 6. Property-based tests for extraction (TDD: write tests BEFORE implementation)
+  - [x] 6.1 Write property test: Extracted nodes contain all required attributes (Property 1)
+    - **Property 1: Extracted nodes contain all required attributes**
+    - Use Hypothesis to generate source files with functions/classes/methods; verify every node in output contains node_id, type, name, file, language, decorators, parameters, return_type, docstring, comments with no missing attributes
+    - **Validates: Requirements 1.2, 1.7**
+  - [x] 6.2 Write property test: Extraction resilience — unparseable files do not halt processing (Property 2)
+    - **Property 2: Extraction resilience — unparseable files do not halt processing**
+    - Use Hypothesis to generate mixed sets of valid and invalid files; verify nodes from valid files are present AND error list length equals number of invalid files
+    - **Validates: Requirements 1.5**
+  - [x] 6.3 Write property test: Docstring and comment preservation round-trip (Property 3)
+    - **Property 3: Docstring and comment preservation round-trip**
+    - Use Hypothesis to generate source files with docstrings and TODO/FIXME comments; verify extracted strings match source text exactly
+    - **Validates: Requirements 1.6**
+  - [x] 6.4 Write property test: Extraction output structural integrity (Property 4)
+    - **Property 4: Extraction output structural integrity**
+    - Use Hypothesis to generate valid codebases; verify (a) all node_ids are unique, (b) every edge references existing node_ids, (c) output conforms to ast-raw.schema.json
+    - **Validates: Requirements 17.1, 17.2, 17.3**
+
+- [x] 7. Property-based tests for topology (TDD: write tests BEFORE implementation)
+  - [x] 7.1 Write property test: Degree computation correctness (Property 5)
+    - **Property 5: Degree computation correctness**
+    - Use Hypothesis to generate directed graphs of nodes and edges; verify in_degree equals count of edges where node is `to` target, out_degree equals count of edges where node is `from` source
+    - **Validates: Requirements 2.1**
+  - [x] 7.2 Write property test: Entry point detection correctness (Property 6)
+    - **Property 6: Entry point detection correctness**
+    - Use Hypothesis to generate nodes with various decorators and file paths; verify entry point detection returns true iff node has known entry decorator OR (in_degree=0 AND out_degree>0 AND file path matches entry directories)
+    - **Validates: Requirements 2.2**
+  - [x] 7.3 Write property test: Batch assignment correctness (Property 7)
+    - **Property 7: Batch assignment correctness**
+    - Use Hypothesis to generate node sets with computed topology; verify (a) all entry points have batch=1, (b) higher in_degree non-entry nodes have batch ≤ lower in_degree nodes, (c) entry points have lower topology_rank than non-entry nodes
+    - **Validates: Requirements 2.3, 2.4, 2.5, 2.6, 18.5**
+
+- [x] 8. Property-based tests for validation (TDD: write tests BEFORE implementation)
+  - [x] 8.1 Write property test: Schema validation accepts valid / rejects invalid (Property 8)
+    - **Property 8: Schema validation accepts valid output and rejects invalid output**
+    - Use Hypothesis to generate valid L1 output JSON (all required fields, valid enums) and invalid variants (missing fields, bad enums); verify schema check passes/fails correctly
+    - **Validates: Requirements 9.1, 9.3**
+  - [x] 8.2 Write property test: Coverage check detects uncovered nodes (Property 9)
+    - **Property 9: Coverage check detects uncovered nodes**
+    - Use Hypothesis to generate Structure JSON and L1 output with varying coverage; verify coverage passes iff union of source_nodes + unclassified + infrastructure equals all node_ids; verify uncovered list equals exact set difference
+    - **Validates: Requirements 10.1, 10.2**
+  - [x] 8.3 Write property test: Language check detects prohibited terms (Property 10)
+    - **Property 10: Language check detects prohibited technical terms**
+    - Use Hypothesis to generate L1 output with/without prohibited terms in labels/descriptions; verify language check fails when terms present and passes when absent
+    - **Validates: Requirements 11.1, 11.2**
+  - [x] 8.4 Write property test: Anchor check detects hallucinated node references (Property 11)
+    - **Property 11: Anchor check detects hallucinated node references**
+    - Use Hypothesis to generate L1 output and Structure JSON with matching/mismatching node_ids; verify anchor check passes iff all source_nodes exist in Structure JSON and every feature has ≥1 source_node
+    - **Validates: Requirements 8.1, 8.2, 12.1, 12.2**
+  - [x] 8.5 Write property test: Relation check validates static and inferred relations (Property 12)
+    - **Property 12: Relation check validates static and inferred relations at correct strictness levels**
+    - Use Hypothesis to generate L1 output with static/inferred relations and Structure JSON with/without corresponding edge paths; verify (a) static passes iff AST edge path exists, (b) inferred passes iff both feature_ids exist with valid source_nodes and non-empty inferred_reason, (c) static with no path is flagged
+    - **Validates: Requirements 8.3, 13.1, 13.2, 13.3, 13.4**
+
+- [x] 9. Unit tests for extraction (TDD: write tests BEFORE implementation)
+  - [x] 9.1 Write unit tests for file_discovery module
+    - Test: discovers Python, TypeScript, Java files in nested directories
+    - Test: respects .gitignore patterns (skips node_modules, __pycache__, etc.)
+    - Test: returns empty list for empty directory
+    - Test: detects correct language for each file
+    - _Requirements: 1.1, 1.4, 1.7_
+  - [x] 9.2 Write unit tests for node_builder module
+    - Test: extracts function nodes with all attributes from Python source
+    - Test: extracts class and method nodes from Python source
+    - Test: extracts decorator patterns correctly
+    - Test: preserves docstrings verbatim
+    - Test: preserves TODO/FIXME comments
+    - Test: handles empty files (returns empty list)
+    - Test: handles files with no functions/classes (returns empty list)
+    - _Requirements: 1.2, 1.6_
+  - [x] 9.3 Write unit tests for edge_builder module
+    - Test: detects calls relationships between functions
+    - Test: detects imports relationships
+    - Test: detects extends relationships (class inheritance)
+    - Test: detects implements relationships
+    - Test: all edges reference valid node_ids
+    - _Requirements: 1.3, 17.3_
+  - [x] 9.4 Write unit tests for ast_extractor orchestrator
+    - Test: full extraction on python_simple fixture produces valid Structure JSON
+    - Test: skips unparseable files and records errors
+    - Test: empty codebase returns valid Structure JSON with empty arrays
+    - Test: invalid path returns structured error
+    - _Requirements: 1.1, 1.5, 17.1_
+
+- [x] 10. Unit tests for topology (TDD: write tests BEFORE implementation)
+  - [x] 10.1 Write unit tests for graph_builder module
+    - Test: builds networkx DiGraph from edges correctly
+    - Test: handles empty edge list (returns empty graph)
+    - Test: handles circular dependencies without error
+    - _Requirements: 2.1_
+  - [x] 10.2 Write unit tests for entry_point_detector module
+    - Test: node with @app.route decorator → is_entry_point=True
+    - Test: node with @Controller decorator → is_entry_point=True
+    - Test: node with in_degree=0, out_degree>0, file in routes/ → is_entry_point=True
+    - Test: node with in_degree>0 and no entry decorator → is_entry_point=False
+    - Test: node with in_degree=0, out_degree=0 → is_entry_point=False
+    - _Requirements: 2.2_
+  - [x] 10.3 Write unit tests for batch_assigner module
+    - Test: entry points assigned to batch 1
+    - Test: non-entry nodes sorted by descending in_degree across batches
+    - Test: max_batches parameter respected
+    - Test: empty node list returns empty dict
+    - _Requirements: 2.3, 2.4_
+  - [x] 10.4 Write unit tests for topology_analyzer orchestrator
+    - Test: full topology analysis on sample Structure JSON produces correct topology array
+    - Test: performance benchmark — 1000 nodes completes in < 1 second
+    - Test: star graph pattern (one hub, many leaves)
+    - Test: chain graph pattern (linear dependency)
+    - Test: isolated nodes (no edges) get in_degree=0, out_degree=0
+    - _Requirements: 2.1, 2.5, 2.6, 2.7_
+
+- [x] 11. Unit tests for validation (TDD: write tests BEFORE implementation)
+  - [x] 11.1 Write unit tests for schema_check module
+    - Test: valid L1 output passes schema check
+    - Test: missing required field fails with specific error message
+    - Test: invalid enum value fails with specific error message
+    - Test: invalid relation_type value detected
+    - _Requirements: 9.1, 9.2, 9.3_
+  - [x] 11.2 Write unit tests for coverage_check module
+    - Test: complete coverage passes
+    - Test: incomplete coverage returns exact list of uncovered node_ids
+    - Test: empty features with all nodes in unclassified passes
+    - _Requirements: 10.1, 10.2_
+  - [x] 11.3 Write unit tests for language_check module
+    - Test: clean L1 output passes language check
+    - Test: "Service" in label detected and reported
+    - Test: "Controller" in description detected and reported
+    - Test: multiple prohibited terms in same feature all reported
+    - Test: case-insensitive matching (e.g., "handler" matches "Handler")
+    - _Requirements: 11.1, 11.2_
+  - [x] 11.4 Write unit tests for anchor_check module
+    - Test: all source_nodes exist in Structure JSON → passes
+    - Test: feature with non-existent node_id → flagged as hallucination
+    - Test: feature with empty source_nodes → flagged
+    - _Requirements: 12.1, 12.2_
+  - [x] 11.5 Write unit tests for relation_check module
+    - Test: static relation with valid AST edge path → passes
+    - Test: static relation with no AST edge path → flagged
+    - Test: inferred relation with valid feature_ids and non-empty reason → passes
+    - Test: inferred relation with missing inferred_reason → flagged
+    - Test: inferred relation referencing non-existent feature_id → flagged
+    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+  - [x] 11.6 Write unit tests for output_validator orchestrator
+    - Test: all checks pass → ValidationResult.passed=True
+    - Test: any single check fails → ValidationResult.passed=False
+    - Test: multiple checks fail → all failures reported
+    - _Requirements: 9.1, 10.1, 11.1, 12.1, 13.1_
+
+- [x] 12. Checkpoint — All tests written, all should FAIL (TDD red phase)
+  - Run `pytest tests/` and confirm all tests fail because implementation does not exist yet. This validates the TDD red phase. Ask the user if questions arise.
+
+- [x] 13. Implement AST extraction modules
+  - [x] 13.1 Implement file_discovery.py
+    - Implement FileDiscovery.discover() to enumerate source files, detect language, respect .gitignore patterns
+    - _Requirements: 1.1, 1.4, 1.7_
+  - [x] 13.2 Implement node_builder.py
+    - Implement NodeBuilder.build_nodes() to walk tree-sitter AST and extract function/class/method nodes with all required attributes (node_id, type, name, file, language, decorators, parameters, return_type, docstring, comments)
+    - _Requirements: 1.2, 1.6_
+  - [x] 13.3 Implement edge_builder.py
+    - Implement EdgeBuilder.build_edges() to analyze call sites, imports, extends, implements relationships between nodes
+    - _Requirements: 1.3, 17.3_
+  - [x] 13.4 Implement ast_extractor.py orchestrator
+    - Implement ASTExtractor.extract() to orchestrate file discovery → node building → edge building, skip unparseable files with error recording, return ExtractionResult
+    - _Requirements: 1.1, 1.5, 17.1_
+
+- [x] 14. Implement topology analysis modules
+  - [x] 14.1 Implement graph_builder.py
+    - Implement building a networkx DiGraph from AST edges
+    - _Requirements: 2.1_
+  - [x] 14.2 Implement entry_point_detector.py
+    - Implement EntryPointDetector.is_entry_point() with known entry decorator set and entry directory patterns
+    - Define KNOWN_ENTRY_DECORATORS and ENTRY_DIRECTORIES constants
+    - _Requirements: 2.2_
+  - [x] 14.3 Implement batch_assigner.py
+    - Implement BatchAssigner.assign_batches() with entry points → batch 1, remaining sorted by descending in_degree
+    - _Requirements: 2.3, 2.4_
+  - [x] 14.4 Implement topology_analyzer.py orchestrator
+    - Implement TopologyAnalyzer.analyze() to build graph → compute degrees → detect entry points → assign batches → compute topology ranks → return TopologyResult
+    - Must complete in < 1 second for 1000 nodes
+    - _Requirements: 2.1, 2.5, 2.6, 2.7_
+
+- [x] 15. Checkpoint — Extraction and topology tests pass (TDD green phase)
+  - Run `pytest tests/unit/core/extraction/ tests/unit/core/topology/ tests/property/test_extraction_properties.py tests/property/test_topology_properties.py` and confirm all extraction and topology tests pass. Ask the user if questions arise.
+
+- [x] 16. Implement validation modules
+  - [x] 16.1 Implement schema_check.py
+    - Implement SchemaCheck.check() using jsonschema Draft 2020-12 to validate against l1-output.schema.json
+    - Return CheckResult with passed status and list of non-conformant fields on failure
+    - _Requirements: 9.1, 9.2, 9.3_
+  - [x] 16.2 Implement coverage_check.py
+    - Implement CoverageCheck.check() to verify union of source_nodes + unclassified_nodes + infrastructure_nodes covers all Structure JSON node_ids
+    - Return uncovered node_ids on failure
+    - _Requirements: 10.1, 10.2_
+  - [x] 16.3 Implement language_check.py
+    - Implement LanguageCheck.check() to scan label and description fields against PROHIBITED_TERMS list
+    - Define PROHIBITED_TERMS constant with: Service, Handler, Controller, Loader, IoC, Middleware, Decorator, Class, Module, Import, Endpoint, Router, Provider, Factory, Repository, DAO, ORM, SDK, API
+    - Return offending terms and locations on failure
+    - _Requirements: 11.1, 11.2_
+  - [x] 16.4 Implement anchor_check.py
+    - Implement AnchorCheck.check() to verify every source_node exists in Structure JSON and every feature has ≥1 source_node
+    - Flag features with non-existent node_ids as hallucination anchor errors
+    - _Requirements: 12.1, 12.2_
+  - [x] 16.5 Implement relation_check.py
+    - Implement RelationCheck.check() with layered verification: static relations require AST edge path, inferred relations require valid feature_ids + source_nodes + non-empty inferred_reason
+    - _Requirements: 13.1, 13.2, 13.3, 13.4_
+  - [x] 16.6 Implement output_validator.py orchestrator
+    - Implement OutputValidator.validate() to run all 5 checks and return aggregated ValidationResult
+    - _Requirements: 9.1, 10.1, 11.1, 12.1, 13.1_
+
+- [x] 17. Checkpoint — All validation tests pass (TDD green phase)
+  - Run `pytest tests/unit/core/validation/ tests/property/test_validation_properties.py` and confirm all validation tests pass. Ask the user if questions arise.
+
+- [x] 18. Constraint prompt files
+  - [x] 18.1 Create `prompts/l1-constraint.md`
+    - Include: input trimming rules (node-level only for L1), batch instructions (follow topology batch_assignment), max 5 batches, unclassified marking for unprocessed nodes
+    - Include: L1 output JSON schema reference, required fields per feature, relation_type field requirements
+    - Include: confidence self-assessment rules (high/medium/low + reason), prohibition on vague language for high-confidence nodes
+    - Include: unclassified_nodes and infrastructure_nodes requirements
+    - Include: anchor point constraint (every feature must reference ≥1 source_node)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 6.1, 6.2, 6.3, 7.1, 7.2, 7.3, 8.1, 8.2, 8.3_
+  - [x] 18.2 Create `prompts/language-rules.md`
+    - Include: prohibited technical terms list (Service, Handler, Controller, Loader, IoC, Middleware, Decorator, Class, Module, Import, Endpoint, Router, Provider, Factory, Repository, DAO, ORM, SDK, API)
+    - Include: positive examples translating technical concepts to functional language
+    - Include: trigger mechanism translation table (HTTP route → "when user submits request", Cron → "system runs automatically on schedule", EventSubscriber → "triggered automatically after another function completes", IoC injection → "configured automatically at system startup", Middleware → "automatic pre-check before each request")
+    - _Requirements: 5.1, 5.2, 5.3_
+
+- [x] 19. CLI command layer
+  - [ ]* 19.1 Write unit tests for CLI commands
+    - Test: `extract` command with valid path produces JSON output
+    - Test: `extract` command with invalid path shows error, exit code 1
+    - Test: `validate` command with valid inputs produces validation result
+    - Test: `validate` command with missing argument shows usage message
+    - Test: `mcp-serve` command is registered
+    - _Requirements: 16.1, 16.2, 16.3, 16.4_
+  - [x] 19.2 Implement CLI main.py entry point
+    - Implement click-based CLI with `the-door` as the main group
+    - _Requirements: 16.1, 16.2, 16.3_
+  - [x] 19.3 Implement extract_cmd.py
+    - Implement `extract` command: accept codebase path, optional output file, run AST extraction + topology analysis, output Structure JSON to stdout or file
+    - _Requirements: 16.1_
+  - [x] 19.4 Implement validate_cmd.py
+    - Implement `validate` command: accept LLM output JSON path and Structure JSON path, run all 5 validation checks, output validation result
+    - _Requirements: 16.2_
+  - [x] 19.5 Implement mcp_serve_cmd.py
+    - Implement `mcp-serve` command: start the MCP server
+    - _Requirements: 16.3_
+
+- [x] 20. MCP Server layer
+  - [ ]* 20.1 Write unit tests for MCP tools
+    - Test: extract_structure tool registered with correct name and parameters
+    - Test: validate_output tool registered with correct name and parameters
+    - Test: extract_structure with invalid path returns structured error
+    - Test: validate_output with malformed input returns structured error
+    - _Requirements: 14.1, 14.2, 14.3, 15.1, 15.2, 15.3, 15.4_
+  - [x] 20.2 Implement MCP server.py
+    - Implement TheDoorMCPServer with tool registration and stdio transport
+    - _Requirements: 14.4_
+  - [x] 20.3 Implement extract_tool.py
+    - Implement extract_structure MCP tool: accept codebase_path, run AST extraction + topology, return Structure JSON
+    - Handle invalid/inaccessible paths with structured error responses
+    - _Requirements: 14.1, 14.2, 14.3_
+  - [x] 20.4 Implement validate_tool.py
+    - Implement validate_output MCP tool: accept llm_output and structure_json, run all 5 validation checks, return structured result
+    - Include actionable failure reasons suitable for LLM retry
+    - _Requirements: 15.1, 15.2, 15.3, 15.4_
+
+- [x] 21. Checkpoint — CLI and MCP tests pass
+  - Run `pytest tests/unit/mcp/` and verify CLI argument parsing and MCP tool registration tests pass. Ask the user if questions arise.
+
+- [ ] 22. Integration tests
+  - [ ]* 22.1 Write integration test: full extraction pipeline
+    - Test: codebase path → AST extraction → topology analysis → complete Structure JSON
+    - Use python_simple, typescript_simple, and multi_language fixtures
+    - Verify output conforms to ast-raw.schema.json
+    - _Requirements: 1.1, 2.6, 17.1, 18.1_
+  - [ ]* 22.2 Write integration test: full validation pipeline
+    - Test: L1 output + Structure JSON → run all 5 validation checks → correct pass/fail result
+    - Use valid and invalid L1 output fixtures
+    - _Requirements: 9.1, 10.1, 11.1, 12.1, 13.1_
+  - [ ]* 22.3 Write integration test: MCP server end-to-end
+    - Test: start MCP server → call extract_structure → verify Structure JSON → call validate_output → verify result
+    - _Requirements: 14.1, 14.2, 15.1, 15.2_
+
+- [x] 23. Final checkpoint — Full test suite passes
+  - Run `pytest tests/` and confirm all unit, property, and integration tests pass. Ensure all tests pass, ask the user if questions arise.
+
+## Notes
+
+- Tasks marked with `*` are optional (CLI tests, MCP tests, integration tests — these are thin wiring layers)
+- Core logic tests (property + unit for extraction/topology/validation) are ALL required — TDD demands them
+- Each task references specific requirements for traceability
+- TDD order: tests are written BEFORE implementation (tasks 6-11 before tasks 13-16)
+- Checkpoints at tasks 5, 12, 15, 17, 21, 23 ensure incremental validation
+- Property tests validate the 12 universal correctness properties from the design document
+- Unit tests validate specific examples and edge cases
+- Integration tests validate end-to-end pipeline flows
+- All code uses Python with pytest + Hypothesis for testing

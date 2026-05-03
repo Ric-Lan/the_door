@@ -1,0 +1,41 @@
+{
+  "l1": {
+    "summary": "A web application.",
+    "features": [
+      {
+        "feature_id": "feat-auth",
+        "label": "User sign-in",
+        "description": "Handles authentication",
+        "trigger": "user_action",
+        "trigger_description": "When user logs in",
+        "confidence": "high",
+        "confidence_reason": "Clear from structure",
+        "source_nodes": ["app.py::login"],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-notify",
+        "label": "Admin notifications",
+        "description": "Sends alerts to administrators",
+        "trigger": "auto_triggered",
+        "trigger_description": "Triggered after certain events",
+        "confidence": "medium",
+        "confidence_reason": "Function name suggests notification",
+        "source_nodes": ["tasks.py::notify_admin"],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [
+      {
+        "from": "feat-auth",
+        "to": "feat-notify",
+        "relation": "Login triggers admin notification",
+        "relation_type": "static"
+      }
+    ],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": []
+  }
+}

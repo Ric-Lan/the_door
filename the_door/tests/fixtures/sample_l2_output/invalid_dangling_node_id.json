@@ -1,0 +1,22 @@
+{
+  "l2": {
+    "modules": [
+      {
+        "module_id": "mod-auth",
+        "label": "Authentication Module",
+        "source_nodes": ["app.py::login"],
+        "confidence": "high",
+        "confidence_reason": "Clear module boundary"
+      }
+    ],
+    "module_interactions": [],
+    "anomalies": [
+      {
+        "anomaly_type": "dead_code",
+        "affected_node_ids": ["nonexistent_file.py::ghost_function"],
+        "explanation": "This references a node that does not exist in the structure",
+        "confidence": "medium"
+      }
+    ]
+  }
+}

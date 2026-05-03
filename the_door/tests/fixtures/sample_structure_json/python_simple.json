@@ -1,0 +1,29 @@
+{
+  "files": [
+    {"path": "app.py", "language": "python"},
+    {"path": "auth.py", "language": "python"},
+    {"path": "tasks.py", "language": "python"}
+  ],
+  "nodes": [
+    {"node_id": "app.py::login", "type": "function", "name": "login", "file": "app.py", "language": "python", "decorators": ["@app.route(\"/login\", methods=[\"POST\"])"], "parameters": [], "return_type": null, "docstring": "Handle user login requests.", "comments": []},
+    {"node_id": "app.py::list_users", "type": "function", "name": "list_users", "file": "app.py", "language": "python", "decorators": ["@app.route(\"/users\", methods=[\"GET\"])"], "parameters": [], "return_type": null, "docstring": "List all registered users.", "comments": []},
+    {"node_id": "auth.py::authenticate_user", "type": "function", "name": "authenticate_user", "file": "auth.py", "language": "python", "decorators": [], "parameters": [], "return_type": null, "docstring": "Verify user credentials and return a session token.", "comments": []},
+    {"node_id": "auth.py::generate_token", "type": "function", "name": "generate_token", "file": "auth.py", "language": "python", "decorators": [], "parameters": [], "return_type": null, "docstring": "Generate a secure random token.", "comments": []},
+    {"node_id": "tasks.py::schedule_cleanup", "type": "function", "name": "schedule_cleanup", "file": "tasks.py", "language": "python", "decorators": [], "parameters": [], "return_type": null, "docstring": "Schedule periodic database cleanup.\n\nRuns every 24 hours to remove expired sessions.", "comments": ["TODO: Add retry logic for failed tasks"]},
+    {"node_id": "tasks.py::notify_admin", "type": "function", "name": "notify_admin", "file": "tasks.py", "language": "python", "decorators": [], "parameters": ["message: str"], "return_type": "bool", "docstring": "Send notification to admin.\n\nFIXME: Email sending is unreliable", "comments": ["FIXME: Email sending is unreliable"]}
+  ],
+  "edges": [
+    {"from": "app.py::login", "to": "auth.py::authenticate_user", "type": "calls"},
+    {"from": "auth.py::authenticate_user", "to": "auth.py::generate_token", "type": "calls"},
+    {"from": "app.py::login", "to": "auth.py::authenticate_user", "type": "imports"},
+    {"from": "app.py::list_users", "to": "tasks.py::schedule_cleanup", "type": "imports"}
+  ],
+  "topology": [
+    {"node_id": "app.py::login", "in_degree": 0, "out_degree": 2, "topology_rank": 1, "is_entry_point": true, "batch_assignment": 1},
+    {"node_id": "app.py::list_users", "in_degree": 0, "out_degree": 1, "topology_rank": 2, "is_entry_point": true, "batch_assignment": 1},
+    {"node_id": "auth.py::authenticate_user", "in_degree": 2, "out_degree": 1, "topology_rank": 3, "is_entry_point": false, "batch_assignment": 2},
+    {"node_id": "tasks.py::schedule_cleanup", "in_degree": 1, "out_degree": 0, "topology_rank": 4, "is_entry_point": false, "batch_assignment": 2},
+    {"node_id": "auth.py::generate_token", "in_degree": 1, "out_degree": 0, "topology_rank": 5, "is_entry_point": false, "batch_assignment": 3},
+    {"node_id": "tasks.py::notify_admin", "in_degree": 0, "out_degree": 0, "topology_rank": 6, "is_entry_point": false, "batch_assignment": 3}
+  ]
+}

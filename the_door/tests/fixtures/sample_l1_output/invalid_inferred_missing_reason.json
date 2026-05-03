@@ -1,0 +1,42 @@
+{
+  "l1": {
+    "summary": "A web application.",
+    "features": [
+      {
+        "feature_id": "feat-auth",
+        "label": "User sign-in",
+        "description": "Handles authentication",
+        "trigger": "user_action",
+        "trigger_description": "When user logs in",
+        "confidence": "high",
+        "confidence_reason": "Clear from structure",
+        "source_nodes": ["app.py::login"],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-cleanup",
+        "label": "Data maintenance",
+        "description": "Cleans up old data",
+        "trigger": "scheduled",
+        "trigger_description": "Runs periodically",
+        "confidence": "medium",
+        "confidence_reason": "Docstring mentions periodic",
+        "source_nodes": ["tasks.py::schedule_cleanup"],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [
+      {
+        "from": "feat-auth",
+        "to": "feat-cleanup",
+        "relation": "Login sessions are cleaned up periodically",
+        "relation_type": "inferred",
+        "inferred_reason": null
+      }
+    ],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": []
+  }
+}

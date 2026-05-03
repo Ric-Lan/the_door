@@ -1,0 +1,18 @@
+{
+  "l1_5": {
+    "blocks": [
+      {
+        "block_id": "blk-auth",
+        "label": "Authentication gateway handling user identity verification",
+        "responsibility": "Manages user sign-in flow",
+        "trigger_mechanism": "Activated when a user submits login credentials",
+        "related_features": ["feat-auth", "feat-nonexistent-xyz"]
+      }
+    ],
+    "block_relations": [],
+    "infrastructure_block": {
+      "label": "System Infrastructure",
+      "components": []
+    }
+  }
+}

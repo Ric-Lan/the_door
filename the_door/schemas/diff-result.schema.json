@@ -1,0 +1,52 @@
+{
+  "title": "The Door Diff Result",
+  "description": "Structured diff output between two version snapshots",
+  "type": "object",
+  "required": ["baseline_info", "current_info", "node_diffs", "edge_diffs", "summary"],
+  "properties": {
+    "baseline_info": { "type": "object", "required": ["version_id", "timestamp", "trigger"], "properties": { "version_id": { "type": "string" }, "timestamp": { "type": "string", "format": "date-time" }, "trigger": { "type": "string", "enum": ["commit", "manual"] }, "commit_hash": { "type": ["string", "null"] }, "git_tags": { "type": "array", "items": { "type": "string" } }, "label": { "type": ["string", "null"] } } },
+    "current_info": { "type": "object", "required": ["version_id", "timestamp", "trigger"], "properties": { "version_id": { "type": "string" }, "timestamp": { "type": "string", "format": "date-time" }, "trigger": { "type": "string", "enum": ["commit", "manual"] }, "commit_hash": { "type": ["string", "null"] }, "git_tags": { "type": "array", "items": { "type": "string" } }, "label": { "type": ["string", "null"] } } },
+    "node_diffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["node_id", "diff_state"],
+        "properties": {
+          "node_id": { "type": "string" },
+          "diff_state": { "type": "string", "enum": ["added", "removed", "attribute_changed", "dependency_changed", "unchanged"] },
+          "current_label": { "type": ["string", "null"] },
+          "current_description": { "type": ["string", "null"] },
+          "baseline_label": { "type": ["string", "null"] },
+          "baseline_description": { "type": ["string", "null"] },
+          "current_confidence": { "type": ["string", "null"] },
+          "secondary_changes": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "edge_diffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from_node", "to_node", "diff_state"],
+        "properties": {
+          "from_node": { "type": "string" },
+          "to_node": { "type": "string" },
+          "diff_state": { "type": "string", "enum": ["added", "removed", "modified"] },
+          "current_relation": { "type": ["string", "null"] },
+          "baseline_relation": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["added_count", "removed_count", "dependency_changed_count", "attribute_changed_count", "total_changed_count"],
+      "properties": {
+        "added_count": { "type": "integer", "minimum": 0 },
+        "removed_count": { "type": "integer", "minimum": 0 },
+        "dependency_changed_count": { "type": "integer", "minimum": 0 },
+        "attribute_changed_count": { "type": "integer", "minimum": 0 },
+        "total_changed_count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+{"record_type": "batch", "timestamp": "2025-01-15T10:30:00Z", "batch": 1, "strategy": "topology_guided", "nodes_read": [{"node_id": "app.py::login", "topology_rank": 1, "in_degree": 0, "is_entry_point": true}], "llm_judgment": "Identified 1 feature", "pruned_nodes": [], "pending_low_confidence": []}
+this is not valid json and should be skipped gracefully
+{"record_type": "regeneration", "timestamp": "2025-01-15T11:00:00Z", "feature_id": "feat-auth", "previous_summary": "User login", "new_summary": "User authentication with MFA support"}

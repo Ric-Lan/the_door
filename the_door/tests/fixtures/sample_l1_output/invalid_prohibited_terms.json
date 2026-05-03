@@ -1,0 +1,22 @@
+{
+  "l1": {
+    "summary": "A web application with user management.",
+    "features": [
+      {
+        "feature_id": "feat-1",
+        "label": "Authentication Service",
+        "description": "The Controller handles user login via the API Endpoint",
+        "trigger": "user_action",
+        "trigger_description": "When user submits credentials",
+        "confidence": "high",
+        "confidence_reason": "Clear from code structure",
+        "source_nodes": ["app.py::login"],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": []
+  }
+}

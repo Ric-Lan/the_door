@@ -1,0 +1,229 @@
+{
+  "": "https://the-door.dev/schemas/update-report.schema.json",
+  "title": "The Door Update Report",
+  "description": "Version update report structured JSON format",
+  "type": "object",
+  "required": [
+    "report_version",
+    "generated_at",
+    "pipeline_summary",
+    "l0_summary",
+    "l1_changes",
+    "l2_details",
+    "l3_appendix"
+  ],
+  "properties": {
+    "report_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pipeline_summary": {
+      "type": "object",
+      "required": [
+        "old_path",
+        "new_path",
+        "total_duration_ms",
+        "steps"
+      ],
+      "properties": {
+        "old_path": {
+          "type": "string"
+        },
+        "new_path": {
+          "type": "string"
+        },
+        "total_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "step_name",
+              "status"
+            ],
+            "properties": {
+              "step_name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "failed",
+                  "skipped"
+                ]
+              },
+              "duration_ms": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "error_message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "l0_summary": {
+      "type": "string"
+    },
+    "l1_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_id",
+          "change_type",
+          "risk_flags",
+          "current_label"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "attribute_changed",
+              "dependency_changed"
+            ]
+          },
+          "risk_flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "out_of_scope",
+                "vulnerability",
+                "semantic_drift"
+              ]
+            }
+          },
+          "current_label": {
+            "type": "string"
+          },
+          "baseline_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "l2_details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_id",
+          "change_type"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "attribute_changed",
+              "dependency_changed"
+            ]
+          },
+          "current_label": {
+            "type": "string"
+          },
+          "current_description": {
+            "type": "string"
+          },
+          "baseline_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "baseline_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "in_scope_complete",
+              "out_of_scope",
+              "in_scope_incomplete",
+              null
+            ]
+          },
+          "related_vulnerabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "affected_relations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "l3_appendix": {
+      "type": "object",
+      "properties": {
+        "diff_result_json": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "scope_result_json": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "timeline_result_json": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "pipeline_summary": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "interrupted": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

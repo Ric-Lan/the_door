@@ -1,0 +1,54 @@
+{
+  "l1": {
+    "summary": "A web application that handles user authentication and provides user management capabilities with background maintenance tasks.",
+    "features": [
+      {
+        "feature_id": "feat-auth",
+        "label": "User sign-in",
+        "description": "Allows users to verify their identity and receive access credentials",
+        "trigger": "user_action",
+        "trigger_description": "When a user submits their login credentials",
+        "confidence": "high",
+        "confidence_reason": "Clear route decorator and function name indicate authentication flow",
+        "source_nodes": ["app.py::login", "auth.py::authenticate_user", "auth.py::generate_token"],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-users",
+        "label": "User listing",
+        "description": "Displays all registered users in the system",
+        "trigger": "user_action",
+        "trigger_description": "When a user requests to see all users",
+        "confidence": "high",
+        "confidence_reason": "Clear route decorator and return value indicate user listing",
+        "source_nodes": ["app.py::list_users"],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-cleanup",
+        "label": "Automatic data maintenance",
+        "description": "Periodically removes outdated information from the system",
+        "trigger": "scheduled",
+        "trigger_description": "System runs automatically every 24 hours",
+        "confidence": "medium",
+        "confidence_reason": "Docstring mentions periodic execution but no scheduler decorator found",
+        "source_nodes": ["tasks.py::schedule_cleanup"],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [
+      {
+        "from": "feat-auth",
+        "to": "feat-users",
+        "relation": "Both features share the same access point and user context",
+        "relation_type": "inferred",
+        "inferred_reason": "Both are HTTP endpoints in the same application module, likely sharing session state"
+      }
+    ],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": ["tasks.py::notify_admin"]
+  }
+}

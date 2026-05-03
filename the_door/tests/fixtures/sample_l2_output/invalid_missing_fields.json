@@ -1,0 +1,12 @@
+{
+  "l2": {
+    "modules": [
+      {
+        "module_id": "mod-auth",
+        "label": "Authentication Module"
+      }
+    ],
+    "module_interactions": [],
+    "anomalies": []
+  }
+}

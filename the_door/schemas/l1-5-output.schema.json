@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/l1-5-output.schema.json",
+  "title": "The Door L1.5 Output",
+  "description": "LLM-generated L1.5 structural overview output",
+  "type": "object",
+  "required": [
+    "l1_5"
+  ],
+  "properties": {
+    "l1_5": {
+      "type": "object",
+      "required": [
+        "blocks",
+        "block_relations",
+        "infrastructure_block"
+      ],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "block_id",
+              "label",
+              "responsibility",
+              "trigger_mechanism",
+              "related_features"
+            ],
+            "properties": {
+              "block_id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "responsibility": {
+                "type": "string"
+              },
+              "trigger_mechanism": {
+                "type": "string"
+              },
+              "related_features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "block_relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to",
+              "relation",
+              "relation_type"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "relation": {
+                "type": "string"
+              },
+              "relation_type": {
+                "type": "string",
+                "enum": [
+                  "static",
+                  "inferred"
+                ]
+              },
+              "inferred_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "relation_type": {
+                  "const": "inferred"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "inferred_reason"
+              ],
+              "properties": {
+                "inferred_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "infrastructure_block": {
+          "type": "object",
+          "required": [
+            "label",
+            "components"
+          ],
+          "properties": {
+            "label": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

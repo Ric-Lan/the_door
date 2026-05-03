@@ -1,0 +1,214 @@
+{
+  "l1": {
+    "summary": "A tool that reads any software project's source code and produces a structured summary of what the software does, organized by reading priority. It then checks whether descriptions of the software (written by others) are accurate, complete, and free of jargon — catching made-up claims and ensuring every description traces back to real code.",
+    "features": [
+      {
+        "feature_id": "feat-code-reading",
+        "label": "Automatic code structure reading",
+        "description": "Reads all source files in a software project and identifies the building blocks: what functions exist, what classes exist, how they relate to each other, and what documentation the developers wrote about them",
+        "trigger": "user_action",
+        "trigger_description": "When a user points the tool at a software project folder",
+        "confidence": "high",
+        "confidence_reason": "Clear from file_discovery (enumerates files), node_builder (extracts functions/classes), edge_builder (finds relationships), and ast_extractor (orchestrates all three). Docstrings explicitly describe this purpose.",
+        "source_nodes": [
+          "core/extraction/ast_extractor.py::ASTExtractor",
+          "core/extraction/ast_extractor.py::extract",
+          "core/extraction/file_discovery.py::FileDiscovery",
+          "core/extraction/file_discovery.py::discover",
+          "core/extraction/node_builder.py::NodeBuilder",
+          "core/extraction/node_builder.py::build_nodes",
+          "core/extraction/edge_builder.py::EdgeBuilder",
+          "core/extraction/edge_builder.py::build_edges"
+        ],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-priority-ordering",
+        "label": "Smart reading order assignment",
+        "description": "Analyzes which parts of the code are most important (most referenced by other parts, or serve as main entry points) and assigns a priority reading order so that the most critical pieces are understood first",
+        "trigger": "auto_triggered",
+        "trigger_description": "Runs automatically after code structure reading completes",
+        "confidence": "high",
+        "confidence_reason": "TopologyAnalyzer orchestrates graph building, entry point detection, and batch assignment. Docstrings and method names clearly indicate priority-based ordering.",
+        "source_nodes": [
+          "core/topology/topology_analyzer.py::TopologyAnalyzer",
+          "core/topology/topology_analyzer.py::analyze",
+          "core/topology/graph_builder.py::GraphBuilder",
+          "core/topology/graph_builder.py::build",
+          "core/topology/entry_point_detector.py::EntryPointDetector",
+          "core/topology/entry_point_detector.py::is_entry_point",
+          "core/topology/batch_assigner.py::BatchAssigner",
+          "core/topology/batch_assigner.py::assign_batches"
+        ],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-description-verification",
+        "label": "Description accuracy checking",
+        "description": "Takes a written description of what the software does and checks it for five types of problems: wrong format, missing pieces, use of technical jargon, made-up claims about code that doesn't exist, and invented relationships between features",
+        "trigger": "user_action",
+        "trigger_description": "When a user submits a description to be verified against the code structure",
+        "confidence": "high",
+        "confidence_reason": "OutputValidator runs exactly 5 named checks (schema, coverage, language, anchor, relation). Each check class has a clear single responsibility with descriptive docstrings.",
+        "source_nodes": [
+          "core/validation/output_validator.py::OutputValidator",
+          "core/validation/output_validator.py::validate",
+          "core/validation/schema_check.py::SchemaCheck",
+          "core/validation/schema_check.py::check",
+          "core/validation/coverage_check.py::CoverageCheck",
+          "core/validation/coverage_check.py::check",
+          "core/validation/language_check.py::LanguageCheck",
+          "core/validation/language_check.py::check",
+          "core/validation/anchor_check.py::AnchorCheck",
+          "core/validation/anchor_check.py::check",
+          "core/validation/relation_check.py::RelationCheck",
+          "core/validation/relation_check.py::check",
+          "core/validation/relation_check.py::_has_path"
+        ],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-command-line-access",
+        "label": "Command-line operation",
+        "description": "Provides three commands that users can run from a terminal: one to read code structure, one to verify descriptions, and one to start a connection point for other tools",
+        "trigger": "user_action",
+        "trigger_description": "When a user types a command in their terminal",
+        "confidence": "high",
+        "confidence_reason": "Three distinct command files (extract_cmd, validate_cmd, mcp_serve_cmd) registered in main.py. Click decorators and docstrings clearly describe each command's purpose.",
+        "source_nodes": [
+          "cli/main.py::main",
+          "cli/extract_cmd.py::extract_cmd",
+          "cli/validate_cmd.py::validate_cmd",
+          "cli/mcp_serve_cmd.py::mcp_serve_cmd"
+        ],
+        "needs_source_review": false,
+        "review_reason": null
+      },
+      {
+        "feature_id": "feat-tool-integration",
+        "label": "Integration with other AI tools",
+        "description": "Allows any compatible AI tool to use the code reading and description verification capabilities without custom setup, by exposing them as standardized tool calls",
+        "trigger": "auto_triggered",
+        "trigger_description": "Starts when the connection point is launched, then responds to requests from connected tools",
+        "confidence": "high",
+        "confidence_reason": "TheDoorMCPServer class registers two tools (extract_structure, validate_output) with clear input schemas. The server uses stdio transport for local communication.",
+        "source_nodes": [
+          "mcp/server.py::TheDoorMCPServer",
+          "mcp/server.py::_setup_tools",
+          "mcp/server.py::_extract_structure",
+          "mcp/server.py::_validate_output",
+          "mcp/server.py::run",
+          "mcp/server.py::_run_async"
+        ],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [
+      {
+        "from": "feat-code-reading",
+        "to": "feat-priority-ordering",
+        "relation": "After code structure is read, the priority ordering automatically runs on the results to determine what should be understood first",
+        "relation_type": "inferred",
+        "inferred_reason": "Both are orchestrated sequentially by the CLI extract command and MCP extract_structure tool. No direct call edge exists between extraction and topology modules — they are composed at the command layer."
+      },
+      {
+        "from": "feat-code-reading",
+        "to": "feat-description-verification",
+        "relation": "The code structure reading results are used as the ground truth when checking whether descriptions are accurate",
+        "relation_type": "inferred",
+        "inferred_reason": "OutputValidator.validate() accepts structure_json as input, which is the output of extraction + topology. The CLI validate command requires both files. No direct call edge exists because they run as separate user commands."
+      },
+      {
+        "from": "feat-command-line-access",
+        "to": "feat-code-reading",
+        "relation": "The extract command triggers the code reading process",
+        "relation_type": "static",
+        "inferred_reason": null
+      },
+      {
+        "from": "feat-command-line-access",
+        "to": "feat-description-verification",
+        "relation": "The validate command triggers the description checking process",
+        "relation_type": "static",
+        "inferred_reason": null
+      },
+      {
+        "from": "feat-tool-integration",
+        "to": "feat-code-reading",
+        "relation": "The integration point exposes code reading as a callable tool for other AI tools",
+        "relation_type": "static",
+        "inferred_reason": null
+      },
+      {
+        "from": "feat-tool-integration",
+        "to": "feat-description-verification",
+        "relation": "The integration point exposes description verification as a callable tool for other AI tools",
+        "relation_type": "static",
+        "inferred_reason": null
+      }
+    ],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": [
+      "models.py::FileInfo",
+      "models.py::ASTNode",
+      "models.py::Edge",
+      "models.py::TopologyEntry",
+      "models.py::ExtractionError",
+      "models.py::ExtractionResult",
+      "models.py::TopologyResult",
+      "models.py::StructureJSON",
+      "models.py::Feature",
+      "models.py::FeatureRelation",
+      "models.py::L1Output",
+      "models.py::CheckResult",
+      "models.py::ValidationResult",
+      "core/extraction/ast_extractor.py::_init_language_loaders",
+      "core/extraction/ast_extractor.py::_get_parser",
+      "core/extraction/ast_extractor.py::__init__",
+      "core/extraction/edge_builder.py::_detect_calls",
+      "core/extraction/edge_builder.py::_detect_extends",
+      "core/extraction/edge_builder.py::_detect_imports",
+      "core/extraction/edge_builder.py::_find_definition_node",
+      "core/extraction/edge_builder.py::_search_for_definition",
+      "core/extraction/edge_builder.py::_is_matching_definition",
+      "core/extraction/edge_builder.py::_collect_call_names",
+      "core/extraction/edge_builder.py::_extract_base_classes",
+      "core/extraction/edge_builder.py::_collect_import_names",
+      "core/extraction/edge_builder.py::_walk_imports",
+      "core/extraction/edge_builder.py::_extract_ts_import_names",
+      "core/extraction/edge_builder.py::_find_child",
+      "core/extraction/file_discovery.py::_load_gitignore",
+      "core/extraction/node_builder.py::_walk",
+      "core/extraction/node_builder.py::_walk_python",
+      "core/extraction/node_builder.py::_handle_python_decorated",
+      "core/extraction/node_builder.py::_handle_python_class",
+      "core/extraction/node_builder.py::_build_python_function",
+      "core/extraction/node_builder.py::_extract_python_params",
+      "core/extraction/node_builder.py::_extract_python_return_type",
+      "core/extraction/node_builder.py::_extract_python_docstring",
+      "core/extraction/node_builder.py::_extract_docstring_from_error",
+      "core/extraction/node_builder.py::_strip_string_quotes",
+      "core/extraction/node_builder.py::_extract_decorator_text",
+      "core/extraction/node_builder.py::_walk_typescript",
+      "core/extraction/node_builder.py::_handle_ts_class",
+      "core/extraction/node_builder.py::_build_ts_function",
+      "core/extraction/node_builder.py::_build_ts_method",
+      "core/extraction/node_builder.py::_extract_ts_jsdoc",
+      "core/extraction/node_builder.py::_walk_generic",
+      "core/extraction/node_builder.py::_child_text",
+      "core/extraction/node_builder.py::_find_child",
+      "core/extraction/node_builder.py::_collect_nearby_comments",
+      "core/topology/topology_analyzer.py::__init__",
+      "core/topology/entry_point_detector.py::_has_entry_decorator",
+      "core/topology/entry_point_detector.py::_is_in_entry_directory",
+      "core/validation/output_validator.py::__init__",
+      "core/validation/language_check.py::__init__",
+      "core/validation/schema_check.py::__init__",
+      "mcp/server.py::__init__"
+    ]
+  }
+}

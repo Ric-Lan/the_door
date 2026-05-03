@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "the-door"
+version = "0.1.0"
+description = "LLM constraint pipeline for translating code structure into functional-language diagrams"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    "tree-sitter-language-pack",
+    "networkx",
+    "jsonschema",
+    "mcp",
+    "click",
+    "pathspec",
+    "httpx",
+    "tomli; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "hypothesis",
+]
+
+[project.scripts]
+the-door = "the_door.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests for individual modules",
+    "property: Property-based tests using Hypothesis",
+    "integration: Integration tests for end-to-end pipelines",
+]

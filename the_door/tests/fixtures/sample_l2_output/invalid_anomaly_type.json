@@ -1,0 +1,22 @@
+{
+  "l2": {
+    "modules": [
+      {
+        "module_id": "mod-auth",
+        "label": "Authentication Module",
+        "source_nodes": ["app.py::login"],
+        "confidence": "high",
+        "confidence_reason": "Clear module boundary"
+      }
+    ],
+    "module_interactions": [],
+    "anomalies": [
+      {
+        "anomaly_type": "invalid_type_xyz",
+        "affected_node_ids": ["utils.py::helper"],
+        "explanation": "Some explanation",
+        "confidence": "high"
+      }
+    ]
+  }
+}

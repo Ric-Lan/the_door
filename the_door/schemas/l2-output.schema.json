@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/l2-output.schema.json",
+  "title": "The Door L2 Output",
+  "description": "LLM-generated L2 module interaction output with anomaly detection",
+  "type": "object",
+  "required": [
+    "l2"
+  ],
+  "properties": {
+    "l2": {
+      "type": "object",
+      "required": [
+        "modules",
+        "module_interactions",
+        "anomalies"
+      ],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "module_id",
+              "label",
+              "source_nodes",
+              "confidence",
+              "confidence_reason"
+            ],
+            "properties": {
+              "module_id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "source_nodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "confidence_reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "module_interactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to",
+              "description",
+              "relation_type"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "relation_type": {
+                "type": "string",
+                "enum": [
+                  "static",
+                  "inferred"
+                ]
+              },
+              "inferred_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "anomaly_type",
+              "affected_node_ids",
+              "explanation",
+              "confidence"
+            ],
+            "properties": {
+              "anomaly_type": {
+                "type": "string",
+                "enum": [
+                  "dead_code",
+                  "logic_dead_end",
+                  "uncertain_boundary",
+                  "vuln_high",
+                  "vuln_medium"
+                ]
+              },
+              "affected_node_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "explanation": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

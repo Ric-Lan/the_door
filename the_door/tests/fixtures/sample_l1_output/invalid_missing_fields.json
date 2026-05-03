@@ -1,0 +1,14 @@
+{
+  "l1": {
+    "summary": "A system",
+    "features": [
+      {
+        "feature_id": "feat-1",
+        "label": "Something"
+      }
+    ],
+    "feature_relations": [],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": []
+  }
+}

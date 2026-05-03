@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/scope-definition.schema.json",
+  "title": "The Door Scope Definition",
+  "description": "PM/SPM 定義的 Sprint/Release 範圍",
+  "type": "object",
+  "required": [
+    "scope_name",
+    "features"
+  ],
+  "properties": {
+    "scope_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Sprint 或 Release 名稱"
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_id"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "L1 feature_id"
+          },
+          "expected_label": {
+            "type": "string",
+            "description": "預期的功能標籤（選填，供人類參考）"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "預期功能清單"
+    },
+    "description": {
+      "type": "string",
+      "description": "範圍說明（選填）"
+    }
+  },
+  "additionalProperties": false
+}

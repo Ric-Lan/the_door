@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/doubt-record.schema.json",
+  "title": "The Door Doubt Record",
+  "description": "疑義追蹤記錄",
+  "type": "object",
+  "required": [
+    "doubt_id",
+    "source_node",
+    "doubt_type",
+    "current_state",
+    "created_by",
+    "created_at",
+    "updated_at",
+    "state_history"
+  ],
+  "properties": {
+    "doubt_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID v4 疑義識別碼"
+    },
+    "source_node": {
+      "type": "string",
+      "description": "觸發疑義的 feature_id"
+    },
+    "doubt_type": {
+      "type": "string",
+      "enum": [
+        "out_of_scope",
+        "in_scope_incomplete",
+        "anomaly",
+        "low_confidence"
+      ],
+      "description": "疑義類型"
+    },
+    "current_state": {
+      "type": "string",
+      "enum": [
+        "discovered",
+        "investigating",
+        "explained",
+        "fixed",
+        "escalated",
+        "accepted_risk"
+      ],
+      "description": "當前狀態"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "建立者"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "建立時間（ISO8601 UTC）"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "最後更新時間（ISO8601 UTC）"
+    },
+    "assigned_to": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "指派的調查者"
+    },
+    "state_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from_state",
+          "to_state",
+          "timestamp",
+          "actor"
+        ],
+        "properties": {
+          "from_state": {
+            "type": "string"
+          },
+          "to_state": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "狀態轉換歷史"
+    },
+    "resolution": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "description",
+            "resolved_by",
+            "resolved_at"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "explained",
+                "fixed",
+                "accepted_risk"
+              ]
+            },
+            "description": {
+              "type": "string"
+            },
+            "resolved_by": {
+              "type": "string"
+            },
+            "resolved_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "解決記錄（終態時非 null）"
+    }
+  },
+  "additionalProperties": false
+}

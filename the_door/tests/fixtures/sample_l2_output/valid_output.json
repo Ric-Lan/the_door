@@ -1,0 +1,57 @@
+{
+  "l2": {
+    "modules": [
+      {
+        "module_id": "mod-auth",
+        "label": "Authentication Module",
+        "source_nodes": ["app.py::login", "auth.py::authenticate_user", "auth.py::generate_token"],
+        "confidence": "high",
+        "confidence_reason": "Clear module boundary with dedicated auth file and explicit imports"
+      },
+      {
+        "module_id": "mod-users",
+        "label": "User Management Module",
+        "source_nodes": ["app.py::list_users", "models.py::User"],
+        "confidence": "high",
+        "confidence_reason": "Dedicated model and endpoint with clear CRUD semantics"
+      },
+      {
+        "module_id": "mod-tasks",
+        "label": "Background Tasks Module",
+        "source_nodes": ["tasks.py::schedule_cleanup", "tasks.py::notify_admin"],
+        "confidence": "medium",
+        "confidence_reason": "Functions grouped in same file but no explicit task framework detected"
+      }
+    ],
+    "module_interactions": [
+      {
+        "from": "mod-auth",
+        "to": "mod-users",
+        "description": "Authentication module queries user records for credential validation",
+        "relation_type": "static",
+        "inferred_reason": null
+      },
+      {
+        "from": "mod-tasks",
+        "to": "mod-users",
+        "description": "Background tasks module accesses user data for cleanup operations",
+        "relation_type": "inferred",
+        "inferred_reason": "Both reference user table but no direct import path found"
+      }
+    ],
+    "anomalies": [
+      {
+        "anomaly_type": "dead_code",
+        "affected_node_ids": ["utils.py::deprecated_helper"],
+        "explanation": "Function has no callers in the codebase and is marked with @deprecated decorator",
+        "confidence": "high"
+      },
+      {
+        "anomaly_type": "uncertain_boundary",
+        "affected_node_ids": ["app.py::login", "auth.py::authenticate_user"],
+        "explanation": "Authentication logic split across two files without clear module boundary",
+        "confidence": "low"
+      }
+    ]
+  }
+}

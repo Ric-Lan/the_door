@@ -1,0 +1,17 @@
+{
+  "l1_5": {
+    "blocks": [
+      {
+        "label": "Authentication gateway handling user identity verification",
+        "responsibility": "Manages user sign-in flow",
+        "trigger_mechanism": "Activated when a user submits login credentials",
+        "related_features": ["feat-auth"]
+      }
+    ],
+    "block_relations": [],
+    "infrastructure_block": {
+      "label": "System Infrastructure",
+      "components": []
+    }
+  }
+}

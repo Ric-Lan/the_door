@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/narrative.schema.json",
+  "title": "The Door Narrative Chain Record",
+  "description": "A single record in the narrative chain JSONL file",
+  "type": "object",
+  "required": [
+    "record_type",
+    "timestamp"
+  ],
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "enum": [
+        "batch",
+        "regeneration",
+        "structural_change"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "batch": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "strategy": {
+      "type": "string"
+    },
+    "nodes_read": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "node_id",
+          "topology_rank",
+          "in_degree",
+          "is_entry_point"
+        ],
+        "properties": {
+          "node_id": {
+            "type": "string"
+          },
+          "topology_rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "in_degree": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "is_entry_point": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "llm_judgment": {
+      "type": "string"
+    },
+    "pruned_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pending_low_confidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "feature_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "previous_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "new_summary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "added_nodes": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "removed_nodes": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "modified_nodes": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "batch"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "batch",
+          "strategy",
+          "nodes_read",
+          "llm_judgment",
+          "pruned_nodes",
+          "pending_low_confidence"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "regeneration"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "feature_id",
+          "previous_summary",
+          "new_summary"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_type": {
+            "const": "structural_change"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "added_nodes",
+          "removed_nodes",
+          "modified_nodes"
+        ]
+      }
+    }
+  ]
+}

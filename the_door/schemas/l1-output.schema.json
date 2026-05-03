@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/l1-output.schema.json",
+  "title": "The Door L1 Output",
+  "description": "LLM-generated L1 functional overview output",
+  "type": "object",
+  "required": [
+    "l1"
+  ],
+  "properties": {
+    "l1": {
+      "type": "object",
+      "required": [
+        "summary",
+        "features",
+        "feature_relations",
+        "unclassified_nodes",
+        "infrastructure_nodes"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "feature_id",
+              "label",
+              "description",
+              "trigger",
+              "trigger_description",
+              "confidence",
+              "confidence_reason",
+              "source_nodes",
+              "needs_source_review",
+              "review_reason"
+            ],
+            "properties": {
+              "feature_id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "user_action",
+                  "scheduled",
+                  "auto_triggered"
+                ]
+              },
+              "trigger_description": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "confidence_reason": {
+                "type": "string"
+              },
+              "source_nodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "needs_source_review": {
+                "type": "boolean"
+              },
+              "review_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "feature_relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "from",
+              "to",
+              "relation",
+              "relation_type"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "relation": {
+                "type": "string"
+              },
+              "relation_type": {
+                "type": "string",
+                "enum": [
+                  "static",
+                  "inferred"
+                ]
+              },
+              "inferred_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "relation_type": {
+                  "const": "inferred"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "inferred_reason"
+              ],
+              "properties": {
+                "inferred_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "unclassified_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "infrastructure_nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

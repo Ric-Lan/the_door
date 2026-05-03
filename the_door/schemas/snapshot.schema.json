@@ -1,0 +1,85 @@
+{
+  "title": "The Door Version Snapshot",
+  "description": "A persisted record of L1/L1.5 analysis output at a specific point in time",
+  "type": "object",
+  "required": ["version_id", "timestamp", "trigger", "l1_snapshot", "analyzed_files"],
+  "properties": {
+    "version_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "trigger": { "type": "string", "enum": ["commit", "manual"] },
+    "commit_hash": { "type": ["string", "null"] },
+    "git_tags": { "type": "array", "items": { "type": "string" } },
+    "label": { "type": "string" },
+    "l1_snapshot": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "description", "source_node_count", "confidence"],
+        "properties": {
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "source_node_count": { "type": "integer", "minimum": 0 },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "analyzed_files": { "type": "array", "items": { "type": "string" } },
+    "l1_5_snapshot": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "responsibility"],
+        "properties": {
+          "label": { "type": "string" },
+          "responsibility": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "feature_relations_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from_feature", "to_feature", "relation"],
+        "properties": {
+          "from_feature": { "type": "string" },
+          "to_feature": { "type": "string" },
+          "relation": { "type": "string" }
+        }
+      }
+    },
+    "vulnerabilities_snapshot": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "required": ["cve_id", "package", "version", "severity", "cvss", "source"],
+        "properties": {
+          "cve_id": { "type": "string" },
+          "package": { "type": "string" },
+          "version": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "cvss": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 10.0
+          },
+          "source": { "type": "string" }
+        }
+      }
+    },
+    "vulnerability_db_freshness": {
+      "type": ["object", "null"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "mode": { "type": "string", "enum": ["online", "offline"] },
+        "stale_warning": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "if": { "properties": { "trigger": { "const": "manual" } } },
+  "then": { "required": ["label"] }
+}

@@ -1,0 +1,22 @@
+{
+  "l1": {
+    "summary": "A web application.",
+    "features": [
+      {
+        "feature_id": "feat-1",
+        "label": "User sign-in",
+        "description": "Handles authentication",
+        "trigger": "user_action",
+        "trigger_description": "When user logs in",
+        "confidence": "high",
+        "confidence_reason": "Clear from structure",
+        "source_nodes": ["app.py::login", "DOES_NOT_EXIST::phantom_function"],
+        "needs_source_review": false,
+        "review_reason": null
+      }
+    ],
+    "feature_relations": [],
+    "unclassified_nodes": [],
+    "infrastructure_nodes": []
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-door.dev/schemas/timeline-result.schema.json",
+  "title": "The Door Timeline Result",
+  "description": "Timeline analysis result",
+  "type": "object",
+  "required": [
+    "snapshot_count",
+    "time_range_start",
+    "time_range_end",
+    "feature_timelines",
+    "summary"
+  ],
+  "properties": {
+    "snapshot_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "time_range_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "time_range_end": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "feature_timelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_id",
+          "first_seen_timestamp",
+          "last_seen_timestamp",
+          "change_count",
+          "current_state",
+          "current_label",
+          "drift_events"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string"
+          },
+          "first_seen_timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen_timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "change_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "current_state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "removed"
+            ]
+          },
+          "current_label": {
+            "type": "string"
+          },
+          "drift_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "snapshot_version_id",
+                "previous_description",
+                "new_description",
+                "timestamp"
+              ],
+              "properties": {
+                "snapshot_version_id": {
+                  "type": "string"
+                },
+                "previous_description": {
+                  "type": "string"
+                },
+                "new_description": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "active_count",
+        "removed_count",
+        "total_drift_events"
+      ],
+      "properties": {
+        "active_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_drift_events": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

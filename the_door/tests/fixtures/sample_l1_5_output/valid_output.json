@@ -1,0 +1,47 @@
+{
+  "l1_5": {
+    "blocks": [
+      {
+        "block_id": "blk-auth",
+        "label": "Authentication gateway handling user identity verification",
+        "responsibility": "Manages user sign-in flow including credential validation and token generation",
+        "trigger_mechanism": "Activated when a user submits login credentials via HTTP POST",
+        "related_features": ["feat-auth"]
+      },
+      {
+        "block_id": "blk-users",
+        "label": "User management providing account listing capabilities",
+        "responsibility": "Handles retrieval and display of registered user accounts",
+        "trigger_mechanism": "Activated when a user requests the user list endpoint",
+        "related_features": ["feat-users"]
+      },
+      {
+        "block_id": "blk-maintenance",
+        "label": "Scheduled maintenance performing periodic data cleanup",
+        "responsibility": "Removes outdated records and maintains data hygiene on a schedule",
+        "trigger_mechanism": "Runs automatically every 24 hours via system scheduler",
+        "related_features": ["feat-cleanup"]
+      }
+    ],
+    "block_relations": [
+      {
+        "from": "blk-auth",
+        "to": "blk-users",
+        "relation": "Authentication block provides session context consumed by user management",
+        "relation_type": "static",
+        "inferred_reason": null
+      },
+      {
+        "from": "blk-maintenance",
+        "to": "blk-users",
+        "relation": "Maintenance block cleans up stale user records managed by user management",
+        "relation_type": "inferred",
+        "inferred_reason": "Both modules reference the same user data store based on import analysis"
+      }
+    ],
+    "infrastructure_block": {
+      "label": "System Infrastructure",
+      "components": ["tasks.py::notify_admin", "config.py::load_settings"]
+    }
+  }
+}
