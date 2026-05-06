@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Door Local Version Viewer</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local Viewer Prototype</p>
+          <h1>The Door 自我分析</h1>
+        </div>
+        <nav class="mode-switch" aria-label="viewer mode">
+          <button id="single-mode" class="mode-button active" type="button">單版本</button>
+          <button id="diff-mode" class="mode-button" type="button">差異 mock</button>
+        </nav>
+        <div class="status-strip" aria-label="analysis status">
+          <span id="feature-count">0 features</span>
+          <span id="unclassified-count">0 unclassified</span>
+          <span id="infra-count">0 infrastructure</span>
+          <span id="diff-status">Diff unavailable</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar" aria-label="feature list">
+          <div class="panel-header">
+            <h2 id="list-title">功能索引</h2>
+            <p id="list-source">來自 L1Output.features</p>
+          </div>
+          <div id="feature-list" class="feature-list"></div>
+        </aside>
+
+        <section class="canvas" aria-label="feature overview">
+          <div class="summary-band">
+            <h2>L0 摘要</h2>
+            <p id="summary-text">載入中...</p>
+          </div>
+
+          <div class="graph-band">
+            <div class="panel-header">
+              <h2 id="canvas-title">L1 功能總覽</h2>
+              <p id="canvas-source">單版本模式；沒有 DiffResult 時不啟用差異模式</p>
+            </div>
+            <div id="graph-nodes" class="graph-nodes"></div>
+          </div>
+
+          <div class="relations-band">
+            <div class="panel-header">
+              <h2>功能關係</h2>
+              <p>只顯示兩端都存在於 L1 features 的關係</p>
+            </div>
+            <div id="relations-list" class="relations-list"></div>
+          </div>
+        </section>
+
+        <aside class="detail-panel" aria-label="feature detail">
+          <div class="panel-header">
+            <h2>詳情 / 證據</h2>
+            <p id="detail-source">尚未選取</p>
+          </div>
+          <div id="detail-content" class="detail-content empty-state">
+            選取左側功能以查看描述、信心理由與 source nodes。
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,84 @@
+{
+  "report_version": "mock-ui-1",
+  "generated_at": "mock",
+  "pipeline_summary": {
+    "old_path": "mock-before-frontend",
+    "new_path": "mock-after-frontend",
+    "total_duration_ms": 0,
+    "steps": [
+      {
+        "step_name": "diff",
+        "status": "completed",
+        "duration_ms": 0,
+        "error_message": null
+      }
+    ]
+  },
+  "l0_summary": "MOCK：本次更新新增 2 個功能、修改 1 個功能。此資料只用於驗證前端差異模式，不代表真實分析結果。",
+  "l1_changes": [
+    {
+      "feature_id": "mock-feat-local-ui-workbench",
+      "change_type": "added",
+      "risk_flags": [],
+      "current_label": "本地前端工作台",
+      "baseline_label": null
+    },
+    {
+      "feature_id": "mock-feat-version-diff-viewer",
+      "change_type": "added",
+      "risk_flags": [],
+      "current_label": "版本差異 Viewer",
+      "baseline_label": null
+    },
+    {
+      "feature_id": "mock-feat-visual-diagram-generation",
+      "change_type": "attribute_changed",
+      "risk_flags": [],
+      "current_label": "功能圖形產出與本地呈現",
+      "baseline_label": "功能圖形產出"
+    }
+  ],
+  "l2_details": [
+    {
+      "feature_id": "mock-feat-local-ui-workbench",
+      "change_type": "added",
+      "current_label": "本地前端工作台",
+      "current_description": "以本地 view model 呈現 The Door 的分析結果，前端只讀取資料，不重新推論功能。",
+      "baseline_label": null,
+      "baseline_description": null,
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": []
+    },
+    {
+      "feature_id": "mock-feat-version-diff-viewer",
+      "change_type": "added",
+      "current_label": "版本差異 Viewer",
+      "current_description": "顯示 UpdateReport 中的 l1_changes 與 l2_details，支援點選變更查看 before/after。",
+      "baseline_label": null,
+      "baseline_description": null,
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": []
+    },
+    {
+      "feature_id": "mock-feat-visual-diagram-generation",
+      "change_type": "attribute_changed",
+      "current_label": "功能圖形產出與本地呈現",
+      "current_description": "從 Mermaid 文字輸出延伸到本地 viewer 可讀的資料呈現。",
+      "baseline_label": "功能圖形產出",
+      "baseline_description": "將翻譯結果轉換為視覺化的功能圖形，包含信心標記和費用預估。",
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": []
+    }
+  ],
+  "l3_appendix": {
+    "diff_result_json": null,
+    "scope_result_json": null,
+    "timeline_result_json": null,
+    "pipeline_summary": null
+  },
+  "interrupted": false
+}
+

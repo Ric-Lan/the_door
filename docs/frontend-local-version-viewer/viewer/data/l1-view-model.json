@@ -1,0 +1,153 @@
+{
+  "nodes": [
+    {
+      "id": "feat-code-structure-extraction",
+      "label": "程式碼結構辨識",
+      "confidence": "high",
+      "description": "讀取任何程式語言的原始碼，自動辨識其中的功能單元（函式、類別、方法）以及它們之間的呼叫關係，產出結構化的原料資料供後續翻譯使用。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-dependency-priority-analysis",
+      "label": "依賴優先序分析",
+      "confidence": "high",
+      "description": "分析所有功能單元之間的依賴關係，計算每個單元被依賴的程度和重要性排名，決定哪些功能應該優先被翻譯。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-functional-translation",
+      "label": "功能語言翻譯",
+      "confidence": "high",
+      "description": "將程式碼結構按照依賴優先序分批送給語言模型，翻譯成一般人能理解的功能描述。高信心的功能不再追加分析，低信心的功能會補充更多上下文重新判斷。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-llm-provider-management",
+      "label": "語言模型供應商管理",
+      "confidence": "high",
+      "description": "支援多個語言模型供應商（雲端和本地），使用者可以選擇不同的供應商和模型，系統自動管理連線設定和費用估算。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-output-quality-verification",
+      "label": "翻譯品質驗證",
+      "confidence": "high",
+      "description": "自動檢查翻譯結果的五個面向：格式是否正確、是否涵蓋所有功能單元、是否使用了禁止的技術詞彙、每個功能是否可追溯到原始碼、功能之間的關係是否有依據。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-visual-diagram-generation",
+      "label": "功能圖形產出",
+      "confidence": "high",
+      "description": "將翻譯結果轉換為視覺化的功能圖形，包含信心標記（標示哪些翻譯結果需要人工確認）和費用預估。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-version-comparison",
+      "label": "版本比對",
+      "confidence": "high",
+      "description": "比較兩個版本之間的差異，標記哪些功能是新增的、哪些被移除了、哪些的描述或依賴關係發生了變化。支援用時間、標籤或版本編號指定要比較的版本。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-vulnerability-scanning",
+      "label": "漏洞掃描",
+      "confidence": "high",
+      "description": "掃描程式碼依賴的外部套件是否有已知的安全漏洞，將結果整合到功能圖形中，讓非工程師也能看到哪些功能區域有安全風險。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-scope-verification",
+      "label": "範圍驗核",
+      "confidence": "high",
+      "description": "讓管理者事先定義預期的功能範圍，系統自動比對實際分析結果，標記哪些功能在範圍內已完成、哪些超出範圍、哪些範圍內未完成。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-doubt-tracking",
+      "label": "疑義追蹤",
+      "confidence": "high",
+      "description": "當發現超出範圍或異常項目時，建立疑義記錄並追蹤處理進度。支援指派調查者、記錄解決原因、超時自動升級。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-feature-evolution-timeline",
+      "label": "功能演進時間軸",
+      "confidence": "high",
+      "description": "追蹤每個功能在多個版本之間的演進歷程，偵測功能描述是否發生語意漂移（名稱沒變但內容變了），並提供版本清理機制。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-update-pipeline",
+      "label": "版本更新管線",
+      "confidence": "high",
+      "description": "一鍵比較兩個版本的程式碼目錄，自動執行完整的分析、比對、範圍驗核、時間軸更新，產出互動式的版本更新報告。報告按風險優先排序，讓管理者先看到最需要注意的項目。",
+      "trigger_description": null
+    },
+    {
+      "id": "feat-analysis-record",
+      "label": "分析過程記錄",
+      "confidence": "high",
+      "description": "記錄每次翻譯的完整過程：讀了哪些功能單元、做了什麼判斷、哪些被跳過。有問題時可以回查翻譯是怎麼產出的。",
+      "trigger_description": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "feat-code-structure-extraction",
+      "target": "feat-dependency-priority-analysis",
+      "relation": "程式碼結構辨識完成後，自動進行依賴優先序分析"
+    },
+    {
+      "source": "feat-dependency-priority-analysis",
+      "target": "feat-functional-translation",
+      "relation": "依賴優先序決定翻譯的批次順序"
+    },
+    {
+      "source": "feat-functional-translation",
+      "target": "feat-output-quality-verification",
+      "relation": "翻譯完成後自動驗證品質"
+    },
+    {
+      "source": "feat-output-quality-verification",
+      "target": "feat-visual-diagram-generation",
+      "relation": "驗證通過後產出功能圖形"
+    },
+    {
+      "source": "feat-functional-translation",
+      "target": "feat-analysis-record",
+      "relation": "翻譯過程中自動記錄每一步的判斷"
+    },
+    {
+      "source": "feat-version-comparison",
+      "target": "feat-scope-verification",
+      "relation": "版本比對結果可搭配範圍驗核，標記超出範圍的變更"
+    },
+    {
+      "source": "feat-scope-verification",
+      "target": "feat-doubt-tracking",
+      "relation": "範圍驗核發現超出範圍項目時，自動建立疑義記錄"
+    },
+    {
+      "source": "feat-update-pipeline",
+      "target": "feat-functional-translation",
+      "relation": "版本更新管線呼叫翻譯功能分析兩個版本"
+    },
+    {
+      "source": "feat-update-pipeline",
+      "target": "feat-version-comparison",
+      "relation": "版本更新管線呼叫版本比對功能"
+    },
+    {
+      "source": "feat-update-pipeline",
+      "target": "feat-feature-evolution-timeline",
+      "relation": "版本更新管線呼叫時間軸分析功能"
+    },
+    {
+      "source": "feat-code-structure-extraction",
+      "target": "feat-vulnerability-scanning",
+      "relation": "程式碼結構辨識時同步執行漏洞掃描"
+    }
+  ],
+  "warnings": []
+}

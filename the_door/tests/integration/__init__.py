@@ -1,1 +1,1 @@
-"""Integration tests for end-to-end pipelines."""
+# Integration tests for The Door end-to-end flows.

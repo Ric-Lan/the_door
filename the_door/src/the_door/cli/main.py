@@ -18,6 +18,7 @@ from the_door.cli.scope_cmd import scope_group
 from the_door.cli.doubt_cmd import doubt_group
 from the_door.cli.timeline_cmd import timeline_cmd
 from the_door.cli.update_cmd import update_cmd
+from the_door.cli.ui_cmd import ui_cmd
 
 
 @click.group()
@@ -42,3 +43,4 @@ main.add_command(scope_group)
 main.add_command(doubt_group)
 main.add_command(timeline_cmd)
 main.add_command(update_cmd)
+main.add_command(ui_cmd)

@@ -1,4 +1,4 @@
-# The Door — Session Summary (2026-05-03)
+# The Door — Session Summary (2026-05-04, 更新於本次對話)
 
 ## 專案概述
 
@@ -35,120 +35,125 @@ The Door 是一個程式碼視覺化工具，將程式碼的「結構與變化�
 **測試：** 322 tests（含 Phase 2 新增 72 tests）
 **驗收：** 11/11 步驟通過
 
-交付物：
-
-| 模組 | 檔案位置 | 功能 |
-|---|---|---|
-| Shared Utility | `core/rendering/mermaid_utils.py` | `escape_mermaid_label()` 共用函式（DRY refactor） |
-| Snapshot Store | `core/diff/snapshot_store.py` | 版本快照 CRUD + 查詢（git tag/SHA/date/label） |
-| Diff Engine | `core/diff/diff_engine.py` | L1 + L1.5 diff 計算（pure function，無 I/O） |
-| Diff Renderer | `core/diff/diff_renderer.py` | Mermaid diff 渲染（5 classDefs + edge styles + summary panel） |
-| CLI | `cli/diff_cmd.py` + `cli/snapshot_cmd.py` | `the-door diff` + `the-door snapshot create/list` |
-| MCP | `mcp/tools/diff_tool.py` + `snapshot_create_tool.py` + `snapshot_list_tool.py` | 3 個新 MCP tools |
-| Schemas | `schemas/snapshot.schema.json` + `schemas/diff-result.schema.json` | Draft 2020-12 |
-| Models | `models.py` | 9 新 dataclass + 3 exception classes |
-
 ### Phase 2.5 ✅ 漏洞資訊層
 **Spec：** `.kiro/specs/vulnerability-layer/`
-**測試：** 322 tests（無新增 test files，但模組全部可用）
 **驗收：** 15/15 步驟通過
-
-交付物：
-
-| 模組 | 檔案位置 | 功能 |
-|---|---|---|
-| Vulnerability Scanner | `core/vulnerability/vulnerability_scanner.py` | osv-scanner subprocess 包裝（平行執行、非致命錯誤、去重、DB freshness） |
-| Vulnerability Renderer | `core/vulnerability/vulnerability_renderer.py` | L2 標記、L1 邊框、摘要面板、diff 格式化 |
-| CLI | `cli/scan_cmd.py` | `the-door scan`（--json, --offline, -o） |
-| MCP | `mcp/tools/scan_tool.py` | MCP scan tool（raw/summary 格式） |
-| Models | `models.py` | 6 新 dataclass + VersionSnapshot/Anomaly 擴展 |
-| Schemas | `schemas/ast-raw.schema.json` + `l2-output.schema.json` + `snapshot.schema.json` | 3 個 schema 擴展 |
-| Pipeline | `cli/extract_cmd.py` + `cli/analyze_cmd.py` | ThreadPoolExecutor 平行漏洞掃描 + --offline + auto-snapshot 漏洞資料 |
-| Diff Extension | `core/diff/diff_engine.py` + `diff_renderer.py` + `snapshot_store.py` | 漏洞 diff + ⚑ 前綴共存 + snapshot 序列化 |
-| Mermaid Extension | `core/rendering/mermaid_renderer.py` | L1 漏洞邊框高亮（vulnerability_border_styles） |
 
 ### Phase 3 ✅ 範圍驗核層
 **Spec：** `.kiro/specs/scope-verification/`
-**測試：** 267 unit tests 通過（無新增 test files，optional PBT/unit tests 待補）
+**測試：** 267 unit tests 通過
 **驗收：** 75/75 模擬驗收檢查通過
-
-交付物：
-
-| 模組 | 檔案位置 | 功能 |
-|---|---|---|
-| Data Models | `models.py` | 10 新 dataclass（ScopeFeatureEntry/ScopeDefinition/ScopeEntry/ScopeCounts/ScopeResult/StateTransition/Resolution/DoubtRecord/DoubtSummary）+ 4 exception classes |
-| JSON Schemas | `schemas/scope-definition.schema.json` + `schemas/doubt-record.schema.json` | Draft 2020-12 |
-| Scope Verifier | `core/scope/scope_verifier.py` | verify() pure function + verify_and_create_doubts() orchestration + parse/serialize + scope_name_to_filename + resolve_scope_path |
-| Doubt Store | `core/scope/doubt_store.py` | CRUD + 6 狀態轉換（discovered/investigating/explained/fixed/escalated/accepted_risk）+ lazy timeout escalation + JSON 持久化 |
-| Scope Renderer | `core/scope/scope_renderer.py` | scope badges（label-embedded, 不用 classDef）+ summary panel + merged panel + diff+scope 共存 |
-| CLI | `cli/scope_cmd.py` + `cli/doubt_cmd.py` | scope verify/create/list/show + doubt list/show/assign/resolve/escalate（9 個新子命令） |
-| MCP | `mcp/tools/scope_verify_tool.py` + `scope_create_tool.py` + `doubt_list_tool.py` + `doubt_transition_tool.py` | 4 個新 MCP tools（共 15 tools） |
-
-**設計審查修正記錄（8 項）：**
-1. ✅ config.json → `.the-door/scope-config.json`（project-level，與 user-level config.toml 分離）
-2. ✅ ScopeVerifier 區分 verify() pure function vs verify_and_create_doubts() orchestration
-3. ✅ CLI doubt resolve 加入 state-based dispatch 邏輯
-4. ✅ investigating timeout 基準時間明確為 state_history 最後一筆 timestamp
-5. ✅ scope_create_tool 移除已刪除的 from_analysis 參數
-6. ✅ Summary panel ✓ 行永遠顯示，⚠/○ 行 count=0 時省略
-7. ✅ list_doubts 全量掃描加入規模說明
-8. ✅ ScopeRenderer 明確 compose 原則
-
-**Tasks 審查修正記錄（6 項）：**
-1. ✅ Task 12 存儲路徑邏輯合併到 Task 2.1
-2. ✅ Task 3.1 拆分為 3.1（CRUD+狀態機）和 3.2（timeout）
-3. ✅ Task 1.3 round-trip tests 移除（已在 2.2/3.3 涵蓋）
-4. ✅ Task 6.1 summary panel 補充 ⚠ 行「（需調查）」後綴
-5. ✅ Task 1.4 簡化為只測 exception message format
-6. ✅ 4 個 Checkpoint 加入具體驗證項目
 
 ### Phase 4 ✅ 歷史時間軸層
 **Spec：** `.kiro/specs/history-timeline/`
-**測試：** 267 unit tests 通過（無新增 test files，optional PBT/unit tests 待補）
+**測試：** 267 unit tests 通過
 **驗收：** 62/62 模擬驗收檢查通過
+
+### Phase 5 ✅ 即時動態層（版本更新管線）
+**Spec：** `.kiro/specs/realtime-dynamic-layer/`
+**測試：** 348 通過（2 個 pre-existing failures 與 Phase 5 無關）
 
 交付物：
 
 | 模組 | 檔案位置 | 功能 |
 |---|---|---|
-| Data Models | `models.py` | 5 新 dataclass（SemanticDriftEvent/FeatureTimeline/TimelineSummary/TimelineResult/RetentionDecision）+ 2 exception classes |
-| JSON Schema | `schemas/timeline-result.schema.json` | Draft 2020-12 |
-| Timeline Engine | `core/timeline/timeline_engine.py` | 多版本時間軸分析（pure function）：analyze() + analyze_feature() + 語意漂移偵測 |
-| Retention Engine | `core/timeline/retention_engine.py` | 以次數為基礎的版本保留策略（pure function）：compute_retention() + _is_protected() |
-| Timeline Renderer | `core/timeline/timeline_renderer.py` | Mermaid gantt 圖形 + 純文字摘要 + 單一功能詳細演進 |
-| SnapshotStore 擴展 | `core/diff/snapshot_store.py` | 新增 delete_snapshot() 方法（冪等） |
-| CLI | `cli/timeline_cmd.py` | `the-door timeline`（--render/--json/--feature/--since/-o） |
-| CLI 擴展 | `cli/snapshot_cmd.py` | `the-door snapshot prune`（--dry-run/--force/--max） |
-| MCP | `mcp/tools/timeline_tool.py` + `snapshot_prune_tool.py` | 2 個新 MCP tools（共 17 tools） |
+| Analyze Pipeline | `core/pipeline/analyze_pipeline.py` | 從 analyze_cmd 提取的可複用分析管線核心函式 |
+| Pipeline Orchestrator | `core/pipeline/pipeline_orchestrator.py` | 管線編排：analyze(old) → analyze(new) → diff → scope → timeline → report |
+| Report Renderer | `core/pipeline/report_renderer.py` | 三種輸出格式：互動式 Markdown / 結構化 JSON / Mermaid |
+| CLI | `cli/update_cmd.py` | `the-door update <old-path> <new-path>` |
+| MCP | `mcp/tools/update_tool.py` | MCP update tool（共 18 tools） |
+| Schema | `schemas/update-report.schema.json` | Draft 2020-12 |
+| Models | `models.py` | 11 新 dataclass + 3 exception classes |
 
-**設計審查修正記錄（4 項）：**
-1. ✅ 保留策略改為以次數為基礎（max_snapshots），非時間（移除 spec §12.3 三級策略）
-2. ✅ TimelineResult.time_range_start/end 改為 `str | None`（空序列時為 None）
-3. ✅ Mermaid 圖形類型從 `timeline` 改為 `gantt`（timeline 不支援功能×版本矩陣）
-4. ✅ 移除 Task 11（retention-config.json 由使用者建立，非專案交付物）
+### Phase UI-0 ✅ 靜態前端 Prototype
+**位置：** `docs/frontend-local-version-viewer/prototype/`
+**交付物：** HTML/CSS/Vanilla JS 三欄工作台，讀取靜態 mock 資料，驗證 UX 方向
 
-**需求審查修正記錄（8 項）：**
-1. ✅ 移除不存在的 `pr_merge` trigger（只有 commit/manual）
-2. ✅ confidence 變更不計入 change_count
-3. ✅ 新增 `the-door timeline` 指令，不覆蓋 `the-door history`
-4. ✅ MCP `timeline` tool 與既有 `history` tool 共存
-5. ✅ SnapshotStore 需擴展 delete 方法
-6. ✅ change_count 上界修正為 ≤ (snapshot 總數 - 1)
-7. ✅ git_tags 保護作為受保護快照不計入上限
-8. ✅ 保留策略以次數為基礎 + enabled 開關 + 預設值 50
+### Phase UI-1 ✅ Local Report Viewer
+**Spec：** `.kiro/specs/frontend-local-version-viewer/`
+**測試：** 19 個 Python 測試通過（12 unit + 7 PBT）
 
----
+交付物：
 
-## 進行中 Phase
+| 項目 | 位置 | 說明 |
+|---|---|---|
+| 前端 Viewer | `docs/frontend-local-version-viewer/viewer/` | HTML/CSS/Vanilla JS，三欄工作台，差異模式 + 單版本模式 |
+| ViewModelConverter | `core/ui/view_model.py` | `build_update_report_view_model()` + `build_l1_view_model()` + export 函式 |
+| Fixture 資料 | `viewer/data/update-view-model.json` + `l1-view-model.json` | 從 mock UpdateReport + 真實 L1 產生 |
+| PBT | `tests/property/test_view_model_properties.py` | 7 個 Hypothesis 屬性（ASCII-only strategy） |
 
-### Phase 5 — 即時動態層（待開始）
+### Phase UI-2 ✅ Local API Server
+**Spec：** `.kiro/specs/local-api-server/`
+**測試：** 81 個新測試通過（unit + PBT），全套 402 tests 通過（排除 2 個 pre-existing failures）
 
-**在新對話中：**
-1. 告訴 Kiro：「開始 Phase 5 即時動態層」
-2. 參考 `the-door-spec-v4.1.md` §8（Phase 5 定義）
-3. 參考 `SESSION-SUMMARY.md` 了解目前進度
-4. Phase 5 前提：Phase 1–4 驗證完成後獨立 UX 評估
-5. Spec §8 定義簡短（「coding 中的即時變化圖形」），需先釐清範圍
+交付物：
+
+| 模組 | 檔案位置 | 功能 |
+|---|---|---|
+| JobStore | `core/ui/job_store.py` | `UpdateJob` + `JobStore`，thread-safe in-memory 管線狀態管理 |
+| StaticHandler | `core/ui/static_handler.py` | 靜態資源服務，含路徑遍歷防護（403 vs 404 正確區分） |
+| Serializers | `core/ui/serializers.py` | `VersionSnapshot`/`DoubtRecord`/`TimelineResult` 序列化純函式 |
+| APIHandlers | `core/ui/api_handlers.py` | 7 個 API 端點業務邏輯，每個回傳 `(status_code, body)` |
+| UIServer | `core/ui/server.py` | `ThreadingHTTPServer`，只綁 `127.0.0.1` |
+| CLI | `cli/ui_cmd.py` | `the-door ui <project-path>` 指令 |
+| PBT | `tests/property/test_api_serializer_properties.py` | 5 個 Hypothesis 屬性（Req 13） |
+
+**API 端點：**
+
+| Method | Path | 說明 |
+|---|---|---|
+| GET | `/api/project` | 專案路徑、可用資料狀態（has_snapshots/has_latest_report/has_doubts/has_scope_config） |
+| GET | `/api/snapshots` | 快照列表（依 timestamp 降序） |
+| GET | `/api/report/latest` | 最新 UpdateReport JSON（依 generated_at 選最新，fallback: mtime） |
+| POST | `/api/update` | 觸發管線（非同步，回傳 job_id） |
+| GET | `/api/update/status/<job_id>` | 輪詢管線進度 |
+| GET | `/api/doubts` | 疑義列表 |
+| GET | `/api/timeline` | 時間軸分析結果 |
+
+**前端升級：**
+- `index.html`：加入 PipelineProgress 元件、UpdateModal（old_path/new_path 輸入表單）
+- `app.js`：API 呼叫邏輯（`/api/project` → `/api/report/latest` → 輪詢）+ fallback 策略
+- `styles.css`：PipelineProgress、Modal 樣式
+
+**關鍵設計決策：**
+- MVP server：Python 標準函式庫（`http.server`/`socketserver`），不新增 FastAPI/Flask
+- `ThreadingHTTPServer`：允許同時處理靜態資源請求和 API 輪詢，避免 pipeline 執行期間 UI 凍結
+- 至多一個並發 UpdateJob；`threading.Lock` 保護 job 狀態
+- 輪詢（polling）而非 SSE：標準函式庫不原生支援 SSE；輪詢對本地場景延遲可接受
+- UpdateReport 持久化到 `DotTheDoor_Dir/update-report-<generated_at>.json`（`:` 替換 `-`）
+- 路徑驗證在 API handler 層（不依賴 orchestrator 的 `PipelineError`）
+- `StaticHandler.resolve_path()` 回傳 `None` 只在路徑遍歷時（403）；檔案不存在由 `serve()` 判斷（404）
+- `UpdateJob._lock` 為 dataclass 欄位，`update_step()` 使用 `self._lock`（thread-safe）
+- 進度訊息解析依 Unicode 符號（`✓`/`✗`/`⊘`），不依賴中文關鍵字（Windows cp950 相容）
+- fallback 規則：靜態 JSON 只在 `/api/project` 拋出網路錯誤時（server 未啟動）才使用；server 啟動後 `has_latest_report=false` 顯示 EmptyState
+- `viewer_dir` 路徑：5 層 parent 從 `cli/ui_cmd.py` 到 workspace root（假設 editable install）
+
+### Phase UI-3 ✅ Interactive Graph
+**Spec：** `.kiro/specs/interactive-graph/`
+**測試：** 490 passed（2 個 pre-existing failures 與 Phase UI-3 無關）
+
+交付物：
+
+| 模組 | 檔案位置 | 功能 |
+|---|---|---|
+| GraphViewModel_Converter | `core/ui/graph_view_model.py` | 純函式：`build_l1_graph_view_model()` / `build_l1_graph_view_model_from_snapshot()` / `build_l2_graph_view_model()` / `build_l3_graph_view_model()` / `build_diff_graph_view_model()` / `sort_diff_nodes_by_risk()` / `sort_diff_nodes_by_semantic_diff()` / `_edit_distance()` |
+| L2Generator | `core/ui/l2_generator.py` | `L2GenerationError` + async `generate()` + `load()` staticmethod；持久化到 `.the-door/l2-outputs/<feature_id>.json` |
+| APIHandlers 擴展 | `core/ui/api_handlers.py` | 新增 6 個 handler + 2 個私有背景執行緒方法（不修改既有 7 個方法） |
+| Server 路由擴展 | `core/ui/server.py` | 新增 `/api/l1`、`/api/structure`（靜態）+ `/api/l2/<fid>`、`/api/layer-explanation/<fid>/<layer>`（動態 GET/POST） |
+| Cytoscape.js 本地打包 | `viewer/lib/cytoscape.min.js` | 離線可用，無 CDN 依賴 |
+| 前端升級 | `viewer/app.js` / `index.html` / `styles.css` | Cytoscape 渲染、三層導覽（L1→L2→L3）、差異模式圖形、Breadcrumb、Mermaid fallback、Layer Explanation 按需生成 |
+| PBT | `tests/property/test_graph_view_model_properties.py` | 12 個 Hypothesis 屬性（Req 12） |
+
+**新增 API 端點：**
+
+| Method | Path | 說明 |
+|---|---|---|
+| GET | `/api/l1` | L1_Graph_ViewModel（從最新 VersionSnapshot 轉換） |
+| GET | `/api/l2/<feature_id>` | L2_Graph_ViewModel（從 `.the-door/l2-outputs/` 讀取） |
+| POST | `/api/l2/<feature_id>/generate` | 觸發 L2 LLM 生成（非同步，回傳 job_id） |
+| GET | `/api/layer-explanation/<fid>/<layer>` | 讀取 Layer Explanation 快取 |
+| POST | `/api/layer-explanation/<fid>/<layer>/generate` | 觸發 Layer Explanation LLM 生成（非同步） |
+| GET | `/api/structure` | 回傳 `.the-door/structure.json` 內容 |
 
 ---
 
@@ -163,52 +168,56 @@ Phase 2     ✅ Diff 引擎
 Phase 2.5   ✅ 漏洞資訊層
 Phase 3     ✅ 範圍驗核層
 Phase 4     ✅ 歷史時間軸層
-Phase 5     — 即時動態層 ← 下一步
+Phase 5     ✅ 即時動態層（版本更新管線）
+Phase UI-0  ✅ 靜態前端 Prototype
+Phase UI-1  ✅ Local Report Viewer
+Phase UI-2  ✅ Local API Server
+Phase UI-3  ✅ Interactive Graph
 ```
 
 ---
 
-## 可用指令（28 個）
+## 可用指令（30 個）
 
 ```bash
-the-door extract <codebase-path>           # AST 提取 + 拓撲分析 → Structure JSON（含漏洞掃描）
-the-door extract <path> -o output.json     # 輸出到檔案
-the-door validate <l1.json> <struct.json>  # 驗證 LLM 輸出（5 項檢查）
-the-door analyze <codebase-path>           # 一鍵分析（需 API key 或 Ollama）+ 自動快照 + 漏洞掃描
-the-door analyze <path> --provider ollama  # 指定 provider
-the-door analyze <path> --offline          # 離線漏洞掃描
-the-door regenerate <feature_id>           # 重新生成特定 feature
-the-door render <output.json>              # L1/L1.5 JSON → Mermaid 文字（含信心圖示）
-the-door estimate <codebase-path>          # 預估 token/成本
-the-door history <codebase-path>           # 顯示敘事鏈
-the-door config init                       # 建立預設 config.toml
-the-door mcp-serve                         # 啟動 MCP Server（17 tools）
-the-door diff <path> --baseline <ref>      # 版本比對（git tag/SHA/date/label）
-the-door diff <path> --baseline <ref> --json  # JSON 輸出
-the-door diff <path> --baseline <ref> --layer l1.5  # L1.5 diff
-the-door snapshot create <path> --label <name>  # 手動快照
-the-door snapshot list <path>              # 列出所有快照
-the-door scan <codebase-path>              # 漏洞掃描
-the-door scan <path> --json                # JSON 輸出
-the-door scan <path> --offline             # 離線模式
-the-door scope verify <path> --scope <ref> # 範圍驗核（human/--json/--render）
-the-door scope create <scope-name>         # 建立 scope definition
-the-door scope list                        # 列出所有 scope definitions
-the-door scope show <scope-name>           # 顯示 scope definition 內容
-the-door doubt list                        # 列出活躍疑義（--state/--type/--json）
-the-door doubt show <doubt-id>             # 顯示疑義完整記錄
-the-door doubt assign <doubt-id> <assignee> # 指派調查者
-the-door doubt resolve <id> --as <type> --reason <r> # 解決疑義
-the-door doubt escalate <doubt-id> --reason <r>      # 手動升級疑義
-the-door timeline <codebase-path>          # 功能演進時間軸（純文字）
-the-door timeline <path> --render          # Mermaid gantt 圖形
-the-door timeline <path> --json            # JSON 輸出
-the-door timeline <path> --feature <id>    # 單一功能詳細演進
-the-door timeline <path> --since <date>    # 指定日期之後
-the-door snapshot prune <path>             # 版本清理（互動確認）
-the-door snapshot prune <path> --dry-run   # 僅顯示將刪除的快照
-the-door snapshot prune <path> --force     # 跳過確認直接刪除
-the-door snapshot prune <path> --max <N>   # 覆蓋 max_snapshots 設定
+# Phase 1–4 既有指令
+the-door extract <codebase-path>
+the-door validate <l1.json> <struct.json>
+the-door analyze <codebase-path>
+the-door regenerate <feature_id>
+the-door render <output.json>
+the-door estimate <codebase-path>
+the-door history <codebase-path>
+the-door config init
+the-door mcp-serve
+the-door diff <path> --baseline <ref>
+the-door snapshot create <path> --label <name>
+the-door snapshot list <path>
+the-door snapshot prune <path>
+the-door scan <codebase-path>
+the-door scope verify <path> --scope <ref>
+the-door scope create <scope-name>
+the-door scope list
+the-door scope show <scope-name>
+the-door doubt list
+the-door doubt show <doubt-id>
+the-door doubt assign <doubt-id> <assignee>
+the-door doubt resolve <id> --as <type> --reason <r>
+the-door doubt escalate <doubt-id> --reason <r>
+the-door timeline <codebase-path>
+
+# Phase 5 新增
+the-door update <old-path> <new-path>          # 版本更新管線
+the-door update <old-path> <new-path> --scope <name>
+the-door update <old-path> <new-path> --json
+the-door update <old-path> <new-path> --render
+the-door update <old-path> <new-path> --offline
+the-door update <old-path> <new-path> --force-reanalyze
+
+# Phase UI-2 新增
+the-door ui <project-path>                     # 啟動本地 UI server（http://127.0.0.1:8765）
+the-door ui <project-path> --port <N>          # 指定端口
+the-door ui <project-path> --no-browser        # 不自動開啟瀏覽器
 ```
 
 ---
@@ -222,56 +231,58 @@ the-door snapshot prune <path> --max <N>   # 覆蓋 max_snapshots 設定
 - Windows 相容：所有 write_text/read_text 需要 `encoding="utf-8"`
 - Hypothesis 策略：Windows 上避免 Unicode 字元（cp950 編碼問題），用 ASCII-only 或 `st.builds`
 
-### Phase 1
-- LLM Provider Protocol：三個實作 + factory，httpx 做 transport
-- Pruning 語意：剪的是高信心節點的下游依賴
-- 信心標示：6 種狀態，三通道區分（color + border + icon），resolve_marker_state() pure function
-- Phase 0a 文件組件化：目錄索引 README.md + 12 個獨立組件文件
-- Mermaid classDef 限制：一個節點一個 classDef，異常/Diff 優先，信心退到圖示前綴通道
+### Phase 5 (Realtime Dynamic Layer)
+- Pipeline Orchestrator 為 pure orchestration，不含分析邏輯
+- analyze 失敗 = 管線終止；其他步驟失敗 = 繼續執行
+- 檔案指紋：路徑 + 大小 + mtime（O(1)，不讀檔案內容）
+- 指紋儲存在 `.the-door/fingerprints/`，不修改 VersionSnapshot schema
+- PipelineConfig 用 composition 包含 AnalyzeConfig（避免欄位重複）
+- Mermaid 漏洞標記用文字摘要（Phase 5 不觸發 L2 分析）
+- SIGINT：完成當前步驟後停止，生成部分報告
+- MCP update tool 預設 JSON 格式、skip_cost_confirm=True
 
-### Phase 2 (Diff Engine)
-- Diff Engine 為 pure function（無 I/O），高度可測試
-- Snapshots 為獨立 JSON 檔案（`.the-door/snapshots/`），UUID v4 檔名
-- `escape_mermaid_label()` 提取為共用函式（DRY）
-- BaselineInfo.resolved_from 記錄原始查詢字串
-- Summary panel 用 Mermaid comments（`%%`）
-- Baseline resolution 優先序：ISO 8601 date → git tag/SHA → manual label
+### Phase UI-1 (Local Report Viewer)
+- `diff_available = len(changes_raw) > 0`（非 key 存在性）
+- DetailPanel A 類（Python 填「未提供」）直接顯示；B 類（scope_state=null）JS 補值
+- 防幻覺：`detail.source` 永遠顯示
+- PBT strategy：ASCII-only（min_codepoint=32, max_codepoint=126），Windows cp950 相容
+- 前端啟動：`python -m http.server 8765`
 
-### Phase 2.5 (Vulnerability Layer)
-- ThreadPoolExecutor 平行執行（避免 asyncio 巢狀問題）
-- osv-scanner 是 Go binary，subprocess 呼叫，所有測試 mock subprocess
-- 所有 scanner 失敗非致命（ScanResult 永遠回傳）
-- module↔vulnerability mapping 由 LLM 在 L2 生成時判斷（LLM-Centric）
-- VulnerabilitySummary 不存格式化文字（renderer 計算 header/message）
-- VulnerabilityDiffSummary 不存 summary_text（renderer 計算）
-- build_vulnerability_diff_summary 在 DiffEngine（不在 renderer）
-- snapshot.schema.json 用 inline 定義（不用跨檔案 $ref）
+### Phase UI-2 (Local API Server)
+- MVP server：Python 標準函式庫（`http.server`/`socketserver`），不新增 FastAPI/Flask
+- `ThreadingHTTPServer`：允許同時處理靜態資源請求和 API 輪詢
+- 至多一個並發 UpdateJob；`threading.Lock` 保護 job 狀態
+- 輪詢（polling）而非 SSE：標準函式庫不原生支援 SSE
+- UpdateReport 持久化：`update-report-<generated_at>.json`（`:` 替換 `-`）
+- 只綁 `127.0.0.1`（loopback），不綁 `0.0.0.0`
+- 路徑驗證在 API handler 層（不依賴 orchestrator 的 `PipelineError`）
+- `StaticHandler.resolve_path()` 回傳 `None` 只在路徑遍歷時（403）；檔案不存在 → 404
+- `UpdateJob._lock` 為 dataclass 欄位（thread-safe）
+- 進度訊息解析依 Unicode 符號（`✓`/`✗`/`⊘`），不依賴中文關鍵字
+- fallback：靜態 JSON 只在 server 未啟動（網路錯誤）時使用
+- `viewer_dir` 路徑：5 層 parent 從 `cli/ui_cmd.py` 到 workspace root（editable install）
+- `SnapshotStore(project_root).list_snapshots()`（建構時傳入 project_root）
+- `DoubtRecord.source_node`（非 feature_id）；API 序列化：`current_state → state`，`assigned_to → assignee`
 
-### Phase 3 (Scope Verification)
-- Scope badges 用 label-embedded symbols（`✓<sup>scope</sup>`），不用 classDef
-- Scope comparison 是 pure function（feature_id matching），不需要 LLM
-- ScopeVerifier.verify() 為 pure function；verify_and_create_doubts() 為 orchestration（帶 I/O）
-- ScopeRenderer compose 而非 copy：複用 escape_mermaid_label/resolve_marker_state/MARKER_DEFS/DiffRenderer.DIFF_SYMBOLS
-- Doubt path 狀態機：6 個狀態（discovered/investigating/explained/fixed/escalated/accepted_risk）
-- Timeout escalation：lazy evaluation（查詢時檢查），不用背景 daemon
-- Timeout 配置：`.the-door/scope-config.json`（project-level，與 user-level config.toml 分離）
-- Doubt 持久化：JSON 檔案在 `.the-door/doubts/`（同 SnapshotStore 模式）
-- CLI doubt resolve：state-based dispatch（investigating+explained→explain(), investigating+fixed→fix(), escalated→resolve_escalation()）
-- Summary panel：✓ 行永遠顯示，⚠/○ 行 count=0 時省略；⚠ 行附加「（需調查）」
+### Phase UI-3 (Interactive Graph)
+- Cytoscape.js 本地打包（`viewer/lib/cytoscape.min.js`），不使用 CDN，離線環境可用
+- Mermaid 文字 fallback：Cytoscape 初始化失敗時不顯示空白畫面
+- `GraphViewModel_Converter` 純函式模組（Python），所有轉換邏輯集中、可測試
+- `L2Generator` 獨立模組，與 API handler 解耦；async generate() 透過 `asyncio.run()` 在背景執行緒呼叫
+- 共用 `JobStore`（Phase UI-2 + UI-3），至多一個並發 job 的約束延伸到所有非同步操作
+- Layer-wide 切換（不支援單節點展開），避免混合層級的視覺複雜度
+- `difflib.SequenceMatcher` 計算語意差異，Python 標準函式庫，不新增依賴
+- `.the-door/layer-explanations/<feature_id>/<layer>.json` 快取格式：`{feature_id, layer, explanation, generated_at}`
+- Diff 模式預設 risk-first 排序；client-side 切換 semantic-diff-first，不呼叫 API
 
-### Phase 4 (History Timeline)
-- Timeline Engine 為 pure function（無 I/O），同 DiffEngine 模式
-- Retention Engine 為 pure function（無 I/O），保留決策計算與實際刪除分離
-- 保留策略以次數為基礎（max_snapshots 預設 50），非時間
-- 受保護快照（trigger="manual" 或 git_tags 非空）不計入上限且不會被清理
-- 保留策略設定：`.the-door/retention-config.json`（project-level，同 scope-config.json 模式）
-- `the-door timeline` 為獨立新指令，不覆蓋 `the-door history`（敘事鏈）
-- `snapshot prune` 加入既有 `snapshot_group`（與 create/list 同組）
-- 語意漂移定義：label 未變 + description 變更（spec §12.2）
-- confidence 變更不計入 change_count（LLM 自評元資料，非功能屬性）
-- change_count 上界：≤ (snapshot 總數 - 1)
-- Mermaid 用 gantt 圖形（timeline 不支援功能×版本矩陣）
-- TimelineResult.time_range_start/end 為 `str | None`（空序列時 None）
-- MCP snapshot_prune 預設 dry_run=True（MCP 環境安全優先）
-- SnapshotStore.delete_snapshot 靜默忽略不存在的檔案（冪等）
-- Steering 規則：`.kiro/steering/file-creation-rules.md`（禁止用 shell 建立 JSON schema 檔案）
+---
+
+## 在新對話中繼續
+
+**所有規劃 Phase 已完成。** 如需繼續，可選擇：
+
+1. **手動驗收 Phase UI-3**：實際跑 `the-door ui <path>`，確認互動圖、層切換、Diff 模式如預期運作
+2. **端對端整合測試**：跑完整的 `the-door update <old> <new>` → `the-door ui <path>` 流程，確認前後端串接正確
+3. **開新 Phase**：根據實際使用回饋定義新功能（參考 `docs/frontend-local-version-viewer/spec.md §15` 的「明確不做」清單作為候選方向）
+
+繼續時告訴 Kiro：「參考 SESSION-SUMMARY.md 了解目前進度」即可。

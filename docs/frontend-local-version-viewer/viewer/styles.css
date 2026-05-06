@@ -1,0 +1,791 @@
+/* ============================================================
+   The Door — Phase UI-1 Local Version Viewer
+   No external resources (no CDN, no web fonts, no icon libs)
+   ============================================================ */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-muted: #f0f3f6;
+  --text: #17202a;
+  --muted: #667085;
+  --line: #d7dde5;
+  --accent: #0f766e;
+  --accent-soft: #d9f3ef;
+  --warn: #b45309;
+  --danger: #b42318;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+
+  /* change-type colours */
+  --added-border: #28a745;
+  --added-bg: #d4edda;
+  --removed-border: #dc3545;
+  --removed-bg: #f8d7da;
+  --modified-border: #fd7e14;
+  --modified-bg: #ffe0cc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+h1, h2, h3, p {
+  margin-top: 0;
+}
+
+/* ============================================================
+   App shell — full-height grid
+   ============================================================ */
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+}
+
+/* ============================================================
+   TopBar
+   ============================================================ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.topbar-title {
+  flex-shrink: 0;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+/* ============================================================
+   Mode switch buttons
+   ============================================================ */
+
+.mode-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+  border-radius: 4px;
+}
+
+.mode-button {
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.mode-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.mode-button.active {
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mode-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Status strip (count badges)
+   ============================================================ */
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+}
+
+.count-added  { border-color: var(--added-border);   background: var(--added-bg); }
+.count-removed { border-color: var(--removed-border); background: var(--removed-bg); }
+.count-modified { border-color: var(--modified-border); background: var(--modified-bg); }
+.count-risk   { border-color: var(--warn); background: #fef3c7; color: var(--warn); }
+
+/* ============================================================
+   Summary band
+   ============================================================ */
+
+.summary-band {
+  padding: 10px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.summary-band p {
+  margin-bottom: 0;
+  color: #344054;
+  line-height: 1.55;
+}
+
+/* ============================================================
+   Three-column workspace
+   ============================================================ */
+
+.workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 270px) minmax(380px, 1fr) minmax(280px, 360px);
+  gap: 10px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.sidebar,
+.canvas,
+.detail-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sidebar,
+.detail-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: transparent;
+}
+
+/* ============================================================
+   Panel header
+   ============================================================ */
+
+.panel-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.panel-header h2 {
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel-header p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Feature / Change list (sidebar)
+   ============================================================ */
+
+.feature-list {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.feature-button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 6px;
+  align-items: start;
+  padding: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.feature-button:hover,
+.feature-button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.feature-symbol {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding-top: 1px;
+}
+
+.feature-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.feature-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ============================================================
+   Graph canvas
+   ============================================================ */
+
+.canvas-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.graph-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.graph-node {
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: #fbfcfd;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.graph-node:hover,
+.graph-node.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.node-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.node-description {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Change-type badges
+   ============================================================ */
+
+.change-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 2px;
+}
+
+.change-added           { border-color: var(--added-border);    background: var(--added-bg); }
+.change-removed         { border-color: var(--removed-border);  background: var(--removed-bg); }
+.change-attribute_changed  { border-color: var(--modified-border); background: var(--modified-bg); }
+.change-dependency_changed { border-color: var(--modified-border); background: var(--modified-bg); }
+
+/* ============================================================
+   Detail panel
+   ============================================================ */
+
+.detail-content {
+  padding: 14px;
+}
+
+.empty-state {
+  color: var(--muted);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.detail-section {
+  margin-bottom: 16px;
+}
+
+.detail-section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-section p {
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.detail-section .missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.source-list {
+  margin: 0;
+  padding-left: 16px;
+  color: #344054;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.attribution {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.attribution code {
+  font-family: Consolas, "Courier New", monospace;
+  background: var(--surface-muted);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   Error box
+   ============================================================ */
+
+.error-box {
+  margin: 14px;
+  padding: 12px;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  background: #fff4f2;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Responsive fallback
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .status-strip {
+    justify-content: flex-start;
+  }
+}
+
+/* ============================================================
+   Phase UI-2: Action button, Pipeline Progress, Update Modal
+   ============================================================ */
+
+/* Action button (重新分析) */
+.topbar-actions {
+  flex-shrink: 0;
+}
+
+.action-button {
+  padding: 6px 14px;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: 600;
+  transition: background 0.1s, color 0.1s;
+}
+
+.action-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Pipeline progress bar */
+.pipeline-progress {
+  padding: 10px 20px;
+  background: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.progress-title {
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.current-step {
+  color: #0369a1;
+  font-size: 12px;
+}
+
+.steps-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step-item {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.step-completed { border-color: var(--added-border); background: var(--added-bg); }
+.step-failed    { border-color: var(--removed-border); background: var(--removed-bg); }
+.step-skipped   { color: var(--muted); }
+
+.step-error {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+/* Update modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-overlay:not([hidden]) {
+  display: flex;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  width: min(480px, 90vw);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.modal-box h2 {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.modal-box label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.modal-box input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 13px;
+  background: var(--surface-muted);
+}
+
+.modal-box input[type="text"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.modal-error {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--danger);
+  background: #fff4f2;
+  color: var(--danger);
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.modal-hint {
+  margin: 4px 0 12px;
+  padding: 6px 10px;
+  background: #f0f4ff;
+  border-left: 3px solid var(--accent);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.modal-btn {
+  padding: 8px 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: background 0.1s;
+}
+
+.modal-btn-cancel:hover {
+  background: var(--surface-muted);
+}
+
+.modal-btn-submit {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.modal-btn-submit:hover {
+  background: #0d6460;
+}
+
+/* ============================================================
+   Phase UI-3: Interactive Graph — Tasks 10.1–10.6
+   ============================================================ */
+
+/* Task 10.1 — #graph-container */
+#graph-container {
+  width: 100%;
+  height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* Task 10.2 — .breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.breadcrumb-sep {
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+.breadcrumb-link {
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+  text-decoration: underline;
+  transition: background 0.1s;
+}
+
+.breadcrumb-link:hover {
+  background: var(--accent-soft);
+}
+
+.breadcrumb-current {
+  padding: 2px 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Task 10.3 — .mermaid-fallback and .fallback-indicator */
+.mermaid-fallback {
+  padding: 12px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 3px;
+}
+
+.fallback-indicator {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 3px;
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mermaid-output {
+  margin: 0;
+  padding: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Task 10.4 — confidence marker CSS classes */
+.confidence-high {
+  border-style: solid !important;
+  border-width: 3px !important;
+}
+
+.confidence-medium {
+  border-style: dashed !important;
+  border-width: 2px !important;
+}
+
+.confidence-low {
+  border-style: dotted !important;
+  border-width: 2px !important;
+}
+
+/* Task 10.5 — .diff-sort-toggle and .sort-button */
+.diff-sort-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.sort-button {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.sort-button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.sort-button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* Task 10.6 — .layer-explanation */
+.layer-explanation {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.layer-explanation-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #344054;
+}
+
+/* Anomaly item in detail panel */
+.anomaly-item {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--modified-border);
+  background: var(--modified-bg);
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+}

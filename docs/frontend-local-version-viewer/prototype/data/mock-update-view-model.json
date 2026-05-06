@@ -1,0 +1,110 @@
+{
+  "mode": "update-report",
+  "diff_available": true,
+  "summary": "MOCK：本次更新新增 2 個功能、修改 1 個功能。此資料只用於驗證前端差異模式，不代表真實分析結果。",
+  "pipeline": {
+    "old_path": "mock-before-frontend",
+    "new_path": "mock-after-frontend",
+    "total_duration_ms": 0,
+    "steps": [
+      {
+        "step_name": "diff",
+        "status": "completed",
+        "duration_ms": 0,
+        "error_message": null
+      }
+    ]
+  },
+  "change_counts": {
+    "added": 2,
+    "removed": 0,
+    "attribute_changed": 1,
+    "dependency_changed": 0
+  },
+  "risk_counts": {
+    "out_of_scope": 0,
+    "vulnerability": 0,
+    "semantic_drift": 0
+  },
+  "changes": [
+    {
+      "id": "mock-feat-local-ui-workbench",
+      "label": "本地前端工作台",
+      "change_type": "added",
+      "risk_flags": [],
+      "current_label": "本地前端工作台",
+      "baseline_label": "未提供",
+      "source": "UpdateReport.l1_changes"
+    },
+    {
+      "id": "mock-feat-version-diff-viewer",
+      "label": "版本差異 Viewer",
+      "change_type": "added",
+      "risk_flags": [],
+      "current_label": "版本差異 Viewer",
+      "baseline_label": "未提供",
+      "source": "UpdateReport.l1_changes"
+    },
+    {
+      "id": "mock-feat-visual-diagram-generation",
+      "label": "功能圖形產出與本地呈現",
+      "change_type": "attribute_changed",
+      "risk_flags": [],
+      "current_label": "功能圖形產出與本地呈現",
+      "baseline_label": "功能圖形產出",
+      "source": "UpdateReport.l1_changes"
+    }
+  ],
+  "details": {
+    "mock-feat-local-ui-workbench": {
+      "id": "mock-feat-local-ui-workbench",
+      "change_type": "added",
+      "before": {
+        "label": "未提供",
+        "description": "未提供"
+      },
+      "after": {
+        "label": "本地前端工作台",
+        "description": "以本地 view model 呈現 The Door 的分析結果，前端只讀取資料，不重新推論功能。"
+      },
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": [],
+      "source": "UpdateReport.l2_details"
+    },
+    "mock-feat-version-diff-viewer": {
+      "id": "mock-feat-version-diff-viewer",
+      "change_type": "added",
+      "before": {
+        "label": "未提供",
+        "description": "未提供"
+      },
+      "after": {
+        "label": "版本差異 Viewer",
+        "description": "顯示 UpdateReport 中的 l1_changes 與 l2_details，支援點選變更查看 before/after。"
+      },
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": [],
+      "source": "UpdateReport.l2_details"
+    },
+    "mock-feat-visual-diagram-generation": {
+      "id": "mock-feat-visual-diagram-generation",
+      "change_type": "attribute_changed",
+      "before": {
+        "label": "功能圖形產出",
+        "description": "將翻譯結果轉換為視覺化的功能圖形，包含信心標記和費用預估。"
+      },
+      "after": {
+        "label": "功能圖形產出與本地呈現",
+        "description": "從 Mermaid 文字輸出延伸到本地 viewer 可讀的資料呈現。"
+      },
+      "scope_state": null,
+      "related_vulnerabilities": [],
+      "affected_relations": [],
+      "source": "UpdateReport.l2_details"
+    }
+  },
+  "interrupted": false,
+  "source": "UpdateReport"
+}

@@ -1,4 +1,7 @@
 """The Door — LLM constraint pipeline for code structure extraction and validation."""
+
+__version__ = "1.0.0"
+
 from the_door.models import (
     ASTNode,
     CheckResult,

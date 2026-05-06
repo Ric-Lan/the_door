@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "the-door"
-version = "0.1.0"
+version = "1.0.0"
 description = "LLM constraint pipeline for translating code structure into functional-language diagrams"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,6 +25,7 @@ dependencies = [
 dev = [
     "pytest",
     "hypothesis",
+    "pytest-cov==5.0.0",
 ]
 
 [project.scripts]

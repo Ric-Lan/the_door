@@ -1,0 +1,304 @@
+{
+  "mode": "single-version",
+  "diff_available": false,
+  "summary": "The Door 是一套程式碼驗核工具，讓不讀程式碼的人能理解系統做了什麼、改了什麼、有沒有異常。它讀取程式碼後自動產出功能語言圖形和報告，支援版本比對、範圍驗核、漏洞掃描、功能演進追蹤，以及完整的版本更新管線。",
+  "stats": {
+    "feature_count": 13,
+    "unclassified_count": 0,
+    "infrastructure_count": 15
+  },
+  "features": [
+    {
+      "id": "feat-code-structure-extraction",
+      "label": "程式碼結構辨識",
+      "description": "讀取任何程式語言的原始碼，自動辨識其中的功能單元（函式、類別、方法）以及它們之間的呼叫關係，產出結構化的原料資料供後續翻譯使用。",
+      "trigger_description": "使用者指定一個程式碼目錄後觸發",
+      "confidence": "high",
+      "confidence_reason": "ASTExtractor、EdgeBuilder、_detect_calls、_detect_extends、_detect_imports 等節點明確實作了 tree-sitter 結構提取邏輯",
+      "source_nodes": [
+        "core/extraction/ast_extractor.py::ASTExtractor",
+        "core/extraction/ast_extractor.py::extract",
+        "core/extraction/ast_extractor.py::EdgeBuilder",
+        "core/extraction/ast_extractor.py::build_edges",
+        "core/extraction/ast_extractor.py::_detect_calls",
+        "core/extraction/ast_extractor.py::_detect_extends",
+        "core/extraction/ast_extractor.py::_detect_imports"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-dependency-priority-analysis",
+      "label": "依賴優先序分析",
+      "description": "分析所有功能單元之間的依賴關係，計算每個單元被依賴的程度和重要性排名，決定哪些功能應該優先被翻譯。",
+      "trigger_description": "程式碼結構辨識完成後自動執行",
+      "confidence": "high",
+      "confidence_reason": "TopologyAnalyzer、GraphBuilder、BatchAssigner、EntryPointDetector 等節點明確實作拓撲分析和批次分配",
+      "source_nodes": [
+        "core/topology/topology_analyzer.py::TopologyAnalyzer",
+        "core/topology/topology_analyzer.py::GraphBuilder",
+        "core/topology/topology_analyzer.py::BatchAssigner",
+        "core/topology/topology_analyzer.py::EntryPointDetector"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-functional-translation",
+      "label": "功能語言翻譯",
+      "description": "將程式碼結構按照依賴優先序分批送給語言模型，翻譯成一般人能理解的功能描述。高信心的功能不再追加分析，低信心的功能會補充更多上下文重新判斷。",
+      "trigger_description": "使用者執行一鍵分析時觸發",
+      "confidence": "high",
+      "confidence_reason": "BatchReader、read、_process_batch、_group_by_batch、_filter_affected 等節點實作了完整的拓撲引導批次讀取邏輯",
+      "source_nodes": [
+        "core/reading/batch_reader.py::BatchReader",
+        "core/reading/batch_reader.py::read",
+        "core/reading/batch_reader.py::_process_batch",
+        "core/reading/batch_reader.py::_group_by_batch",
+        "core/reading/batch_reader.py::regenerate"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-llm-provider-management",
+      "label": "語言模型供應商管理",
+      "description": "支援多個語言模型供應商（雲端和本地），使用者可以選擇不同的供應商和模型，系統自動管理連線設定和費用估算。",
+      "trigger_description": "使用者在設定檔中選擇供應商後，分析時自動使用",
+      "confidence": "high",
+      "confidence_reason": "OpenAIProvider、AnthropicProvider、OllamaProvider、ConfigManager、create_provider 等節點明確實作了多供應商支援",
+      "source_nodes": [
+        "core/llm/openai_provider.py::OpenAIProvider",
+        "core/llm/anthropic_provider.py::AnthropicProvider",
+        "core/llm/ollama_provider.py::OllamaProvider",
+        "core/llm/config_manager.py::ConfigManager",
+        "core/llm/provider_factory.py::create_provider"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-output-quality-verification",
+      "label": "翻譯品質驗證",
+      "description": "自動檢查翻譯結果的五個面向：格式是否正確、是否涵蓋所有功能單元、是否使用了禁止的技術詞彙、每個功能是否可追溯到原始碼、功能之間的關係是否有依據。",
+      "trigger_description": "翻譯完成後自動執行",
+      "confidence": "high",
+      "confidence_reason": "OutputValidator、CoverageCheck、LanguageCheck、AnchorCheck、RelationCheck 等節點明確實作了五項驗證",
+      "source_nodes": [
+        "core/validation/output_validator.py::OutputValidator",
+        "core/validation/coverage_check.py::CoverageCheck",
+        "core/validation/language_check.py::LanguageCheck",
+        "core/validation/anchor_check.py::AnchorCheck",
+        "core/validation/relation_check.py::RelationCheck"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-visual-diagram-generation",
+      "label": "功能圖形產出",
+      "description": "將翻譯結果轉換為視覺化的功能圖形，包含信心標記（標示哪些翻譯結果需要人工確認）和費用預估。",
+      "trigger_description": "使用者要求產出圖形時觸發",
+      "confidence": "high",
+      "confidence_reason": "MermaidRenderer、render_l1、render_l1_5、resolve_marker_state、build_confidence_marker、CostEstimator 等節點實作了渲染和標記邏輯",
+      "source_nodes": [
+        "core/rendering/mermaid_renderer.py::MermaidRenderer",
+        "core/rendering/mermaid_renderer.py::render_l1",
+        "core/rendering/mermaid_renderer.py::render_l1_5",
+        "core/rendering/confidence_markers.py::resolve_marker_state",
+        "core/rendering/confidence_markers.py::build_confidence_marker",
+        "core/rendering/cost_estimator.py::CostEstimator"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-version-comparison",
+      "label": "版本比對",
+      "description": "比較兩個版本之間的差異，標記哪些功能是新增的、哪些被移除了、哪些的描述或依賴關係發生了變化。支援用時間、標籤或版本編號指定要比較的版本。",
+      "trigger_description": "使用者指定兩個版本後觸發",
+      "confidence": "high",
+      "confidence_reason": "DiffEngine、compute_l1_diff、DiffRenderer、SnapshotStore 等節點明確實作了版本比對和快照管理",
+      "source_nodes": [
+        "core/diff/diff_engine.py::DiffEngine",
+        "core/diff/diff_engine.py::compute_l1_diff",
+        "core/diff/diff_renderer.py::DiffRenderer",
+        "core/diff/snapshot_store.py::SnapshotStore"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-vulnerability-scanning",
+      "label": "漏洞掃描",
+      "description": "掃描程式碼依賴的外部套件是否有已知的安全漏洞，將結果整合到功能圖形中，讓非工程師也能看到哪些功能區域有安全風險。",
+      "trigger_description": "分析程式碼時自動並行執行",
+      "confidence": "high",
+      "confidence_reason": "VulnerabilityScanner、VulnerabilityRenderer、build_l1_border_styles、format_summary_header 等節點實作了掃描和渲染",
+      "source_nodes": [
+        "core/vulnerability/vulnerability_scanner.py::VulnerabilityScanner",
+        "core/vulnerability/vulnerability_renderer.py::VulnerabilityRenderer"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-scope-verification",
+      "label": "範圍驗核",
+      "description": "讓管理者事先定義預期的功能範圍，系統自動比對實際分析結果，標記哪些功能在範圍內已完成、哪些超出範圍、哪些範圍內未完成。",
+      "trigger_description": "使用者指定範圍定義後觸發",
+      "confidence": "high",
+      "confidence_reason": "ScopeVerifier、verify、parse_scope_definition、ScopeRenderer 等節點明確實作了範圍比對和渲染",
+      "source_nodes": [
+        "core/scope/scope_verifier.py::ScopeVerifier",
+        "core/scope/scope_verifier.py::verify",
+        "core/scope/scope_renderer.py::ScopeRenderer"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-doubt-tracking",
+      "label": "疑義追蹤",
+      "description": "當發現超出範圍或異常項目時，建立疑義記錄並追蹤處理進度。支援指派調查者、記錄解決原因、超時自動升級。",
+      "trigger_description": "使用者發現異常並建立疑義時觸發",
+      "confidence": "high",
+      "confidence_reason": "DoubtStore、create_doubt、assign、resolve、escalate、_check_timeout_escalation 等節點實作了完整的疑義狀態機",
+      "source_nodes": [
+        "core/scope/doubt_store.py::DoubtStore",
+        "core/scope/doubt_store.py::create_doubt",
+        "core/scope/doubt_store.py::assign",
+        "core/scope/doubt_store.py::get_doubt",
+        "core/scope/doubt_store.py::list_doubts"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-feature-evolution-timeline",
+      "label": "功能演進時間軸",
+      "description": "追蹤每個功能在多個版本之間的演進歷程，偵測功能描述是否發生語意漂移（名稱沒變但內容變了），並提供版本清理機制。",
+      "trigger_description": "使用者查看功能演進時觸發",
+      "confidence": "high",
+      "confidence_reason": "TimelineEngine、analyze、_detect_drift、RetentionEngine、TimelineRenderer 等節點實作了時間軸分析和保留策略",
+      "source_nodes": [
+        "core/timeline/timeline_engine.py::TimelineEngine",
+        "core/timeline/timeline_engine.py::analyze",
+        "core/timeline/timeline_engine.py::_detect_drift",
+        "core/timeline/retention_engine.py::RetentionEngine",
+        "core/timeline/timeline_renderer.py::TimelineRenderer"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-update-pipeline",
+      "label": "版本更新管線",
+      "description": "一鍵比較兩個版本的程式碼目錄，自動執行完整的分析、比對、範圍驗核、時間軸更新，產出互動式的版本更新報告。報告按風險優先排序，讓管理者先看到最需要注意的項目。",
+      "trigger_description": "使用者指定舊版和新版目錄後觸發",
+      "confidence": "high",
+      "confidence_reason": "PipelineOrchestrator、run、ReportRenderer、render_markdown、render_json、render_mermaid 等節點實作了完整的管線編排和報告渲染",
+      "source_nodes": [
+        "core/pipeline/pipeline_orchestrator.py::PipelineOrchestrator",
+        "core/pipeline/report_renderer.py::ReportRenderer",
+        "core/pipeline/analyze_pipeline.py::run_analyze_pipeline"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    },
+    {
+      "id": "feat-analysis-record",
+      "label": "分析過程記錄",
+      "description": "記錄每次翻譯的完整過程：讀了哪些功能單元、做了什麼判斷、哪些被跳過。有問題時可以回查翻譯是怎麼產出的。",
+      "trigger_description": "每次翻譯過程中自動記錄",
+      "confidence": "high",
+      "confidence_reason": "NarrativeChain（append 入度 81，是整個系統被依賴最多的節點）明確實作了敘事鏈記錄",
+      "source_nodes": [
+        "core/reading/narrative_chain.py::NarrativeChain",
+        "core/reading/narrative_chain.py::append"
+      ],
+      "needs_source_review": false,
+      "source": "L1Output.features"
+    }
+  ],
+  "relations": [
+    {
+      "from": "feat-code-structure-extraction",
+      "to": "feat-dependency-priority-analysis",
+      "label": "程式碼結構辨識完成後，自動進行依賴優先序分析",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-dependency-priority-analysis",
+      "to": "feat-functional-translation",
+      "label": "依賴優先序決定翻譯的批次順序",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-functional-translation",
+      "to": "feat-output-quality-verification",
+      "label": "翻譯完成後自動驗證品質",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-output-quality-verification",
+      "to": "feat-visual-diagram-generation",
+      "label": "驗證通過後產出功能圖形",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-functional-translation",
+      "to": "feat-analysis-record",
+      "label": "翻譯過程中自動記錄每一步的判斷",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-version-comparison",
+      "to": "feat-scope-verification",
+      "label": "版本比對結果可搭配範圍驗核，標記超出範圍的變更",
+      "relation_type": "inferred",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-scope-verification",
+      "to": "feat-doubt-tracking",
+      "label": "範圍驗核發現超出範圍項目時，自動建立疑義記錄",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-update-pipeline",
+      "to": "feat-functional-translation",
+      "label": "版本更新管線呼叫翻譯功能分析兩個版本",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-update-pipeline",
+      "to": "feat-version-comparison",
+      "label": "版本更新管線呼叫版本比對功能",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-update-pipeline",
+      "to": "feat-feature-evolution-timeline",
+      "label": "版本更新管線呼叫時間軸分析功能",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    },
+    {
+      "from": "feat-code-structure-extraction",
+      "to": "feat-vulnerability-scanning",
+      "label": "程式碼結構辨識時同步執行漏洞掃描",
+      "relation_type": "static",
+      "source": "L1Output.feature_relations"
+    }
+  ],
+  "source": "L1Output"
+}

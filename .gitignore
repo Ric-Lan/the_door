@@ -123,3 +123,10 @@ Thumbs.db
 
 # Kiro local settings (keep specs and steering)
 .kiro/settings/
+
+# The Door runtime data (snapshots, fingerprints, analysis cache)
+.the-door/
+*/.the-door/
+
+# Temp files
+待執行項目.txt
