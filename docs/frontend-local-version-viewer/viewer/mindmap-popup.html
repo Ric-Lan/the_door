@@ -5,11 +5,20 @@
 <title>心智圖 — The Door</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #fafafa; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
 
+/* ── Toolbar ─────────────────────────────────────────────── */
 #toolbar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px; background: #263238; color: #fff;
+  flex-shrink: 0;
 }
 #project-name { font-weight: 600; font-size: 14px; flex: 1; }
 #btn-close {
@@ -18,11 +27,146 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 }
 #btn-close:hover { background: rgba(255,255,255,0.25); }
 
-#loading { padding: 48px; text-align: center; color: #888; font-size: 14px; }
-#svg-container { overflow: auto; padding: 16px; }
+/* ── Main layout ─────────────────────────────────────────── */
+#layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── SVG area ────────────────────────────────────────────── */
+#svg-area {
+  flex: 0 0 auto;
+  overflow: auto;
+  border-right: 1px solid #e0e0e0;
+}
+#loading { padding: 48px 64px; text-align: center; color: #888; font-size: 14px; }
 
 .l1-node { cursor: pointer; }
-.l1-node:hover rect:first-of-type { filter: brightness(0.88); }
+.l1-node:hover rect { filter: brightness(0.9); }
+.l1-node.selected rect:first-of-type { filter: brightness(0.85); }
+
+/* ── Info panel ──────────────────────────────────────────── */
+#info-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  background: #fff;
+  min-width: 240px;
+  max-width: 340px;
+}
+
+/* Legend */
+#legend h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #90a4ae;
+  margin-bottom: 14px;
+}
+.legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #546e7a;
+  line-height: 1.4;
+}
+.badge-orange {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  background: #FF6D00; color: #fff;
+  border-radius: 8px; font-size: 10px; font-weight: 700;
+  padding: 2px 7px;
+}
+.badge-blue {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  background: #E3F2FD; color: #1565C0;
+  border: 1px solid #90CAF9;
+  border-radius: 3px; font-size: 10px; font-weight: 700;
+  padding: 2px 6px;
+}
+.badge-arrow {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  color: rgba(0,0,0,0.45); font-size: 13px; width: 28px;
+  justify-content: center;
+}
+#legend-hint {
+  margin-top: 20px;
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #90a4ae;
+  line-height: 1.5;
+}
+
+/* Detail panel */
+#detail { display: none; }
+#detail-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #607d8b; cursor: pointer;
+  margin-bottom: 16px;
+  background: none; border: none; padding: 0;
+}
+#detail-back:hover { color: #263238; }
+#detail-name {
+  font-size: 16px; font-weight: 700;
+  color: #263238; margin-bottom: 4px;
+  line-height: 1.3;
+}
+#detail-id {
+  font-size: 11px; color: #90a4ae; margin-bottom: 20px;
+  font-family: monospace;
+}
+.detail-section { margin-bottom: 20px; }
+.detail-section h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #90a4ae;
+  margin-bottom: 8px;
+}
+.detail-module-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #37474f;
+  padding: 5px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.detail-module-item:last-child { border-bottom: none; }
+.module-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.anomaly-item {
+  font-size: 12px; color: #bf360c;
+  padding: 6px 10px;
+  background: #fff3e0;
+  border-left: 3px solid #FF6D00;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.diff-info {
+  font-size: 12px; color: #1565C0;
+  padding: 8px 10px;
+  background: #E3F2FD;
+  border-radius: 4px;
+}
+.empty-state-text {
+  font-size: 12px; color: #b0bec5; font-style: italic;
+}
+.stat-row {
+  display: flex; gap: 16px; margin-bottom: 16px;
+}
+.stat-box {
+  flex: 1;
+  background: #f5f5f5;
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.stat-box .num { font-size: 20px; font-weight: 700; color: #263238; }
+.stat-box .label { font-size: 10px; color: #90a4ae; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -30,28 +174,80 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
   <span id="project-name">心智圖</span>
   <button id="btn-close" onclick="window.close()">關閉視窗</button>
 </div>
-<div id="loading">載入中…</div>
-<div id="svg-container" style="display:none"></div>
+
+<div id="layout">
+  <div id="svg-area">
+    <div id="loading">載入中…</div>
+    <div id="svg-container" style="display:none"></div>
+  </div>
+
+  <aside id="info-panel">
+    <!-- Legend (default state) -->
+    <div id="legend">
+      <h3>圖例</h3>
+      <div class="legend-item">
+        <span class="badge-orange">⚠ N</span>
+        <span>掃描發現 N 個程式碼異常，點擊節點查看詳情</span>
+      </div>
+      <div class="legend-item">
+        <span class="badge-blue">Δ 有差異</span>
+        <span>與基準版本相比，此功能有結構或屬性變更</span>
+      </div>
+      <div class="legend-item">
+        <span class="badge-arrow">▸▾</span>
+        <span>點擊 L1 節點可展開或收合其 L2 模組清單</span>
+      </div>
+      <p id="legend-hint">點擊左方任一 L1 功能節點，即可在此查看詳細資訊。</p>
+    </div>
+
+    <!-- Detail (selected state) -->
+    <div id="detail">
+      <button id="detail-back" onclick="clearSelection()">← 返回圖例</button>
+      <div id="detail-name"></div>
+      <div id="detail-id"></div>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="num" id="stat-modules">—</div>
+          <div class="label">L2 模組</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="stat-anomalies">—</div>
+          <div class="label">異常數</div>
+        </div>
+      </div>
+      <div class="detail-section" id="section-diff"></div>
+      <div class="detail-section" id="section-anomalies"></div>
+      <div class="detail-section" id="section-modules"></div>
+    </div>
+  </aside>
+</div>
 
 <script>
 // ── Constants ────────────────────────────────────────────────
 const COL0_X = 100, COL1_X = 300, COL2_X = 520;
-const NODE_W0 = 100, NODE_H0 = 36;
+const NODE_W0 = 120, NODE_H0 = 36;
 const NODE_W1 = 140, NODE_H1 = 32;
 const NODE_W2 = 140, NODE_H2 = 28;
 const ROW_H = 52, PAD_TOP = 40, PAD_BOT = 40;
-const SVG_W = 700;
+const SVG_W = 720;
 const BRANCH_COLORS = [
   "#4285F4","#EA4335","#34A853","#FBBC05",
   "#9C27B0","#FF5722","#00BCD4","#795548",
   "#607D8B","#E91E63","#8BC34A","#FF9800",
 ];
+const DIFF_LABELS = {
+  added:              "+ 新增",
+  removed:            "- 移除",
+  attribute_changed:  "~ 屬性變更",
+  dependency_changed: "≠ 依賴變更",
+};
 
 // ── State ────────────────────────────────────────────────────
 let data = { project: "", nodes: [], diffNodes: [], diffAvailable: false };
-let l2Cache = {};        // featureId → ViewModel | "unanalyzed" | "error"
+let l2Cache = {};
 let expandedSet = new Set();
 let hasAnyAnomaly = false;
+let selectedId = null;
 
 // ── Boot ─────────────────────────────────────────────────────
 async function init() {
@@ -63,7 +259,10 @@ async function init() {
   data.diffNodes     = data.diffNodes     ?? [];
   data.diffAvailable = data.diffAvailable ?? false;
 
-  document.getElementById("project-name").textContent = data.project || "心智圖";
+  // Extract basename from path (e.g. "C:\Users\foo\my-project" → "my-project")
+  const projectName = (data.project || "").split(/[/\\]/).filter(Boolean).pop() || "專案";
+  data.projectName = projectName;
+  document.getElementById("project-name").textContent = projectName;
 
   if (!data.nodes.length) {
     document.getElementById("loading").textContent = "無 L1 資料，請先執行分析。";
@@ -142,9 +341,80 @@ function render() {
     el.addEventListener("click", () => {
       const id = el.dataset.id;
       if (expandedSet.has(id)) expandedSet.delete(id); else expandedSet.add(id);
+      selectedId = id;
       render();
+      updateInfoPanel(id);
     });
   });
+  // Restore selected highlight
+  if (selectedId) {
+    const el = document.querySelector(`.l1-node[data-id="${CSS.escape(selectedId)}"]`);
+    if (el) el.classList.add("selected");
+  }
+}
+
+// ── Info Panel ────────────────────────────────────────────────
+function clearSelection() {
+  selectedId = null;
+  document.querySelectorAll(".l1-node.selected").forEach(el => el.classList.remove("selected"));
+  document.getElementById("legend").style.display = "block";
+  document.getElementById("detail").style.display = "none";
+}
+
+function updateInfoPanel(id) {
+  const node = data.nodes.find(n => n.id === id);
+  if (!node) return;
+
+  document.getElementById("legend").style.display = "none";
+  document.getElementById("detail").style.display = "block";
+
+  const vm = l2Cache[id];
+  const modules = Array.isArray(vm?.nodes) ? vm.nodes : [];
+  const anomalies = Array.isArray(vm?.anomalies) ? vm.anomalies : [];
+  const diffEntry = data.diffAvailable ? data.diffNodes.find(d => d.id === id) : null;
+  const color = BRANCH_COLORS[data.nodes.indexOf(node) % BRANCH_COLORS.length];
+
+  document.getElementById("detail-name").textContent = node.label || node.id;
+  document.getElementById("detail-id").textContent = node.id;
+  document.getElementById("stat-modules").textContent =
+    vm === "unanalyzed" ? "—" : vm === "error" ? "!" : modules.length;
+  document.getElementById("stat-anomalies").textContent = anomalies.length || "0";
+
+  // Diff section
+  const secDiff = document.getElementById("section-diff");
+  if (diffEntry?.change_type) {
+    secDiff.innerHTML = `<h4>Δ 差異資訊</h4>
+      <div class="diff-info">變更類型：${esc(DIFF_LABELS[diffEntry.change_type] ?? diffEntry.change_type)}</div>`;
+  } else {
+    secDiff.innerHTML = "";
+  }
+
+  // Anomaly section
+  const secAnom = document.getElementById("section-anomalies");
+  if (anomalies.length) {
+    secAnom.innerHTML = `<h4>⚠ 異常（${anomalies.length}）</h4>` +
+      anomalies.map(a =>
+        `<div class="anomaly-item">${esc(a.explanation || a.anomaly_type || "未知異常")}</div>`
+      ).join("");
+  } else {
+    secAnom.innerHTML = "";
+  }
+
+  // Module section
+  const secMod = document.getElementById("section-modules");
+  if (vm === "unanalyzed") {
+    secMod.innerHTML = `<h4>L2 模組</h4><p class="empty-state-text">尚未執行 L2 分析</p>`;
+  } else if (vm === "error") {
+    secMod.innerHTML = `<h4>L2 模組</h4><p class="empty-state-text" style="color:#f44336">載入失敗</p>`;
+  } else if (!modules.length) {
+    secMod.innerHTML = `<h4>L2 模組</h4><p class="empty-state-text">（無模組資料）</p>`;
+  } else {
+    secMod.innerHTML = `<h4>L2 模組（${modules.length}）</h4>` +
+      modules.map(m => `<div class="detail-module-item">
+        <span class="module-dot" style="background:${color}"></span>
+        ${esc(m.label || m.id)}
+      </div>`).join("");
+  }
 }
 
 // ── SVG Builder ───────────────────────────────────────────────
@@ -156,7 +426,7 @@ function buildSVG({ l1Layout, center_y, totalH }) {
   // Center node
   const cx = COL0_X - NODE_W0 / 2, cy = center_y - NODE_H0 / 2;
   s += `<rect x="${cx}" y="${cy}" width="${NODE_W0}" height="${NODE_H0}" rx="8" fill="#263238"/>`;
-  s += txt(COL0_X, center_y, "white", 700, 12, trunc(data.project || "專案", 8));
+  s += txt(COL0_X, center_y, "white", 700, 12, trunc(data.projectName || "專案", 9));
 
   // Center → L1 elbow lines
   l1Layout.forEach(({ y }) => {
@@ -165,27 +435,26 @@ function buildSVG({ l1Layout, center_y, totalH }) {
 
   // L1 nodes
   l1Layout.forEach(({ node, color, isExpanded, slots, y: l1y }) => {
-    // L1 → L2 elbow lines (expanded only)
     if (isExpanded) {
       slots.forEach(({ y: l2y }) => {
         s += elbow(COL1_X + NODE_W1 / 2, l1y, COL2_X - NODE_W2 / 2, l2y, midX12);
       });
     }
 
-    // L1 node rect + label + expand arrow
     const nx = COL1_X - NODE_W1 / 2, ny = l1y - NODE_H1 / 2;
     const fullLabel = node.label || node.id;
-    s += `<g class="l1-node" data-id="${esc(node.id)}">`;
+    const isSelected = node.id === selectedId;
+    s += `<g class="l1-node${isSelected ? " selected" : ""}" data-id="${esc(node.id)}">`;
     s += `<title>${esc(fullLabel)}</title>`;
     s += `<rect x="${nx}" y="${ny}" width="${NODE_W1}" height="${NODE_H1}" rx="6" `
-       + `fill="${color}" fill-opacity="${isExpanded ? 1 : 0.82}"/>`;
+       + `fill="${color}" fill-opacity="${isExpanded || isSelected ? 1 : 0.82}"/>`;
     s += txt(nx + 10, l1y, "white", 600, 12, trunc(fullLabel, 9), "start");
     s += txt(nx + NODE_W1 - 10, l1y, "rgba(255,255,255,0.75)", 400, 10, isExpanded ? "▾" : "▸");
 
-    // Anomaly badge (⚠ N) — shown only if hasAnyAnomaly is true
+    // Anomaly badge
     const vm = l2Cache[node.id];
     const anomalyCount = hasAnyAnomaly && Array.isArray(vm?.anomalies) ? vm.anomalies.length : 0;
-    let rightOffset = nx + NODE_W1 - 8;   // tracks next badge's right edge
+    let rightOffset = nx + NODE_W1 - 8;
 
     if (anomalyCount > 0) {
       const bw = 28, bh = 14, bx = rightOffset - bw / 2, by = ny - 4;
@@ -194,7 +463,7 @@ function buildSVG({ l1Layout, center_y, totalH }) {
       rightOffset -= bw + 4;
     }
 
-    // Diff badge (Δ 有差異) — shown only if diffAvailable and this node has a change
+    // Diff badge
     if (data.diffAvailable && data.diffNodes.find(d => d.id === node.id)) {
       const bw = 40, bh = 14, bx = rightOffset - bw / 2 - 4, by = ny - 4;
       s += `<rect x="${bx - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="3" `
@@ -204,7 +473,7 @@ function buildSVG({ l1Layout, center_y, totalH }) {
 
     s += `</g>`;
 
-    // L2 nodes / placeholders (expanded only)
+    // L2 nodes / placeholders
     if (isExpanded) {
       slots.forEach(({ node: l2node, placeholder, phState, y: l2y }) => {
         const lx = COL2_X - NODE_W2 / 2, ly = l2y - NODE_H2 / 2;
