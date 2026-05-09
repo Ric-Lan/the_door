@@ -1,66 +1,57 @@
-The Door — Source Available License
+The Door — Dual License
 Copyright (c) 2025-2026 Ric-Lan
 
-This software is licensed under the GNU Affero General Public License v3.0
-(AGPL-3.0), subject to the additional "Commons Clause" restriction below.
+This software is available under two licensing options:
 
 ================================================================================
-"Commons Clause" License Condition v1.0
+Option 1 — Community Edition: GNU Affero General Public License v3.0 (AGPL-3.0)
 ================================================================================
 
-Without limiting other conditions in the License, the grant of rights under
-the License will not include, and the License does not grant to you, the right
-to Sell the Software.
+You may use, copy, modify, and distribute this software under the terms of the
+GNU Affero General Public License v3.0, as published by the Free Software
+Foundation.
 
-For purposes of the foregoing, "Sell" means practicing any or all of the rights
-granted to you under the License to provide to third parties, for a fee or
-other consideration (including without limitation fees for hosting or
-consulting/support services related to the Software), a product or service
-whose value derives, entirely or substantially, from the functionality of the
-Software.
+Key obligations under AGPL-3.0:
 
-Software: The Door
-License: GNU AGPL v3.0
-Licensor: Ric-Lan
+- If you distribute this software or a modified version, you must provide the
+  complete corresponding source code under the same AGPL-3.0 license.
 
-================================================================================
-Commercial Licensing
-================================================================================
+- If you run a modified version of this software to provide a service over a
+  network, you must offer all users of that service access to the complete
+  corresponding source code under AGPL-3.0.
 
-If you wish to use The Door for commercial purposes — including but not limited
-to incorporating it into a paid product, offering it as a hosted service, or
-bundling it with commercial software — you must obtain a separate commercial
-license from the copyright holder.
+This means: if your organization uses or modifies The Door in a proprietary
+product or closed-source service, AGPL-3.0 requires you to open-source that
+product. If that is not acceptable, see Option 2.
 
-To inquire about commercial licensing, contact the project maintainer via the
-repository's issue tracker or contact information listed in the project profile.
+Full AGPL-3.0 license text: https://www.gnu.org/licenses/agpl-3.0.txt
 
 ================================================================================
-GNU Affero General Public License v3.0
+Option 2 — Commercial Edition: Commercial License
 ================================================================================
 
-Full license text: https://www.gnu.org/licenses/agpl-3.0.txt
+If you wish to use The Door in a proprietary product, closed-source service,
+or any context where complying with AGPL-3.0's copyleft requirements is not
+acceptable, you must obtain a separate Commercial License from the copyright
+holder.
 
-Key terms summary (the full AGPL-3.0 text above governs; this summary is
-provided for convenience only and has no legal effect):
+A Commercial License grants you the right to:
+- Use, modify, and distribute The Door without the AGPL-3.0 copyleft obligation
+- Keep your modifications and integrations proprietary
+- Incorporate The Door into commercial products or paid services
 
-1. FREE USE: You may use, copy, and distribute this software free of charge
-   for non-commercial purposes, subject to the Commons Clause above.
+To inquire about a Commercial License, contact the project maintainer via the
+repository's issue tracker or the contact information listed in the project
+profile.
 
-2. COPYLEFT: If you modify this software and distribute it, or run a modified
-   version to provide a network service, you must release your modifications
-   under these same license terms (AGPL-3.0 + Commons Clause), and make the
-   complete corresponding source code available.
+================================================================================
+No Warranty
+================================================================================
 
-3. NETWORK USE: If you run a modified version of this software to provide a
-   service over a network, you must offer users of that service access to the
-   complete corresponding source code.
-
-4. ATTRIBUTION: You must retain all copyright notices, license notices, and
-   author attributions in all copies or substantial portions of the Software.
-
-5. NO WARRANTY: The software is provided "as is", without warranty of any
-   kind. The authors are not liable for any damages arising from its use.
-
-For the complete, binding license text see:
-https://www.gnu.org/licenses/agpl-3.0.txt
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

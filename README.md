@@ -375,7 +375,10 @@ python -m pytest tests/ -x -q
 
 ## License
 
-AGPL-3.0 + Commons Clause — free to use and modify; modified versions must be open-sourced under the same terms; selling the software itself is prohibited. Commercial use requires a separate license — contact the maintainer via the issue tracker.
+Dual-licensed:
+
+- **Community Edition** — [AGPL-3.0](LICENSE). Free to use and modify. If you distribute or run a modified version as a network service, you must open-source your modifications under the same terms.
+- **Commercial Edition** — If you need to use The Door in a proprietary product or closed-source service without the AGPL-3.0 copyleft obligation, contact the maintainer via the issue tracker to obtain a commercial license.
 
 ## Documentation
 
