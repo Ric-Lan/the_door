@@ -79,7 +79,64 @@
   }
 
   // ── 待測函數（Task 3 後在此貼上 _renderMindmapL2Section） ─────
-  // PASTE: _renderMindmapL2Section
+  function _renderMindmapL2Section(featureId, containerEl, cache, onEnterL3, onGenerate) {
+    containerEl.textContent = "";
+    containerEl.className = "mm-l2-section";
+
+    const entry = cache[featureId];
+
+    if (!entry || entry === "loading") {
+      containerEl.classList.add("mm-state-loading");
+      containerEl.textContent = "載入中…";
+      return;
+    }
+
+    if (entry === "unanalyzed") {
+      containerEl.classList.add("mm-state-unanalyzed");
+      const msg = document.createElement("span");
+      msg.textContent = "尚未分析";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "action-button";
+      btn.textContent = "生成 L2 分析";
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        btn.textContent = "生成中…";
+        onGenerate(featureId);
+      });
+      const hint = document.createElement("p");
+      hint.className = "mm-hint";
+      hint.textContent = "或使用 CLI：";
+      const cmd = document.createElement("code");
+      cmd.className = "not-analyzed-cmd";
+      cmd.textContent = 'the-door analyze "<專案路徑>"';
+      hint.appendChild(cmd);
+      containerEl.append(msg, btn, hint);
+      return;
+    }
+
+    if (entry === "error") {
+      containerEl.classList.add("mm-state-error");
+      containerEl.textContent = "載入失敗，請重試";
+      return;
+    }
+
+    const nodes = entry.nodes || [];
+    if (!nodes.length) {
+      containerEl.classList.add("mm-state-loading");
+      containerEl.textContent = "（無模組資料）";
+      return;
+    }
+    nodes.forEach((node) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mm-l2-item";
+      btn.dataset.moduleId = node.id;
+      btn.textContent = node.label || node.id;
+      btn.addEventListener("click", () => onEnterL3(node.id));
+      containerEl.appendChild(btn);
+    });
+  }
 
   // ── 待測函數（Task 6 後在此貼上 renderMindmap） ───────────────
   // PASTE: renderMindmap

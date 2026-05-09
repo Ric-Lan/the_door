@@ -2075,3 +2075,73 @@ function createMindmapL1Node(feature, onEnterL2) {
   item.append(btn, l2Section);
   return item;
 }
+
+/**
+ * 根據快取狀態渲染 L2 子節點區域。
+ * 近純函數：所有外部依賴由參數注入。
+ *
+ * @param {string} featureId
+ * @param {HTMLElement} containerEl
+ * @param {Object} cache            - state.mindmapL2Cache
+ * @param {function(string):void} onEnterL3
+ * @param {function(string):void} onGenerate
+ */
+function _renderMindmapL2Section(featureId, containerEl, cache, onEnterL3, onGenerate) {
+  containerEl.textContent = "";
+  containerEl.className = "mm-l2-section";
+
+  const entry = cache[featureId];
+
+  if (!entry || entry === "loading") {
+    containerEl.classList.add("mm-state-loading");
+    containerEl.textContent = "載入中…";
+    return;
+  }
+
+  if (entry === "unanalyzed") {
+    containerEl.classList.add("mm-state-unanalyzed");
+    const msg = document.createElement("span");
+    msg.textContent = "尚未分析";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "action-button";
+    btn.textContent = "生成 L2 分析";
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      btn.textContent = "生成中…";
+      onGenerate(featureId);
+    });
+    const hint = document.createElement("p");
+    hint.className = "mm-hint";
+    hint.textContent = "或使用 CLI：";
+    const cmd = document.createElement("code");
+    cmd.className = "not-analyzed-cmd";
+    cmd.textContent = 'the-door analyze "<專案路徑>"';
+    hint.appendChild(cmd);
+    containerEl.append(msg, btn, hint);
+    return;
+  }
+
+  if (entry === "error") {
+    containerEl.classList.add("mm-state-error");
+    containerEl.textContent = "載入失敗，請重試";
+    return;
+  }
+
+  // Loaded — render module list
+  const nodes = entry.nodes || [];
+  if (!nodes.length) {
+    containerEl.classList.add("mm-state-loading");
+    containerEl.textContent = "（無模組資料）";
+    return;
+  }
+  nodes.forEach((node) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mm-l2-item";
+    btn.dataset.moduleId = node.id;
+    btn.textContent = node.label || node.id;
+    btn.addEventListener("click", () => onEnterL3(node.id));
+    containerEl.appendChild(btn);
+  });
+}
