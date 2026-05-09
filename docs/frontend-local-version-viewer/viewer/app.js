@@ -2185,3 +2185,52 @@ function renderMindmap() {
 
   view.appendChild(tree);
 }
+
+/**
+ * 非同步載入單一 feature 的 L2 資料並渲染至 containerEl。
+ * 使用 state.mindmapL2Cache 避免重複 fetch。
+ *
+ * Cache 值：undefined（未快取）| "loading" | "unanalyzed" | "error" | object（ViewModel）
+ *
+ * ⚠ 重要：onEnterL3 closure 必須在呼叫 switchToL3 之前設定
+ *   state.l2GraphViewModel 與 state.selectedFeatureId，
+ *   因為 switchToL3 在第 1324 行讀取 state.l2GraphViewModel 來
+ *   尋找 module 的 source_nodes，且 breadcrumb L3 層需要 selectedFeatureId。
+ *
+ * @param {string} featureId
+ * @param {HTMLElement} containerEl  - .mm-l2-section 元素
+ */
+async function loadMindmapL2(featureId, containerEl) {
+  // onEnterL3: 同步 L3 所需 state 後再委派 switchToL3
+  const onEnterL3 = (moduleId) => {
+    state.l2GraphViewModel = state.mindmapL2Cache[featureId];
+    state.selectedFeatureId = featureId;
+    switchToL3(moduleId);
+  };
+
+  if (state.mindmapL2Cache[featureId] !== undefined) {
+    _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
+    return;
+  }
+
+  state.mindmapL2Cache[featureId] = "loading";
+  _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
+
+  try {
+    const res = await fetch(
+      "http://127.0.0.1:8765/api/l2/" + encodeURIComponent(featureId),
+      { cache: "no-store" }
+    );
+    if (res.status === 404) {
+      state.mindmapL2Cache[featureId] = "unanalyzed";
+    } else if (!res.ok) {
+      state.mindmapL2Cache[featureId] = "error";
+    } else {
+      state.mindmapL2Cache[featureId] = await res.json();
+    }
+  } catch (_) {
+    state.mindmapL2Cache[featureId] = "error";
+  }
+
+  _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
+}
