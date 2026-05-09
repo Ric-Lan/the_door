@@ -157,10 +157,10 @@ body {
 
 <script>
 // ── Constants ────────────────────────────────────────────────
-const COL0_X  = 100,  COL1_X = 290,  COL2_X = 500;
+const COL0_X  = 100,  COL1_X = 290,  COL2_LEFT = 470; // COL2_LEFT = left edge of L2 nodes
 const NODE_W0 = 110,  NODE_H0 = 38;
-const NODE_W1 = 148,  NODE_H1 = 46;   // taller: 2-line label
-const NODE_W2 = 152,  NODE_H2 = 32;   // slightly taller for conf dot
+const NODE_W1 = 148,  NODE_H1 = 46;
+const NODE_H2 = 32,   L2_MIN_W = 130,  L2_MAX_W = 240;
 const ROW_H   = 60,   PAD_TOP = 32, PAD_BOT = 32;
 
 const BRANCH_COLORS = [
@@ -258,7 +258,7 @@ function computeLayout() {
 
   // Dynamic width: shrink when no L2 visible
   const hasL2 = l1Layout.some(n => n.isExpanded);
-  const svgW  = hasL2 ? COL2_X + NODE_W2 / 2 + 28 : COL1_X + NODE_W1 / 2 + 28;
+  const svgW  = hasL2 ? COL2_LEFT + L2_MAX_W + 20 : COL1_X + NODE_W1 / 2 + 28;
 
   return { l1Layout, center_y, totalH: slot * ROW_H + PAD_TOP + PAD_BOT, svgW };
 }
@@ -351,7 +351,7 @@ function closePanel() {
 // ── SVG Builder ───────────────────────────────────────────────
 function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
   const midX01 = (COL0_X + NODE_W0 / 2 + COL1_X - NODE_W1 / 2) / 2;
-  const midX12 = (COL1_X + NODE_W1 / 2 + COL2_X - NODE_W2 / 2) / 2;
+  const midX12 = (COL1_X + NODE_W1 / 2 + COL2_LEFT) / 2;
 
   let s = `<svg width="${dispW}" height="${dispH}" `
         + `viewBox="0 0 ${svgW} ${totalH}" `
@@ -373,7 +373,7 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
     // L1 → L2 connectors
     if (isExpanded) {
       slots.forEach(({ y: l2y }) => {
-        s += elbow(COL1_X + NODE_W1 / 2, l1y, COL2_X - NODE_W2 / 2, l2y, midX12);
+        s += elbow(COL1_X + NODE_W1 / 2, l1y, COL2_LEFT, l2y, midX12);
       });
     }
 
@@ -428,40 +428,57 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
     s += `</g>`;
 
     // ── L2 nodes / placeholders ──
+    const featureHasAnomalies = Array.isArray(vm?.anomalies) && vm.anomalies.length > 0;
     if (isExpanded) {
       slots.forEach(({ node: l2, placeholder, phState, y: l2y }) => {
-        const lx = COL2_X - NODE_W2 / 2, ly = l2y - NODE_H2 / 2;
+        const ly = l2y - NODE_H2 / 2;
         if (placeholder) {
           const isErr = phState === "error";
-          s += `<rect x="${lx}" y="${ly}" width="${NODE_W2}" height="${NODE_H2}" rx="4" `
+          const pw = 140;
+          s += `<rect x="${COL2_LEFT}" y="${ly}" width="${pw}" height="${NODE_H2}" rx="4" `
              + `fill="${isErr ? "#fff3f3" : "#f5f5f5"}" `
              + `stroke="${isErr ? "#e53935" : "#bdbdbd"}" `
              + `${isErr ? "" : 'stroke-dasharray="4"'}/>`;
-          s += txt(COL2_X, l2y, isErr ? "#e53935" : "#9e9e9e", 400, 11,
+          s += txt(COL2_LEFT + pw / 2, l2y, isErr ? "#e53935" : "#9e9e9e", 400, 11,
             isErr ? "載入失敗" : phState === "unanalyzed" ? "尚未分析" : "（無模組）");
         } else {
-          s += `<rect x="${lx}" y="${ly}" width="${NODE_W2}" height="${NODE_H2}" rx="4" `
-             + `fill="white" stroke="${color}" stroke-width="1.5"/>`;
-
-          // ── Right-side badges (build right-to-left) ──
+          const l2Label = l2.label || l2.id;
           const srcN    = Array.isArray(l2.source_nodes) ? l2.source_nodes.length : 0;
           const hasConf = !!l2.confidence;
           const bh = 14;
-          let badgeR = lx + NODE_W2 - 6;   // right anchor, grows leftward
 
-          // Confidence text pill (only when data exists)
+          // Pre-compute badge widths to determine node width
+          const confBW  = hasConf ? ((CONF_LABEL[l2.confidence]?.length <= 3 ? 24 : 32) + 4) : 0;
+          const srcBW   = (srcN >= 10 ? 22 : 18) + 4;
+          const anomBW  = featureHasAnomalies ? 20 : 0;
+          const badgesTotal = confBW + srcBW + anomBW + 8; // 8 = right pad
+
+          // Auto-size box from label content (CJK-aware)
+          const labelPx = measurePx(l2Label, 11) + 14;
+          const nodeW   = Math.min(L2_MAX_W, Math.max(L2_MIN_W, labelPx + badgesTotal));
+          const lx      = COL2_LEFT;
+
+          // Box — orange border when parent feature has anomalies
+          s += `<rect x="${lx}" y="${ly}" width="${nodeW}" height="${NODE_H2}" rx="4" `
+             + `fill="white" stroke="${featureHasAnomalies ? "#FF8F00" : color}" `
+             + `stroke-width="${featureHasAnomalies ? 2 : 1.5}"/>`;
+
+          // Build badges right-to-left
+          let badgeR = lx + nodeW - 6;
+
+          // Confidence pill
           if (hasConf) {
-            const cc   = CONF_COLORS[l2.confidence] ?? "#90a4ae";
-            const ct   = CONF_LABEL[l2.confidence]  ?? l2.confidence;
-            const bw   = ct.length <= 3 ? 24 : 30;
-            const cx_  = badgeR - bw / 2;
+            const cc  = CONF_COLORS[l2.confidence] ?? "#90a4ae";
+            const ct  = CONF_LABEL[l2.confidence]  ?? l2.confidence;
+            const bw  = ct.length <= 3 ? 24 : 32;
+            const cx_ = badgeR - bw / 2;
             s += `<rect x="${cx_ - bw/2}" y="${l2y - bh/2}" width="${bw}" height="${bh}" rx="3" `
                + `fill="${cc}" fill-opacity="0.15" stroke="${cc}" stroke-width="0.8"/>`;
             s += txt(cx_, l2y, cc, 700, 8, ct);
             badgeR -= bw + 4;
           }
 
-          // Source count pill (always shown, branch color)
+          // Source count pill
           {
             const st  = String(srcN);
             const bw  = srcN >= 10 ? 22 : 18;
@@ -472,9 +489,17 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
             badgeR -= bw + 4;
           }
 
-          // Label — width limited by badge area
-          const maxChars = Math.max(4, Math.floor((badgeR - lx - 14) / 6.5));
-          s += txt(lx + 10, l2y, color, 500, 11, trunc(l2.label || l2.id, maxChars), "start");
+          // Anomaly indicator — shown on ALL L2 nodes when parent feature has anomalies
+          if (featureHasAnomalies) {
+            const bw = 16, cx_ = badgeR - bw / 2;
+            s += `<rect x="${cx_ - bw/2}" y="${l2y - bh/2}" width="${bw}" height="${bh}" rx="4" `
+               + `fill="#FF8F00" fill-opacity="0.15" stroke="#FF8F00" stroke-width="0.8"/>`;
+            s += txt(cx_, l2y, "#FF8F00", 700, 8, "⚠");
+            badgeR -= bw + 4;
+          }
+
+          // Label — no truncation; box was sized to fit
+          s += txt(lx + 10, l2y, color, 500, 11, l2Label, "start");
         }
       });
     }
@@ -485,6 +510,13 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+function measurePx(text, fontSize) {
+  let px = 0;
+  for (const ch of text) {
+    px += ch.charCodeAt(0) > 0x7F ? fontSize : fontSize * 0.62;
+  }
+  return Math.ceil(px);
+}
 function elbow(x1, y1, x2, y2, mx) {
   const k = `stroke="#cfd8dc" stroke-width="1.2" fill="none"`;
   if (Math.abs(y1 - y2) < 1)
