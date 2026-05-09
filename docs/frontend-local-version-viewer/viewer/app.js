@@ -72,9 +72,6 @@ const els = {
   listTitle:        document.getElementById("list-title"),
   listSource:       document.getElementById("list-source"),
   featureList:      document.getElementById("feature-list"),
-  canvasTitle:      document.getElementById("canvas-title"),
-  graphNodes:       document.getElementById("graph-nodes"),
-  relationsList:    document.getElementById("relations-list"),
   detailSource:     document.getElementById("detail-source"),
   detailContent:    document.getElementById("detail-content"),
   pipelineProgress: document.getElementById("pipeline-progress"),
@@ -86,6 +83,11 @@ const els = {
   modalError:       document.getElementById("modal-error"),
   btnModalCancel:   document.getElementById("btn-modal-cancel"),
   btnModalSubmit:   document.getElementById("btn-modal-submit"),
+  graphDrawer:      document.getElementById("graph-drawer"),
+  graphBackdrop:    document.getElementById("graph-backdrop"),
+  btnGraphToggle:   document.getElementById("btn-graph-toggle"),
+  btnDrawerClose:   document.getElementById("btn-drawer-close"),
+  zoomControls:     document.getElementById("zoom-controls"),
 };
 
 // ============================================================
@@ -107,6 +109,10 @@ els.btnModalSubmit.addEventListener("click",  () => {
   hideUpdateModal();
   submitUpdate(oldPath, newPath);
 });
+
+els.btnGraphToggle?.addEventListener("click", openGraphDrawer);
+els.btnDrawerClose?.addEventListener("click", closeGraphDrawer);
+els.graphBackdrop?.addEventListener("click", closeGraphDrawer);
 
 // Start: try API first, fallback to static JSON on network error
 loadProjectStatus();
@@ -223,15 +229,36 @@ async function loadStaticFallback() {
   try {
     const res = await fetch(l1Path, { cache: "no-store" });
     if (res.ok) {
-      state.l1Model = await res.json().catch(() => null);
+      const graphData = await res.json().catch(() => null);
+      if (graphData) {
+        state.l1GraphViewModel = graphData;
+        state.l1Model = {
+          features: (graphData.nodes || []).map((n) => ({
+            id: n.id,
+            label: n.label,
+            confidence: n.confidence,
+            description: n.description,
+            trigger_description: n.trigger_description,
+            source: "L1Output.features",
+          })),
+          stats: { feature_count: (graphData.nodes || []).length },
+        };
+      }
     }
   } catch (_) {
+    state.l1GraphViewModel = null;
     state.l1Model = null;
   }
 
   state.mode = state.updateModel?.diff_available ? "diff" : "baseline";
   state.selectedId = firstSelectableId();
   render();
+
+  if (state.l1GraphViewModel) {
+    state.layerState = "L1";
+    initGraph("graph-container", state.l1GraphViewModel);
+    renderLegend();
+  }
 }
 
 // ============================================================
@@ -479,7 +506,6 @@ function firstSelectableId() {
 function render() {
   renderTopBar();
   renderChangeList();
-  renderGraphCanvas();
   renderDetailPanel();
 }
 
@@ -517,6 +543,9 @@ function renderTopBar() {
     const cc = um.change_counts || {};
     const rc = um.risk_counts || {};
 
+    els.countAdded.removeAttribute("hidden");
+    els.countRemoved.removeAttribute("hidden");
+    els.countModified.removeAttribute("hidden");
     els.countAdded.textContent    = "+" + (cc.added   ?? 0);
     els.countRemoved.textContent  = "-" + (cc.removed  ?? 0);
     const modified = (cc.attribute_changed ?? 0) + (cc.dependency_changed ?? 0);
@@ -531,9 +560,9 @@ function renderTopBar() {
     }
   } else {
     const fc = state.l1Model?.stats?.feature_count ?? state.l1Model?.features?.length ?? 0;
-    els.countAdded.textContent    = fc ? fc + " 功能" : "";
-    els.countRemoved.textContent  = "";
-    els.countModified.textContent = "";
+    els.countAdded.textContent = fc ? fc + " 功能" : "";
+    els.countRemoved.setAttribute("hidden", "");
+    els.countModified.setAttribute("hidden", "");
     els.countRisk.setAttribute("hidden", "");
   }
 }
@@ -563,140 +592,88 @@ function renderChangeList() {
   }
 
   const features = state.l1Model?.features ?? [];
-  els.listTitle.textContent  = "基礎功能節點";
+  els.listTitle.textContent  = state.mode === "baseline" ? "舊版功能" : "新版功能";
   els.listSource.textContent = "L1Output.features";
 
   if (!features.length) {
-    renderEmpty(list, state.l1Model ? "無功能資料。" : "L1 ViewModel 未載入。");
+    renderEmpty(list, state.l1Model ? "無功能資料。" : "L1 ViewModel 載入中…");
     return;
   }
 
   features.forEach((feature) => {
-    list.appendChild(featureListButton(feature));
+    list.appendChild(featureCard(feature));
   });
 }
 
 function changeListButton(change) {
-  const btn = document.createElement("button");
-  btn.className = "feature-button" + (change.id === state.selectedId ? " active" : "");
-  btn.type = "button";
-  btn.addEventListener("click", () => selectItem(change.id));
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "feature-card" + (change.id === state.selectedId ? " active" : "");
+  card.dataset.nodeId = change.id;
 
-  const sym = document.createElement("span");
-  sym.className = "feature-symbol change-badge change-" + change.change_type;
-  sym.textContent = changeSymbol(change.change_type);
-
-  const body = document.createElement("span");
   const labelEl = document.createElement("span");
-  labelEl.className = "feature-label";
+  labelEl.className = "feature-card-label";
   labelEl.textContent = change.label;
-  const metaEl = document.createElement("span");
-  metaEl.className = "feature-meta";
-  metaEl.textContent = change.change_type;
-  body.append(labelEl, document.createElement("br"), metaEl);
 
-  btn.append(sym, body);
-  return btn;
-}
+  const descEl = document.createElement("span");
+  descEl.className = "feature-card-desc";
+  const detail = state.updateModel?.details?.[change.id];
+  descEl.textContent = detail?.after?.description || detail?.before?.description || "";
 
-function featureListButton(feature) {
-  const btn = document.createElement("button");
-  btn.className = "feature-button" + (feature.id === state.selectedId ? " active" : "");
-  btn.type = "button";
-  btn.addEventListener("click", () => selectItem(feature.id));
-
-  const sym = document.createElement("span");
-  sym.className = "feature-symbol";
-  sym.textContent = "○";
-
-  const body = document.createElement("span");
-  const labelEl = document.createElement("span");
-  labelEl.className = "feature-label";
-  labelEl.textContent = feature.label;
-  const metaEl = document.createElement("span");
-  metaEl.className = "feature-meta";
-  metaEl.textContent = feature.confidence ? feature.confidence + " confidence" : "";
-  body.append(labelEl, document.createElement("br"), metaEl);
-
-  btn.append(sym, body);
-  return btn;
-}
-
-// ============================================================
-// renderGraphCanvas (centre)
-// ============================================================
-
-function renderGraphCanvas() {
-  const nodes = els.graphNodes;
-  nodes.textContent = "";
-
-  if (state.mode === "diff") {
-    const changes = state.updateModel?.changes ?? [];
-    els.canvasTitle.textContent = "差異模式 — 功能節點";
-
-    if (!changes.length) {
-      renderEmpty(nodes, "無變更節點。");
-      return;
-    }
-
-    changes.forEach((change) => {
-      nodes.appendChild(changeGraphNode(change));
-    });
-    return;
-  }
-
-  const features = state.l1Model?.features ?? [];
-  els.canvasTitle.textContent = state.mode === "baseline" ? "舊版功能節點" : "新版功能節點";
-
-  if (!features.length) {
-    renderEmpty(nodes, "無功能節點。");
-    return;
-  }
-
-  features.forEach((feature) => {
-    nodes.appendChild(featureGraphNode(feature));
-  });
-}
-
-function changeGraphNode(change) {
-  const node = document.createElement("button");
-  node.className = "graph-node" + (change.id === state.selectedId ? " active" : "");
-  node.type = "button";
-  node.addEventListener("click", () => selectItem(change.id));
-
+  const metaEl = document.createElement("div");
+  metaEl.className = "feature-card-meta";
   const badge = document.createElement("span");
   badge.className = "change-badge change-" + change.change_type;
-  badge.textContent = changeSymbol(change.change_type);
+  badge.textContent = changeSymbol(change.change_type) + " " + change.change_type;
+  metaEl.appendChild(badge);
 
-  const title = document.createElement("span");
-  title.className = "node-title";
-  title.textContent = change.label;
-
-  const desc = document.createElement("span");
-  desc.className = "node-description";
-  desc.textContent = change.change_type;
-
-  node.append(badge, title, desc);
-  return node;
+  card.append(labelEl, descEl, metaEl);
+  card.addEventListener("click", () => selectItem(change.id));
+  return card;
 }
 
-function featureGraphNode(feature) {
-  const node = document.createElement("button");
-  node.className = "graph-node" + (feature.id === state.selectedId ? " active" : "");
-  node.type = "button";
-  node.addEventListener("click", () => selectItem(feature.id));
+function featureCard(feature) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "feature-card" + (feature.id === state.selectedId ? " active" : "");
+  card.dataset.nodeId = feature.id;
 
-  const title = document.createElement("span");
-  title.className = "node-title";
-  title.textContent = feature.label;
+  const labelEl = document.createElement("span");
+  labelEl.className = "feature-card-label";
+  labelEl.textContent = feature.label;
 
-  const desc = document.createElement("span");
-  desc.className = "node-description";
-  desc.textContent = feature.description || "";
+  const descEl = document.createElement("span");
+  descEl.className = "feature-card-desc";
+  descEl.textContent = feature.description || "";
 
-  node.append(title, desc);
-  return node;
+  const metaEl = document.createElement("div");
+  metaEl.className = "feature-card-meta";
+  if (feature.confidence) {
+    const badge = document.createElement("span");
+    badge.className = "confidence-badge confidence-badge-" + (feature.confidence || "").toLowerCase();
+    badge.textContent = feature.confidence;
+    metaEl.appendChild(badge);
+  }
+
+  card.append(labelEl, descEl, metaEl);
+  card.addEventListener("click", () => {
+    state.selectedId = feature.id;
+    state.selectedFeatureId = feature.id;
+    if (state.cytoscapeInstance) {
+      state.cytoscapeInstance.elements().unselect();
+      const cyNode = state.cytoscapeInstance.getElementById(feature.id);
+      if (cyNode) {
+        cyNode.select();
+        state.cytoscapeInstance.animate({ fit: { eles: cyNode, padding: 50 } });
+      }
+    }
+    renderDetailPanelL1(feature);
+    els.featureList.querySelectorAll(".feature-card").forEach((c) => c.classList.remove("active"));
+    card.classList.add("active");
+  });
+  return card;
 }
+
 
 // ============================================================
 // renderDetailPanel
@@ -911,16 +888,38 @@ function initGraph(containerId, viewModel) {
     return;
   }
 
+  // Clear spinner / previous content
+  container.textContent = "";
+
   try {
     const cy = cytoscape({
       container: container,
       elements: buildCytoscapeElements(viewModel),
       style: buildCytoscapeStyle(state.layerState),
-      layout: { name: "cose" },
+      layout: {
+        name: "breadthfirst",
+        directed: true,
+        padding: 30,
+        spacingFactor: 1.8,
+        avoidOverlap: true,
+      },
+      minZoom: 0.2,
+      maxZoom: 4,
+      wheelSensitivity: 0.15,
     });
     state.cytoscapeInstance = cy;
     state.cytoscapeAvailable = true;
+    cy.one("layoutstop", () => {
+      // Enforce minimum node size after label-based auto-sizing
+      cy.nodes().forEach((node) => {
+        if (node.width()  < 260) node.style("width",  260);
+        if (node.height() <  90) node.style("height",  90);
+      });
+      cy.fit(undefined, 50);
+      if (cy.zoom() > 0.65) { cy.zoom(0.65); cy.center(); }
+    });
     bindCytoscapeEvents(cy, state.layerState);
+    initZoomControls(cy);
   } catch (err) {
     // Cytoscape initialization failed — fallback to Mermaid
     renderMermaidFallback(viewModel, state.layerState);
@@ -993,17 +992,20 @@ function buildCytoscapeStyle(layerState) {
         "label": "data(label)",
         "text-valign": "center",
         "text-halign": "center",
-        "font-size": "12px",
+        "font-size": "32px",
+        "font-weight": "600",
         "color": "#ffffff",
-        "text-outline-width": 1,
-        "text-outline-color": "#555",
-        "background-color": "#9e9e9e",
-        "border-width": 2,
-        "border-color": "#757575",
+        "text-outline-width": 2,
+        "text-outline-color": "rgba(0,0,0,0.35)",
+        "text-wrap": "wrap",
+        "text-max-width": "280px",
+        "background-color": "#607d8b",
+        "border-width": 3,
+        "border-color": "#455a64",
         "border-style": "solid",
         "width": "label",
         "height": "label",
-        "padding": "10px",
+        "padding": "22px",
         "shape": "roundrectangle",
       },
     },
@@ -1055,9 +1057,10 @@ function buildCytoscapeStyle(layerState) {
       selector: "edge",
       style: {
         "width": 2,
-        "line-color": "#90a4ae",
-        "target-arrow-color": "#90a4ae",
+        "line-color": "#78909c",
+        "target-arrow-color": "#78909c",
         "target-arrow-shape": "triangle",
+        "arrow-scale": 1.2,
         "curve-style": "bezier",
         "font-size": "10px",
         "color": "#555",
@@ -1221,14 +1224,8 @@ function syncFeatureListSelection(nodeId) {
   const featureList = document.getElementById("feature-list");
   if (!featureList) return;
 
-  const buttons = featureList.querySelectorAll(".feature-button");
-  buttons.forEach((btn) => {
-    // Buttons store their ID via data attribute or by matching text;
-    // use data-node-id if present, otherwise fall back to selectedId comparison
-    const btnId = btn.dataset.nodeId;
-    if (btnId !== undefined) {
-      btn.classList.toggle("active", btnId === nodeId);
-    }
+  featureList.querySelectorAll("[data-node-id]").forEach((el) => {
+    el.classList.toggle("active", el.dataset.nodeId === nodeId);
   });
 }
 
@@ -1265,15 +1262,15 @@ async function loadL1Graph() {
     };
 
     initGraph("graph-container", state.l1GraphViewModel);
+    renderLegend();
     renderBreadcrumb();
-    renderFeatureList(state.l1GraphViewModel, state.layerState);
 
-    // Re-render sidebar now that l1Model is populated
+    // Re-render cards now that l1Model is populated
     if (!state.updateModel?.diff_available) {
       state.selectedId = state.l1Model?.features?.[0]?.id ?? null;
     }
-    renderChangeList();
     renderTopBar();
+    renderChangeList();
     renderDetailPanel();
   } catch (err) {
     renderError("載入 L1 圖形失敗：" + (err.message || "network error"));
@@ -1297,16 +1294,7 @@ async function switchToL2(featureId) {
   try {
     const res = await fetch("http://127.0.0.1:8765/api/l2/" + encodeURIComponent(featureId), { cache: "no-store" });
     if (res.status === 404) {
-      // L2 not yet generated — show prompt
-      const container = document.getElementById("graph-container");
-      if (container) {
-        container.textContent = "";
-        const msg = document.createElement("div");
-        msg.className = "empty-state";
-        msg.innerHTML = '<p>L2 尚未生成。</p><button type="button" onclick="generateL2(\'' + featureId + '\')">生成 L2 說明</button>';
-        container.appendChild(msg);
-      }
-      renderFeatureList({ nodes: [], edges: [] }, "L2");
+      renderL2NotAnalyzed(featureId);
       return;
     }
     if (!res.ok) {
@@ -1595,27 +1583,54 @@ function renderFeatureList(viewModel, layerState) {
   nodes.forEach((node) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "feature-button";
+    btn.className = "feature-card" + (node.id === state.selectedId ? " active" : "");
     btn.dataset.nodeId = node.id;
 
+    // Label — same style as L1 featureCard
     const labelEl = document.createElement("span");
-    labelEl.className = "feature-label";
+    labelEl.className = "feature-card-label";
     labelEl.textContent = node.label || node.id;
 
-    const metaEl = document.createElement("span");
-    metaEl.className = "feature-meta";
-    if (layerState === "L1") {
-      metaEl.textContent = node.confidence ? node.confidence + " confidence" : "";
-    } else if (layerState === "L2") {
-      metaEl.textContent = node.confidence ? node.confidence + " confidence" : "";
+    // Description — layer-specific secondary text
+    const descEl = document.createElement("span");
+    descEl.className = "feature-card-desc";
+    if (layerState === "L2") {
+      const count = node.source_nodes?.length || 0;
+      descEl.textContent = count ? count + " 個原始節點" : "";
     } else if (layerState === "L3") {
-      metaEl.textContent = node.type || "";
+      descEl.textContent = node.file || "";
     } else if (layerState === "DIFF") {
-      metaEl.textContent = node.change_type || "";
-      btn.classList.add("change-" + (node.change_type || ""));
+      descEl.textContent = node.change_type || "";
     }
 
-    btn.append(labelEl, document.createElement("br"), metaEl);
+    // Meta badge row
+    const metaEl = document.createElement("div");
+    metaEl.className = "feature-card-meta";
+    if (layerState === "L1" || layerState === "L2") {
+      if (node.confidence) {
+        const badge = document.createElement("span");
+        badge.className = "confidence-badge confidence-badge-" + node.confidence.toLowerCase();
+        badge.textContent = node.confidence;
+        metaEl.appendChild(badge);
+      }
+    } else if (layerState === "L3") {
+      if (node.type) {
+        const badge = document.createElement("span");
+        badge.className = "confidence-badge";
+        badge.textContent = node.type;
+        metaEl.appendChild(badge);
+      }
+    } else if (layerState === "DIFF") {
+      btn.classList.add("change-" + (node.change_type || ""));
+      if (node.change_type) {
+        const badge = document.createElement("span");
+        badge.className = "change-badge change-" + node.change_type;
+        badge.textContent = changeSymbol(node.change_type) + " " + node.change_type;
+        metaEl.appendChild(badge);
+      }
+    }
+
+    btn.append(labelEl, descEl, metaEl);
     btn.addEventListener("click", () => {
       // Programmatically select node in Cytoscape (Req 3 AC4)
       if (state.cytoscapeInstance) {
@@ -1639,7 +1654,7 @@ function renderFeatureList(viewModel, layerState) {
         renderDetailPanelDiff(node);
       }
       // Sync active state
-      list.querySelectorAll(".feature-button").forEach((b) => b.classList.remove("active"));
+      list.querySelectorAll(".feature-card").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
     });
 
@@ -1889,5 +1904,174 @@ function _levenshteinApprox(a, b) {
   return Math.round(maxLen * (1 - common / maxLen));
 }
 
-// Task 9.7: renderDetailPanelDiff (above) does NOT include Enter L2 button (Req 9 AC4)
-// Task 9.8: detailSection() helper (defined earlier) displays "未提供" when text is null/undefined (Req 14 AC5)
+// ============================================================
+// Graph drawer
+// ============================================================
+
+function openGraphDrawer() {
+  els.graphDrawer?.classList.add("open");
+  els.graphDrawer?.removeAttribute("aria-hidden");
+  if (els.graphBackdrop) els.graphBackdrop.hidden = false;
+  // Re-fit after drawer transition (drawer now has real dimensions)
+  if (state.cytoscapeInstance) {
+    setTimeout(() => state.cytoscapeInstance.fit(undefined, 40), 320);
+  }
+}
+
+function closeGraphDrawer() {
+  els.graphDrawer?.classList.remove("open");
+  els.graphDrawer?.setAttribute("aria-hidden", "true");
+  if (els.graphBackdrop) els.graphBackdrop.hidden = true;
+}
+
+// ============================================================
+// Legend
+// ============================================================
+
+function renderLegend() {
+  const panel = document.getElementById("legend-panel");
+  if (!panel) return;
+  panel.textContent = "";
+
+  const items = [
+    { color: "#4caf50", label: "新增" },
+    { color: "#f44336", label: "移除" },
+    { color: "#ff9800", label: "修改" },
+    { color: "#9e9e9e", label: "未變更" },
+  ];
+
+  items.forEach(({ color, label }) => {
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    const swatch = document.createElement("span");
+    swatch.className = "legend-swatch";
+    swatch.style.background = color;
+    const text = document.createTextNode(label);
+    item.append(swatch, text);
+    panel.appendChild(item);
+  });
+}
+
+// ============================================================
+// Zoom controls
+// ============================================================
+
+function initZoomControls(cy) {
+  if (els.zoomControls) els.zoomControls.hidden = false;
+
+  const fitBtn = document.getElementById("btn-zoom-fit");
+  const inBtn  = document.getElementById("btn-zoom-in");
+  const outBtn = document.getElementById("btn-zoom-out");
+
+  if (fitBtn) fitBtn.onclick = () => { cy.fit(undefined, 60); if (cy.zoom() > 0.7) { cy.zoom(0.7); cy.center(); } };
+  if (inBtn)  inBtn.onclick  = () => cy.zoom({
+    level: cy.zoom() * 1.25,
+    renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 },
+  });
+  if (outBtn) outBtn.onclick = () => cy.zoom({
+    level: cy.zoom() / 1.25,
+    renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 },
+  });
+}
+
+function hideZoomControls() {
+  if (els.zoomControls) els.zoomControls.hidden = true;
+}
+
+// ============================================================
+// L2 not-analyzed empty state
+// ============================================================
+
+function renderL2NotAnalyzed(featureId) {
+  const featureLabel = _getFeatureLabel(featureId);
+
+  function makeNotAnalyzedBlock(withButton) {
+    const wrap = document.createElement("div");
+    wrap.className = "not-analyzed-state";
+
+    const title = document.createElement("p");
+    title.className = "not-analyzed-title";
+    title.textContent = "「" + featureLabel + "」的 L2 層尚未分析";
+
+    wrap.appendChild(title);
+
+    if (withButton) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "action-button";
+      btn.textContent = "生成 L2 分析";
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        btn.textContent = "生成中…";
+        generateL2(featureId);
+      });
+      wrap.appendChild(btn);
+
+      const sep = document.createElement("p");
+      sep.className = "not-analyzed-hint";
+      sep.textContent = "或使用 CLI：";
+      const cmd = document.createElement("code");
+      cmd.className = "not-analyzed-cmd";
+      cmd.textContent = "the-door analyze \"<專案路徑>\"";
+      wrap.append(sep, cmd);
+    }
+
+    return wrap;
+  }
+
+  // Feature list area (main content)
+  const list = document.getElementById("feature-list");
+  if (list) {
+    list.textContent = "";
+    list.appendChild(makeNotAnalyzedBlock(true));
+  }
+
+  // Graph container (inside drawer)
+  const container = document.getElementById("graph-container");
+  if (container) {
+    container.textContent = "";
+    container.appendChild(makeNotAnalyzedBlock(false));
+  }
+}
+
+// ============================================================
+// Mindmap View
+// ============================================================
+
+/**
+ * 建立單一 L1 feature 節點的 DOM 元素。
+ * 純函數：不依賴 state/els，onClick 由呼叫方注入。
+ *
+ * @param {{id:string, label:string, confidence?:string}} feature
+ * @param {function(string):void} onEnterL2  - 點擊時以 feature.id 呼叫
+ * @returns {HTMLDivElement}
+ */
+function createMindmapL1Node(feature, onEnterL2) {
+  const item = document.createElement("div");
+  item.className = "mm-l1-item";
+  item.dataset.featureId = feature.id;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "mm-l1-btn";
+  btn.addEventListener("click", () => onEnterL2(feature.id));
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "mm-l1-label";
+  labelEl.textContent = feature.label || feature.id;
+  btn.appendChild(labelEl);
+
+  if (feature.confidence) {
+    const badge = document.createElement("span");
+    badge.className = "confidence-badge confidence-badge-" + feature.confidence.toLowerCase();
+    badge.textContent = feature.confidence;
+    btn.appendChild(badge);
+  }
+
+  const l2Section = document.createElement("div");
+  l2Section.className = "mm-l2-section mm-state-loading";
+  l2Section.textContent = "載入中…";
+
+  item.append(btn, l2Section);
+  return item;
+}

@@ -48,7 +48,35 @@
   async function loadMindmapL2(featureId, containerEl) { /* no-op in tests */ }
 
   // ── 待測函數（Task 2 後在此貼上 createMindmapL1Node） ─────────
-  // PASTE: createMindmapL1Node
+  function createMindmapL1Node(feature, onEnterL2) {
+    const item = document.createElement("div");
+    item.className = "mm-l1-item";
+    item.dataset.featureId = feature.id;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mm-l1-btn";
+    btn.addEventListener("click", () => onEnterL2(feature.id));
+
+    const labelEl = document.createElement("span");
+    labelEl.className = "mm-l1-label";
+    labelEl.textContent = feature.label || feature.id;
+    btn.appendChild(labelEl);
+
+    if (feature.confidence) {
+      const badge = document.createElement("span");
+      badge.className = "confidence-badge confidence-badge-" + feature.confidence.toLowerCase();
+      badge.textContent = feature.confidence;
+      btn.appendChild(badge);
+    }
+
+    const l2Section = document.createElement("div");
+    l2Section.className = "mm-l2-section mm-state-loading";
+    l2Section.textContent = "載入中…";
+
+    item.append(btn, l2Section);
+    return item;
+  }
 
   // ── 待測函數（Task 3 後在此貼上 _renderMindmapL2Section） ─────
   // PASTE: _renderMindmapL2Section
