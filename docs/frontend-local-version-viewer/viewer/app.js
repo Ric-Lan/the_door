@@ -53,8 +53,6 @@ const state = {
   diffSortMode: "risk",
   /** @type {string|null} 層說明快取 */
   layerExplanation: null,
-  /** @type {Object.<string, object|"loading"|"unanalyzed"|"error">} */
-  mindmapL2Cache: {},
 };
 
 // ============================================================
@@ -92,8 +90,6 @@ const els = {
   zoomControls:     document.getElementById("zoom-controls"),
   btnBackL1:   document.getElementById("btn-back-l1"),
   btnMindmap:  document.getElementById("btn-mindmap"),
-  mindmapView: document.getElementById("mindmap-view"),
-  workspace:   document.querySelector(".workspace"),
 };
 
 // ============================================================
@@ -1529,8 +1525,6 @@ function renderBreadcrumb() {
     parts.push({ label: "L2", action: switchToL2FromL3 });
     parts.push({ label: moduleLabel, action: null });
     parts.push({ label: "L3", action: null });
-  } else if (state.layerState === "mindmap") {
-    parts.push({ label: "心智圖", action: null });
   }
 
   parts.forEach((part, i) => {
@@ -1555,11 +1549,7 @@ function renderBreadcrumb() {
     }
   });
 
-  // Workspace / mindmap-view 互斥可見性
-  const isMindmap = state.layerState === "mindmap";
-  if (els.workspace)   els.workspace.hidden   = isMindmap;
-  if (els.mindmapView) els.mindmapView.hidden = !isMindmap;
-  if (els.btnBackL1)   els.btnBackL1.hidden   = (state.layerState === "L1" || isMindmap);
+  if (els.btnBackL1) els.btnBackL1.hidden = (state.layerState === "L1");
 }
 
 function _getFeatureLabel(featureId) {
@@ -2050,204 +2040,7 @@ function renderL2NotAnalyzed(featureId) {
   }
 }
 
-// ============================================================
-// Mindmap View
-// ============================================================
-
-/**
- * 建立單一 L1 feature 節點的 DOM 元素。
- * 純函數：不依賴 state/els，onClick 由呼叫方注入。
- *
- * @param {{id:string, label:string, confidence?:string}} feature
- * @param {function(string):void} onEnterL2  - 點擊時以 feature.id 呼叫
- * @returns {HTMLDivElement}
- */
-function createMindmapL1Node(feature, onEnterL2) {
-  const item = document.createElement("div");
-  item.className = "mm-l1-item";
-  item.dataset.featureId = feature.id;
-
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "mm-l1-btn";
-  btn.addEventListener("click", () => onEnterL2(feature.id));
-
-  const labelEl = document.createElement("span");
-  labelEl.className = "mm-l1-label";
-  labelEl.textContent = feature.label || feature.id;
-  btn.appendChild(labelEl);
-
-  if (feature.confidence) {
-    const badge = document.createElement("span");
-    badge.className = "confidence-badge confidence-badge-" + feature.confidence.toLowerCase();
-    badge.textContent = feature.confidence;
-    btn.appendChild(badge);
-  }
-
-  const l2Section = document.createElement("div");
-  l2Section.className = "mm-l2-section mm-state-loading";
-  l2Section.textContent = "載入中…";
-
-  item.append(btn, l2Section);
-  return item;
-}
-
-/**
- * 根據快取狀態渲染 L2 子節點區域。
- * 近純函數：所有外部依賴由參數注入。
- *
- * @param {string} featureId
- * @param {HTMLElement} containerEl
- * @param {Object} cache            - state.mindmapL2Cache
- * @param {function(string):void} onEnterL3
- * @param {function(string):void} onGenerate
- */
-function _renderMindmapL2Section(featureId, containerEl, cache, onEnterL3, onGenerate) {
-  containerEl.textContent = "";
-  containerEl.className = "mm-l2-section";
-
-  const entry = cache[featureId];
-
-  if (!entry || entry === "loading") {
-    containerEl.classList.add("mm-state-loading");
-    containerEl.textContent = "載入中…";
-    return;
-  }
-
-  if (entry === "unanalyzed") {
-    containerEl.classList.add("mm-state-unanalyzed");
-    const msg = document.createElement("span");
-    msg.textContent = "尚未分析";
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "action-button";
-    btn.textContent = "生成 L2 分析";
-    btn.addEventListener("click", () => {
-      btn.disabled = true;
-      btn.textContent = "生成中…";
-      onGenerate(featureId);
-    });
-    const hint = document.createElement("p");
-    hint.className = "mm-hint";
-    hint.textContent = "或使用 CLI：";
-    const cmd = document.createElement("code");
-    cmd.className = "not-analyzed-cmd";
-    cmd.textContent = 'the-door analyze "<專案路徑>"';
-    hint.appendChild(cmd);
-    containerEl.append(msg, btn, hint);
-    return;
-  }
-
-  if (entry === "error") {
-    containerEl.classList.add("mm-state-error");
-    containerEl.textContent = "載入失敗，請重試";
-    return;
-  }
-
-  // Loaded — render module list
-  const nodes = entry.nodes || [];
-  if (!nodes.length) {
-    containerEl.classList.add("mm-state-loading");
-    containerEl.textContent = "（無模組資料）";
-    return;
-  }
-  nodes.forEach((node) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "mm-l2-item";
-    btn.dataset.moduleId = node.id;
-    btn.textContent = node.label || node.id;
-    btn.addEventListener("click", () => onEnterL3(node.id));
-    containerEl.appendChild(btn);
-  });
-}
-
-/**
- * 渲染心智圖全局視圖至 #mindmap-view。
- * 使用 state.l1GraphViewModel.nodes 作為 L1 清單；
- * 每個 L1 節點非同步載入 L2 資料（loadMindmapL2）。
- */
-function renderMindmap() {
-  const view = els.mindmapView;
-  if (!view) return;
-  view.textContent = "";
-
-  const features = state.l1GraphViewModel?.nodes || [];
-  if (!features.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "無 L1 資料，請先執行分析。";
-    view.appendChild(empty);
-    return;
-  }
-
-  const tree = document.createElement("div");
-  tree.className = "mindmap-tree";
-
-  features.forEach((feature) => {
-    const item = createMindmapL1Node(feature, switchToL2);
-    const l2Section = item.querySelector(".mm-l2-section");
-    tree.appendChild(item);
-    loadMindmapL2(feature.id, l2Section);
-  });
-
-  view.appendChild(tree);
-}
-
-/**
- * 非同步載入單一 feature 的 L2 資料並渲染至 containerEl。
- * 使用 state.mindmapL2Cache 避免重複 fetch。
- *
- * Cache 值：undefined（未快取）| "loading" | "unanalyzed" | "error" | object（ViewModel）
- *
- * ⚠ 重要：onEnterL3 closure 必須在呼叫 switchToL3 之前設定
- *   state.l2GraphViewModel 與 state.selectedFeatureId，
- *   因為 switchToL3 在第 1324 行讀取 state.l2GraphViewModel 來
- *   尋找 module 的 source_nodes，且 breadcrumb L3 層需要 selectedFeatureId。
- *
- * @param {string} featureId
- * @param {HTMLElement} containerEl  - .mm-l2-section 元素
- */
-async function loadMindmapL2(featureId, containerEl) {
-  // onEnterL3: 同步 L3 所需 state 後再委派 switchToL3
-  const onEnterL3 = (moduleId) => {
-    state.l2GraphViewModel = state.mindmapL2Cache[featureId];
-    state.selectedFeatureId = featureId;
-    switchToL3(moduleId);
-  };
-
-  if (state.mindmapL2Cache[featureId] !== undefined) {
-    _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
-    return;
-  }
-
-  state.mindmapL2Cache[featureId] = "loading";
-  _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
-
-  try {
-    const res = await fetch(
-      "http://127.0.0.1:8765/api/l2/" + encodeURIComponent(featureId),
-      { cache: "no-store" }
-    );
-    if (res.status === 404) {
-      state.mindmapL2Cache[featureId] = "unanalyzed";
-    } else if (!res.ok) {
-      state.mindmapL2Cache[featureId] = "error";
-    } else {
-      state.mindmapL2Cache[featureId] = await res.json();
-    }
-  } catch (_) {
-    state.mindmapL2Cache[featureId] = "error";
-  }
-
-  _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
-}
-
-/**
- * 切換至心智圖視圖。
- * 清空 L2 快取（避免舊資料），關閉 graph drawer，
- * 呼叫 renderBreadcrumb 觸發 workspace/mindmap-view 互斥切換。
- */
+/** 將當前 L1 資料寫入 sessionStorage 並開啟心智圖 popup。 */
 function switchToMindmap() {
   state.layerState = "mindmap";
   state.mindmapL2Cache = {};
