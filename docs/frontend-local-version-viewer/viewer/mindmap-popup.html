@@ -443,25 +443,38 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
           s += `<rect x="${lx}" y="${ly}" width="${NODE_W2}" height="${NODE_H2}" rx="4" `
              + `fill="white" stroke="${color}" stroke-width="1.5"/>`;
 
-          // Label (slightly left of center to leave room for indicators)
-          const hasConf  = !!l2.confidence;
-          const hasSrc   = Array.isArray(l2.source_nodes) && l2.source_nodes.length > 0;
-          const rightPad = hasConf ? 36 : hasSrc ? 24 : 10;
-          const maxChars = Math.floor((NODE_W2 - 14 - rightPad) / 7);
-          s += txt(lx + 10, l2y, color, 500, 11, trunc(l2.label || l2.id, maxChars), "start");
+          // ── Right-side badges (build right-to-left) ──
+          const srcN    = Array.isArray(l2.source_nodes) ? l2.source_nodes.length : 0;
+          const hasConf = !!l2.confidence;
+          const bh = 14;
+          let badgeR = lx + NODE_W2 - 6;   // right anchor, grows leftward
 
-          // Source node count (small grey text)
-          if (hasSrc) {
-            const srcX = hasConf ? lx + NODE_W2 - 30 : lx + NODE_W2 - 8;
-            s += txt(srcX, l2y, "#b0bec5", 400, 9, `${l2.source_nodes.length}`, "end");
-          }
-
-          // Confidence dot
+          // Confidence text pill (only when data exists)
           if (hasConf) {
-            const confColor = CONF_COLORS[l2.confidence] ?? "#90a4ae";
-            const dotX = lx + NODE_W2 - 10;
-            s += `<circle cx="${dotX}" cy="${l2y}" r="5" fill="${confColor}"/>`;
+            const cc   = CONF_COLORS[l2.confidence] ?? "#90a4ae";
+            const ct   = CONF_LABEL[l2.confidence]  ?? l2.confidence;
+            const bw   = ct.length <= 3 ? 24 : 30;
+            const cx_  = badgeR - bw / 2;
+            s += `<rect x="${cx_ - bw/2}" y="${l2y - bh/2}" width="${bw}" height="${bh}" rx="3" `
+               + `fill="${cc}" fill-opacity="0.15" stroke="${cc}" stroke-width="0.8"/>`;
+            s += txt(cx_, l2y, cc, 700, 8, ct);
+            badgeR -= bw + 4;
           }
+
+          // Source count pill (always shown, branch color)
+          {
+            const st  = String(srcN);
+            const bw  = srcN >= 10 ? 22 : 18;
+            const cx_ = badgeR - bw / 2;
+            s += `<rect x="${cx_ - bw/2}" y="${l2y - bh/2}" width="${bw}" height="${bh}" rx="7" `
+               + `fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="0.8"/>`;
+            s += txt(cx_, l2y, color, 700, 8, st);
+            badgeR -= bw + 4;
+          }
+
+          // Label — width limited by badge area
+          const maxChars = Math.max(4, Math.floor((badgeR - lx - 14) / 6.5));
+          s += txt(lx + 10, l2y, color, 500, 11, trunc(l2.label || l2.id, maxChars), "start");
         }
       });
     }
