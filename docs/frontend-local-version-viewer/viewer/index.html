@@ -16,20 +16,22 @@
         </div>
 
         <nav class="mode-switch" aria-label="viewer mode">
-          <button id="btn-diff" class="mode-button" type="button" data-mode="diff">差異</button>
+          <button id="btn-diff"     class="mode-button" type="button" data-mode="diff">差異</button>
           <button id="btn-baseline" class="mode-button" type="button" data-mode="baseline">舊版</button>
-          <button id="btn-current" class="mode-button" type="button" data-mode="current">新版</button>
+          <button id="btn-current"  class="mode-button" type="button" data-mode="current">新版</button>
         </nav>
 
         <div class="topbar-actions">
-          <button id="btn-reanalyze" class="action-button" type="button">重新分析</button>
+          <button id="btn-back-l1" class="action-button secondary" type="button" hidden>← L1</button>
+          <button id="btn-mindmap"  class="action-button"           type="button">心智圖</button>
+          <button id="btn-reanalyze" class="action-button"          type="button">重新分析</button>
         </div>
 
         <div class="status-strip" aria-label="analysis status">
-          <span id="count-added" class="count-badge count-added" title="新增">+0</span>
-          <span id="count-removed" class="count-badge count-removed" title="移除">-0</span>
+          <span id="count-added"    class="count-badge count-added"    title="新增">+0</span>
+          <span id="count-removed"  class="count-badge count-removed"  title="移除">-0</span>
           <span id="count-modified" class="count-badge count-modified" title="修改">~0</span>
-          <span id="count-risk" class="count-badge count-risk" title="風險" hidden>⚠ 0</span>
+          <span id="count-risk"     class="count-badge count-risk"     title="風險" hidden>⚠ 0</span>
         </div>
       </header>
 
@@ -37,7 +39,7 @@
         <p id="summary-text">載入中…</p>
       </div>
 
-      <!-- Pipeline progress (shown during update job) -->
+      <!-- Pipeline progress -->
       <div id="pipeline-progress" class="pipeline-progress" hidden>
         <div class="progress-header">
           <span class="progress-title">正在分析…</span>
@@ -48,40 +50,70 @@
 
       <div id="breadcrumb"></div>
 
-      <main class="workspace">
-        <aside class="sidebar" aria-label="change list">
-          <div class="panel-header">
-            <h2 id="list-title">變更清單</h2>
-            <p id="list-source">來自 UpdateReport.l1_changes</p>
-          </div>
-          <div id="diff-sort-toggle"></div>
-          <div id="feature-list" class="feature-list"></div>
-        </aside>
+      <!-- ── Mindmap full-screen view (互斥於 .workspace) ── -->
+      <div id="mindmap-view" class="mindmap-view" hidden aria-label="心智圖全局概覽"></div>
 
-        <section class="canvas" aria-label="graph canvas">
+      <!-- ── Main workspace: cards + detail ── -->
+      <main class="workspace">
+
+        <!-- Feature cards (primary content) -->
+        <section class="cards-panel" aria-label="feature cards">
           <div class="panel-header">
-            <h2 id="canvas-title">功能節點</h2>
+            <h2 id="list-title">功能總覽</h2>
+            <p id="list-source"></p>
           </div>
-          <div id="graph-container"></div>
-          <div id="mermaid-fallback" style="display:none;"></div>
-          <div id="graph-nodes" class="graph-nodes"></div>
-          <div id="relations-list" class="relations-list" hidden></div>
+          <div id="feature-list" class="feature-cards-grid"></div>
         </section>
 
+        <!-- Detail panel -->
         <aside class="detail-panel" aria-label="detail panel">
           <div class="panel-header">
             <h2>詳情</h2>
             <p id="detail-source">尚未選取</p>
           </div>
           <div id="detail-content" class="detail-content empty-state">
-            選取左側項目以查看詳情。
+            點選左側功能卡片以查看詳情。
           </div>
           <div id="layer-explanation"></div>
         </aside>
       </main>
     </div>
 
-    <!-- Update modal (shown when user clicks 重新分析) -->
+    <!-- ── Graph drawer (slides in from left) ── -->
+    <div id="graph-drawer" class="graph-drawer" aria-hidden="true">
+      <div class="graph-drawer-header">
+        <div class="graph-drawer-title">
+          <h2>關聯圖</h2>
+          <div id="legend-panel" class="legend-panel-inline"></div>
+        </div>
+        <div class="graph-drawer-controls">
+          <div class="zoom-controls" id="zoom-controls" hidden>
+            <button type="button" class="zoom-btn" id="btn-zoom-fit" title="自動適合畫布">⊡</button>
+            <button type="button" class="zoom-btn" id="btn-zoom-in"  title="放大">+</button>
+            <button type="button" class="zoom-btn" id="btn-zoom-out" title="縮小">−</button>
+          </div>
+          <button type="button" class="drawer-close-btn" id="btn-drawer-close" title="關閉">✕</button>
+        </div>
+      </div>
+      <div id="graph-container">
+        <div id="graph-spinner" class="graph-spinner">
+          <span class="spinner-ring"></span>
+          <span class="spinner-label">圖形載入中…</span>
+        </div>
+      </div>
+      <div id="mermaid-fallback" style="display:none;"></div>
+    </div>
+
+    <!-- Drawer backdrop -->
+    <div id="graph-backdrop" class="graph-backdrop" hidden></div>
+
+    <!-- Floating graph toggle button -->
+    <button id="btn-graph-toggle" class="graph-toggle-btn" type="button" title="開啟關聯圖">
+      <span class="graph-toggle-icon">⊞</span>
+      <span class="graph-toggle-label">關聯圖</span>
+    </button>
+
+    <!-- Update modal -->
     <div id="update-modal" class="modal-overlay" hidden>
       <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <h2 id="modal-title">重新分析</h2>
