@@ -1619,7 +1619,24 @@ function renderFeatureList(viewModel, layerState) {
         badge.textContent = node.confidence;
         metaEl.appendChild(badge);
       }
-    } else if (layerState === "L3") {
+    }
+    // Diff type tag — only for L1, only when diff data is available
+    if (layerState === "L1" && state.updateModel?.diff_available) {
+      const DIFF_LABELS = {
+        added:              "+ 新增",
+        removed:            "- 移除",
+        attribute_changed:  "~ 屬性變更",
+        dependency_changed: "≠ 依賴變更",
+      };
+      const change = state.updateModel.changes?.find(c => c.id === node.id);
+      if (change?.change_type) {
+        const tag = document.createElement("span");
+        tag.className = "diff-tag diff-tag-" + change.change_type;
+        tag.textContent = DIFF_LABELS[change.change_type] ?? change.change_type;
+        metaEl.appendChild(tag);
+      }
+    }
+    if (layerState === "L3") {
       if (node.type) {
         const badge = document.createElement("span");
         badge.className = "confidence-badge";

@@ -1116,3 +1116,18 @@ h1 {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ── Diff type tags (L1 feature list) ─────────────────── */
+.diff-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+.diff-tag-added            { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
+.diff-tag-removed          { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+.diff-tag-attribute_changed   { background: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }
+.diff-tag-dependency_changed  { background: #FFF8E1; color: #E65100; border: 1px solid #FFE082; }
