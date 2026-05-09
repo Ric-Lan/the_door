@@ -1529,6 +1529,8 @@ function renderBreadcrumb() {
     parts.push({ label: "L2", action: switchToL2FromL3 });
     parts.push({ label: moduleLabel, action: null });
     parts.push({ label: "L3", action: null });
+  } else if (state.layerState === "mindmap") {
+    parts.push({ label: "心智圖", action: null });
   }
 
   parts.forEach((part, i) => {
@@ -1552,6 +1554,12 @@ function renderBreadcrumb() {
       breadcrumbEl.appendChild(span);
     }
   });
+
+  // Workspace / mindmap-view 互斥可見性
+  const isMindmap = state.layerState === "mindmap";
+  if (els.workspace)   els.workspace.hidden   = isMindmap;
+  if (els.mindmapView) els.mindmapView.hidden = !isMindmap;
+  if (els.btnBackL1)   els.btnBackL1.hidden   = (state.layerState === "L1" || isMindmap);
 }
 
 function _getFeatureLabel(featureId) {
@@ -2233,4 +2241,17 @@ async function loadMindmapL2(featureId, containerEl) {
   }
 
   _renderMindmapL2Section(featureId, containerEl, state.mindmapL2Cache, onEnterL3, generateL2);
+}
+
+/**
+ * 切換至心智圖視圖。
+ * 清空 L2 快取（避免舊資料），關閉 graph drawer，
+ * 呼叫 renderBreadcrumb 觸發 workspace/mindmap-view 互斥切換。
+ */
+function switchToMindmap() {
+  state.layerState = "mindmap";
+  state.mindmapL2Cache = {};
+  closeGraphDrawer();
+  renderBreadcrumb();
+  renderMindmap();
 }
