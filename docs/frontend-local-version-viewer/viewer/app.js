@@ -53,6 +53,8 @@ const state = {
   diffSortMode: "risk",
   /** @type {string|null} 層說明快取 */
   layerExplanation: null,
+  /** @type {Object.<string, object|"loading"|"unanalyzed"|"error">} */
+  mindmapL2Cache: {},
 };
 
 // ============================================================
@@ -88,6 +90,10 @@ const els = {
   btnGraphToggle:   document.getElementById("btn-graph-toggle"),
   btnDrawerClose:   document.getElementById("btn-drawer-close"),
   zoomControls:     document.getElementById("zoom-controls"),
+  btnBackL1:   document.getElementById("btn-back-l1"),
+  btnMindmap:  document.getElementById("btn-mindmap"),
+  mindmapView: document.getElementById("mindmap-view"),
+  workspace:   document.querySelector(".workspace"),
 };
 
 // ============================================================
@@ -113,6 +119,8 @@ els.btnModalSubmit.addEventListener("click",  () => {
 els.btnGraphToggle?.addEventListener("click", openGraphDrawer);
 els.btnDrawerClose?.addEventListener("click", closeGraphDrawer);
 els.graphBackdrop?.addEventListener("click", closeGraphDrawer);
+els.btnMindmap?.addEventListener("click",  switchToMindmap);
+els.btnBackL1?.addEventListener("click",   switchToL1);
 
 // Start: try API first, fallback to static JSON on network error
 loadProjectStatus();
