@@ -2153,3 +2153,35 @@ function _renderMindmapL2Section(featureId, containerEl, cache, onEnterL3, onGen
     containerEl.appendChild(btn);
   });
 }
+
+/**
+ * 渲染心智圖全局視圖至 #mindmap-view。
+ * 使用 state.l1GraphViewModel.nodes 作為 L1 清單；
+ * 每個 L1 節點非同步載入 L2 資料（loadMindmapL2）。
+ */
+function renderMindmap() {
+  const view = els.mindmapView;
+  if (!view) return;
+  view.textContent = "";
+
+  const features = state.l1GraphViewModel?.nodes || [];
+  if (!features.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "無 L1 資料，請先執行分析。";
+    view.appendChild(empty);
+    return;
+  }
+
+  const tree = document.createElement("div");
+  tree.className = "mindmap-tree";
+
+  features.forEach((feature) => {
+    const item = createMindmapL1Node(feature, switchToL2);
+    const l2Section = item.querySelector(".mm-l2-section");
+    tree.appendChild(item);
+    loadMindmapL2(feature.id, l2Section);
+  });
+
+  view.appendChild(tree);
+}
