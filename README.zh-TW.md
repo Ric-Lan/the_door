@@ -375,7 +375,7 @@ python -m pytest tests/ -x -q
 
 ## 授權
 
-MIT
+AGPL-3.0 + Commons Clause — 免費使用與修改；修改版必須以相同條款開源；禁止販售軟體本身；商業用途需另行取得授權，請透過 issue tracker 聯繫專案維護者。
 
 ## 文件
 

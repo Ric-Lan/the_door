@@ -375,7 +375,7 @@ python -m pytest tests/ -x -q
 
 ## License
 
-MIT
+AGPL-3.0 + Commons Clause — free to use and modify; modified versions must be open-sourced under the same terms; selling the software itself is prohibited. Commercial use requires a separate license — contact the maintainer via the issue tracker.
 
 ## Documentation
 
