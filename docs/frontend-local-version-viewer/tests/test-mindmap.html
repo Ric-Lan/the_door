@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>Mindmap Unit Tests</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .pass { color: green; }
+    .fail { color: red; font-weight: bold; }
+    #summary { margin-top: 16px; font-size: 16px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Mindmap Unit Tests</h2>
+  <div id="results"></div>
+  <div id="summary"></div>
+  <!-- 測試用 DOM 掛載點 -->
+  <div id="mindmap-view" style="display:none"></div>
+
+  <script>
+  "use strict";
+
+  // ── Test runner ───────────────────────────────────────────────
+  let _passed = 0, _failed = 0;
+  function assert(condition, label) {
+    const el = document.createElement("div");
+    el.className = condition ? "pass" : "fail";
+    el.textContent = (condition ? "✓ " : "✗ ") + label;
+    document.getElementById("results").appendChild(el);
+    condition ? _passed++ : _failed++;
+  }
+  function summary() {
+    document.getElementById("summary").textContent =
+      _passed + "/" + (_passed + _failed) + " tests passed";
+  }
+
+  // ── Mock globals（讓待測函數可以引用） ────────────────────────
+  let state = {
+    l1GraphViewModel: null,
+    mindmapL2Cache: {},
+    layerState: "mindmap",
+  };
+  const els = { mindmapView: document.getElementById("mindmap-view") };
+  function switchToL2(id) { switchToL2.lastCall = id; }
+  function switchToL3(id) { switchToL3.lastCall = id; }
+  function generateL2(id) { generateL2.lastCall = id; }
+  // 覆蓋 loadMindmapL2，避免在測試中發出 fetch
+  async function loadMindmapL2(featureId, containerEl) { /* no-op in tests */ }
+
+  // ── 待測函數（Task 2 後在此貼上 createMindmapL1Node） ─────────
+  // PASTE: createMindmapL1Node
+
+  // ── 待測函數（Task 3 後在此貼上 _renderMindmapL2Section） ─────
+  // PASTE: _renderMindmapL2Section
+
+  // ── 待測函數（Task 6 後在此貼上 renderMindmap） ───────────────
+  // PASTE: renderMindmap
+
+  // ── Tests ─────────────────────────────────────────────────────
+
+  // T1: createMindmapL1Node — 有 confidence
+  try {
+    const f = createMindmapL1Node({ id: "feat-a", label: "Feature A", confidence: "HIGH" }, () => {});
+    assert(f.querySelector(".mm-l1-btn") !== null,                        "T1a: has .mm-l1-btn");
+    assert(f.querySelector(".mm-l1-label").textContent === "Feature A",   "T1b: label correct");
+    assert(f.querySelector(".confidence-badge") !== null,                 "T1c: has confidence-badge");
+    assert(f.dataset.featureId === "feat-a",                              "T1d: data-feature-id set");
+  } catch(e) { assert(false, "T1 threw: " + e.message); }
+
+  // T2: createMindmapL1Node — 無 confidence
+  try {
+    const f = createMindmapL1Node({ id: "feat-b", label: "Feature B" }, () => {});
+    assert(f.querySelector(".confidence-badge") === null, "T2: no badge when confidence missing");
+  } catch(e) { assert(false, "T2 threw: " + e.message); }
+
+  // T3: createMindmapL1Node — id 含特殊字元
+  try {
+    const f = createMindmapL1Node({ id: "feat/x&y=z", label: "X" }, () => {});
+    assert(f.dataset.featureId === "feat/x&y=z", "T3: data-feature-id 含特殊字元正確");
+  } catch(e) { assert(false, "T3 threw: " + e.message); }
+
+  // T4: _renderMindmapL2Section — loading
+  try {
+    const el = document.createElement("div");
+    _renderMindmapL2Section("f", el, { f: "loading" }, () => {}, () => {});
+    assert(el.classList.contains("mm-state-loading"), "T4: loading state");
+  } catch(e) { assert(false, "T4 threw: " + e.message); }
+
+  // T5: _renderMindmapL2Section — unanalyzed
+  try {
+    const el = document.createElement("div");
+    _renderMindmapL2Section("f", el, { f: "unanalyzed" }, () => {}, () => {});
+    assert(el.classList.contains("mm-state-unanalyzed"),    "T5a: unanalyzed state");
+    assert(el.querySelector("button") !== null,             "T5b: has generate button");
+  } catch(e) { assert(false, "T5 threw: " + e.message); }
+
+  // T6: _renderMindmapL2Section — error
+  try {
+    const el = document.createElement("div");
+    _renderMindmapL2Section("f", el, { f: "error" }, () => {}, () => {});
+    assert(el.classList.contains("mm-state-error"), "T6: error state");
+  } catch(e) { assert(false, "T6 threw: " + e.message); }
+
+  // T7: _renderMindmapL2Section — loaded，2 個 modules
+  try {
+    const el = document.createElement("div");
+    const vm = { nodes: [{ id: "m1", label: "Mod 1" }, { id: "m2", label: "Mod 2" }] };
+    _renderMindmapL2Section("f", el, { f: vm }, () => {}, () => {});
+    assert(el.querySelectorAll(".mm-l2-item").length === 2, "T7: renders 2 module items");
+  } catch(e) { assert(false, "T7 threw: " + e.message); }
+
+  // T8: renderMindmap — 無 L1 資料
+  try {
+    state.l1GraphViewModel = null;
+    els.mindmapView.textContent = "";
+    renderMindmap();
+    assert(els.mindmapView.querySelector(".empty-state") !== null, "T8: empty-state when no L1");
+  } catch(e) { assert(false, "T8 threw: " + e.message); }
+
+  // T9: renderMindmap — 3 個 features
+  try {
+    state.l1GraphViewModel = { nodes: [
+      { id: "f1", label: "F1" },
+      { id: "f2", label: "F2" },
+      { id: "f3", label: "F3" },
+    ]};
+    els.mindmapView.textContent = "";
+    renderMindmap();
+    assert(els.mindmapView.querySelectorAll(".mm-l1-item").length === 3, "T9: renders 3 L1 items");
+  } catch(e) { assert(false, "T9 threw: " + e.message); }
+
+  summary();
+  </script>
+</body>
+</html>
