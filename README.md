@@ -1,47 +1,49 @@
+English | [繁體中文](README.zh-TW.md)
+
 # The Door
 
-把程式碼的「結構與變化」翻譯成功能語言圖形，讓不讀程式的人能直接驗核開發產出。
+Translates code structure and changes into functional-language diagrams — so non-technical stakeholders can verify what was actually built.
 
-Vibe coding為技術主軸。以需求串聯整個開發。
+Vibe coding as the technical backbone. Requirements drive the entire development flow.
 
-> 翻譯方向：技術語言 → 功能語言。圖形不是裝飾，是驗核介面。
+> Translation direction: technical language → functional language. Diagrams are not decoration — they are the verification interface.
 
 ---
 
-## 這是什麼
+## What Is This
 
-The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼，透過 LLM 翻譯成「功能語言」——用一般人的話描述系統能做什麼、改了什麼、有沒有異常。
+The Door is a CLI tool + MCP Server + local UI. It reads your codebase and uses an LLM to translate it into "functional language" — plain descriptions of what the system does, what changed, and whether anything looks wrong.
 
-**給誰用：** PM、專案經理、發布經理、QA、甲方——任何需要確認「開發產出是否符合承諾」但不讀程式碼的人。
+**Who it's for:** PMs, project managers, release managers, QA, clients — anyone who needs to confirm that deliverables match commitments, without reading code.
 
-**核心能力：**
+**Core capabilities:**
 
-| 能力 | 說明 |
+| Capability | Description |
 |---|---|
-| 功能翻譯 | 程式碼 → 功能語言圖形（互動式 + Mermaid fallback）+ 自然語言敘述 |
-| 版本比對 | 兩個版本之間改了什麼，風險項目優先顯示 |
-| 範圍驗核 | PM 定義 sprint 範圍 → 自動比對 → 標記超出範圍項目 |
-| 漏洞掃描 | 依賴套件的已知 CVE，整合到功能圖形中 |
-| 功能演進 | 多版本時間軸，追蹤功能從何時出現、改了幾次 |
-| 疑義追蹤 | 發現異常 → 標記疑義 → 指派 → 解決（含超時升級） |
-| 本地 UI | 瀏覽器工作台，互動式圖形，三層導覽（L1 → L2 → L3） |
+| Feature translation | Code → functional-language diagram (interactive + Mermaid fallback) + natural-language narrative |
+| Version diff | What changed between two versions, risks surfaced first |
+| Scope verification | PM defines sprint scope → auto-compare → flag out-of-scope items |
+| Vulnerability scan | Known CVEs in dependencies, integrated into the feature diagram |
+| Feature evolution | Multi-version timeline tracking when features appeared and how often they changed |
+| Doubt tracking | Anomaly detected → flagged → assigned → resolved (with escalation on timeout) |
+| Local UI | Browser workbench, interactive diagrams, three-layer navigation (L1 → L2 → L3) |
 
 ---
 
-## 一、簡易入門
+## I. Quick Start
 
-### 沒有 API Key？用 AI 平台直接分析
+### No API Key? Use an AI Platform Directly
 
-如果你使用 **Claude Code**、**Kiro IDE** 或其他支援 MCP 的 AI 平台，不需要自備 API key——由平台的 AI 負責分析，The Door 只負責讀取程式碼與產生圖形。
+If you use **Claude Code**, **Kiro IDE**, or any other MCP-compatible AI platform, you don't need your own API key — the platform's AI handles the analysis, and The Door just reads the code and produces the diagrams.
 
-**步驟：**
+**Steps:**
 
-1. 安裝套件：
+1. Install the package:
    ```bash
    pip install the-door
    ```
 
-2. 在 AI 平台的 MCP 設定中加入 The Door：
+2. Add The Door to your AI platform's MCP configuration:
    ```json
    {
      "mcpServers": {
@@ -53,120 +55,120 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
    }
    ```
 
-3. 在 AI 平台中直接對話，例如：
-   > 「幫我分析 `./my-project` 的 L1 功能圖」
-   > 「比對 `./old` 和 `./new` 之間改了什麼」
+3. Talk to the AI directly, for example:
+   > "Analyze `./my-project` and give me the L1 feature diagram."
+   > "Compare `./old` and `./new` — what changed?"
 
-AI 會透過 MCP 呼叫 The Door 的工具完成分析，結果直接回傳到對話中。
+The AI calls The Door's tools via MCP and returns results directly in the conversation.
 
 ---
 
-### 有 API Key？自行驅動 CLI
+### Have an API Key? Drive the CLI Yourself
 
-### 安裝（一次性）
+### Install (one-time)
 
 ```bash
 pip install the-door
-the-door config init    # 建立設定檔，填入 LLM API key
+the-door config init    # Create config file and fill in your LLM API key
 ```
 
-> 設定檔位於 `~/.the-door/config.toml`，支援 OpenAI / Anthropic / Ollama（詳見[詳細操作 → LLM 設定](#llm-設定)）。
+> Config file is at `~/.the-door/config.toml`. Supports OpenAI / Anthropic / Ollama (see [Detailed Reference → LLM Configuration](#llm-configuration)).
 
 ---
 
-### 專案路徑說明
+### Project Path
 
-`<path>` 填入你要分析的專案目錄路徑。分析產物會自動存在該目錄下的 `.the-door/` 資料夾，不會污染原始碼。
+`<path>` is the directory of the project you want to analyze. Analysis artifacts are saved automatically under `.the-door/` inside that directory — your source code is not modified.
 
-> **差異分析的路徑限制**因使用方式而異（UI vs CLI vs MCP），詳見[詳細操作 → 差異分析路徑規則](#差異分析路徑規則)。
-
----
-
-### 流程順序：分析 → 快照 → 比對
-
-**差異分析需要兩個時間點的快照才能比對。** 建議的標準流程：
-
-```
-第一次（建立基準）：  the-door analyze ./my-project
-                     ↓ 自動建立快照（存於 .the-door/snapshots/）
-
-開發進行中…
-
-第二次（有新版本後）：the-door analyze ./my-project
-                     ↓ 自動建立新快照
-
-比對兩次快照：        the-door diff ./my-project --baseline <上一版的 label 或 git tag>
-```
-
-> `the-door analyze` 每次執行都會自動建立快照，**不需要手動執行** `snapshot create`。  
-> 若要比對兩個不同目錄（如 `old/` 和 `new/`），直接用 `the-door update` 即可，它會自動分析兩邊再比對。
+> **Path restrictions for diff analysis** vary by usage mode (UI vs CLI vs MCP). See [Detailed Reference → Diff Path Rules](#diff-path-rules).
 
 ---
 
-### L1 功能總覽
+### Workflow: Analyze → Snapshot → Diff
 
-**一鍵 L1 分析**——讀取專案，輸出所有功能的總覽圖與自然語言說明：
+**Diff analysis requires snapshots from two points in time.** Recommended flow:
+
+```
+First run (establish baseline):  the-door analyze ./my-project
+                                  ↓ snapshot created automatically (.the-door/snapshots/)
+
+Development continues…
+
+Second run (after new changes):  the-door analyze ./my-project
+                                  ↓ new snapshot created automatically
+
+Compare the two snapshots:       the-door diff ./my-project --baseline <label or git tag>
+```
+
+> `the-door analyze` creates a snapshot automatically every time — **no need to run** `snapshot create` manually.  
+> To compare two separate directories, use `the-door update` directly — it analyzes both sides and diffs them in one step.
+
+---
+
+### L1 Feature Overview
+
+**One-command L1 analysis** — reads the project, outputs a full feature diagram and natural-language description:
 
 ```bash
 the-door analyze ./my-project
 ```
 
-**一鍵 L1 差異分析**——比對兩個版本之間改了什麼，風險項目優先顯示：
+**One-command L1 diff** — shows what changed between two versions, risks first:
 
 ```bash
-# 方式一：兩個目錄直接比對
+# Option 1: compare two directories directly
 the-door update <old-path> <new-path>
 
-# 方式二：用快照比對（需先執行過兩次 analyze）
+# Option 2: compare against a snapshot (requires two prior analyze runs)
 the-door diff <path> --baseline v1.0
 ```
 
-> 路徑限制依使用方式不同，詳見[詳細操作 → 差異分析路徑規則](#差異分析路徑規則)。
+> Path restrictions vary by usage mode. See [Detailed Reference → Diff Path Rules](#diff-path-rules).
 
 ---
 
-### L2 模組細節
+### L2 Module Detail
 
-**一鍵 L2 分析**——在瀏覽器工作台查看各功能的模組連動圖（需先完成 L1 分析）：
+**One-command L2 analysis** — open the browser workbench to explore module-level diagrams (requires L1 analysis first):
 
 ```bash
 the-door ui ./my-project
 ```
 
-> 開啟後點選左側任一功能節點，右側面板點「生成 L2」即可展開模組圖。
+> Once open, click any feature node in the left panel, then click "Generate L2" in the right panel to expand the module diagram.
 
-**一鍵 L2 差異分析**——比對後直接在 UI 查看 L2 層的變更細節：
+**One-command L2 diff** — run a diff and immediately view L2-level changes in the UI:
 
 ```bash
 the-door update <old-path> <new-path> && the-door ui <new-path>
 ```
 
-> 差異模式下節點以顏色標示新增／修改／刪除，點選節點可查看 Before/After 詳情。
+> In diff mode, nodes are color-coded for added / modified / deleted. Click any node to see Before/After details.
 
 ---
 
-## 二、詳細操作
+## II. Detailed Reference
 
-### LLM 設定
+### LLM Configuration
 
-`the-door config init` 會在 `~/.the-door/config.toml` 建立設定檔。支援三種 provider：
+`the-door config init` creates a config file at `~/.the-door/config.toml`. Three providers are supported:
 
 ```toml
-# OpenAI（預設）
+# OpenAI (default)
 [provider]
 default = "openai"
 [provider.openai]
 api_key = "sk-..."
 model = "gpt-4o"
 
-# 或 Anthropic
+# or Anthropic
 [provider]
 default = "anthropic"
 [provider.anthropic]
 api_key = "..."
 model = "claude-sonnet-4-20250514"
 
-# 或 Ollama（本地模型，免費）
+# or Ollama (local model, free)
 [provider]
 default = "ollama"
 [provider.ollama]
@@ -174,90 +176,90 @@ url = "http://localhost:11434"
 model = "qwen3:8b"
 ```
 
-環境變數 `THE_DOOR_OPENAI_KEY`、`THE_DOOR_ANTHROPIC_KEY`、`THE_DOOR_OLLAMA_URL` 優先於設定檔。
+Environment variables `THE_DOOR_OPENAI_KEY`, `THE_DOOR_ANTHROPIC_KEY`, `THE_DOOR_OLLAMA_URL` take precedence over the config file.
 
-### 分析與渲染
-
-```bash
-the-door analyze <path>                    # 一鍵分析（AST + LLM + 漏洞掃描 + 自動快照）
-the-door analyze <path> --provider ollama  # 指定 provider
-the-door render <path>                     # 輸出 Mermaid 功能圖形
-the-door estimate <path>                   # 預估 LLM 呼叫成本
-```
-
-### 本地 UI 工作台
+### Analysis & Rendering
 
 ```bash
-the-door ui <path>                         # 啟動本地 UI server，自動開啟瀏覽器
-the-door ui <path> --port 9000             # 指定端口（預設 8765）
-the-door ui <path> --no-browser            # 不自動開啟瀏覽器
+the-door analyze <path>                    # Full analysis (AST + LLM + vulnerability scan + auto-snapshot)
+the-door analyze <path> --provider ollama  # Specify provider
+the-door render <path>                     # Output Mermaid feature diagram
+the-door estimate <path>                   # Estimate LLM call cost
 ```
 
-啟動後在 `http://127.0.0.1:8765` 開啟三欄工作台：
+### Local UI Workbench
 
-- **左側**：功能清單 / 變更清單（風險優先排序）
-- **中央**：互動式圖形（Cytoscape.js，支援點選、縮放、拖曳）
-- **右側**：詳情面板（Before/After、資料來源、信心標記）
+```bash
+the-door ui <path>                         # Start local UI server, auto-open browser
+the-door ui <path> --port 9000             # Custom port (default: 8765)
+the-door ui <path> --no-browser            # Don't auto-open browser
+```
 
-支援三層導覽：L1 功能總覽 → L2 模組連動圖 → L3 原始碼節點圖。差異模式下顯示有顏色標示的變更節點。
+Opens a three-panel workbench at `http://127.0.0.1:8765`:
 
-### 差異分析路徑規則
+- **Left**: Feature list / change list (risk-prioritized)
+- **Center**: Interactive diagram (Cytoscape.js — click, zoom, drag)
+- **Right**: Detail panel (Before/After, data source, confidence markers)
 
-差異分析接受兩個路徑（`old_path` / `new_path`），但三種使用方式的限制不同：
+Three-layer navigation: L1 feature overview → L2 module diagram → L3 source node graph. Diff mode shows color-coded change nodes.
 
-| 使用方式 | 需要絕對路徑 | 需在同一根目錄下 |
+### Diff Path Rules
+
+Diff analysis takes two paths (`old_path` / `new_path`), but the constraints differ by usage mode:
+
+| Usage mode | Absolute path required | Must be under the same root |
 |---|---|---|
-| **UI（瀏覽器工作台）** | 是 | **是**，兩個路徑都必須位於啟動 UI 時指定的專案根目錄下 |
-| **CLI** (`the-door update`) | 否，相對路徑會自動轉換 | 否，可比對系統上任意兩個目錄 |
-| **MCP 工具** | 否 | 否，可比對系統上任意兩個目錄 |
+| **UI (browser workbench)** | Yes | **Yes** — both paths must be subdirectories of the project root passed to `the-door ui` |
+| **CLI** (`the-door update`) | No, relative paths are resolved automatically | No — any two directories on the system |
+| **MCP tool** | No | No — any two directories on the system |
 
-**UI 的路徑結構範例：**
+**UI directory structure example:**
 
 ```
-C:\projects\my-app\          ← 啟動 UI 時指定的根目錄
-├── v1\                      ← 舊版路徑（必須在根目錄下）
-└── v2\                      ← 新版路徑（必須在根目錄下）
+C:\projects\my-app\          ← root passed to the-door ui
+├── v1\                      ← old path (must be inside root)
+└── v2\                      ← new path (must be inside root)
 ```
 
-**CLI / MCP 範例（無此限制）：**
+**CLI / MCP example (no such restriction):**
 
 ```bash
-# 兩個完全不同位置的目錄也可以比對
+# Completely separate directories work fine
 the-door update C:\projects\old-app C:\projects\new-app
 ```
 
-### 版本比對
+### Version Diff
 
 ```bash
-# 兩個目錄比對（完整管線：分析 → 比對 → 報告）
+# Compare two directories (full pipeline: analyze → diff → report)
 the-door update <old-path> <new-path>
-the-door update <old> <new> --scope sprint-12   # 搭配範圍驗核
-the-door update <old> <new> --json               # JSON 格式
-the-door update <old> <new> --render             # Mermaid 圖形
-the-door update <old> <new> -o report.md         # 輸出到檔案
+the-door update <old> <new> --scope sprint-12   # With scope verification
+the-door update <old> <new> --json               # JSON output
+the-door update <old> <new> --render             # Mermaid diagram
+the-door update <old> <new> -o report.md         # Write to file
 
-# 用快照比對
+# Compare against a snapshot
 the-door diff <path> --baseline <ref>            # ref = git tag / SHA / date / label
 ```
 
-### 快照管理
+### Snapshot Management
 
 ```bash
 the-door snapshot create <path> --label "v2.1"
 the-door snapshot list <path>
-the-door snapshot prune <path>              # 清理舊快照
-the-door snapshot prune <path> --dry-run    # 預覽
+the-door snapshot prune <path>              # Remove old snapshots
+the-door snapshot prune <path> --dry-run    # Preview before pruning
 ```
 
-### 範圍驗核
+### Scope Verification
 
 ```bash
-the-door scope create sprint-12             # 建立範圍定義
+the-door scope create sprint-12             # Define a scope
 the-door scope verify <path> --scope sprint-12
 the-door scope list
 ```
 
-### 疑義追蹤
+### Doubt Tracking
 
 ```bash
 the-door doubt list
@@ -266,101 +268,101 @@ the-door doubt resolve <id> --as explained --reason "..."
 the-door doubt escalate <id> --reason "..."
 ```
 
-### 漏洞掃描
+### Vulnerability Scan
 
 ```bash
 the-door scan <path>
-the-door scan <path> --offline              # 離線模式
+the-door scan <path> --offline              # Offline mode
 ```
 
-### 功能演進
+### Feature Evolution
 
 ```bash
 the-door timeline <path>
-the-door timeline <path> --render           # Mermaid gantt 圖形
-the-door timeline <path> --feature <id>     # 單一功能演進
+the-door timeline <path> --render           # Mermaid Gantt diagram
+the-door timeline <path> --feature <id>     # Single feature history
 ```
 
 ### MCP Server
 
 ```bash
-the-door mcp-serve                          # 啟動 MCP Server（18 tools）
+the-door mcp-serve                          # Start MCP Server (18 tools)
 ```
 
-支援所有 MCP-compatible AI 工具（Claude Desktop、Cursor 等）直接呼叫。
+Works with all MCP-compatible AI tools (Claude Desktop, Cursor, etc.).
 
-## 架構
+## Architecture
 
 ```
-程式碼 → AST 結構提取（tree-sitter，305+ 語言）
-       → 拓撲分析（依賴排序，純本地）
-       → LLM 翻譯（功能識別 + 功能語言敘述）
-       → 輸出驗證（schema + 語意檢查）
-       → Mermaid 圖形 + JSON 報告
-       → 本地 UI（互動式圖形工作台）
+Code → AST extraction (tree-sitter, 305+ languages)
+     → Topology analysis (dependency ordering, fully local)
+     → LLM translation (feature identification + functional-language description)
+     → Output validation (schema + semantic checks)
+     → Mermaid diagram + JSON report
+     → Local UI (interactive diagram workbench)
 ```
 
-- **LLM-Centric：** 功能識別與翻譯由 LLM 執行，系統負責約束 LLM 的輸入與輸出
-- **AI-Medium-Agnostic：** CLI + MCP Server 雙核心，任何能讀取本機檔案的 AI 媒介都能執行
-- **Local-first：** 除 LLM 呼叫外，所有分析、儲存、渲染都在本地完成，不需要雲端帳號
-- **信任架構：** LLM 不知道的就標記為不知道，禁止幻覺，信心標記可見
+- **LLM-Centric:** Feature identification and translation are handled by the LLM; the system constrains its inputs and outputs
+- **AI-Medium-Agnostic:** CLI + MCP Server dual core — any AI medium that can read local files can drive it
+- **Local-first:** All analysis, storage, and rendering happen locally except for the LLM call itself — no cloud account needed
+- **Trust architecture:** What the LLM doesn't know is marked as unknown; hallucination is prohibited; confidence markers are visible
 
-## 本地 UI API
+## Local UI API
 
-`the-door ui` 啟動後提供 13 個本地 API 端點（僅綁定 `127.0.0.1`）：
+`the-door ui` exposes 13 local API endpoints (bound to `127.0.0.1` only):
 
-| Method | Path | 說明 |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/api/project` | 專案路徑與可用資料狀態 |
-| GET | `/api/snapshots` | 版本快照列表 |
-| GET | `/api/report/latest` | 最新版本比對報告 |
-| POST | `/api/update` | 觸發版本比對管線 |
-| GET | `/api/update/status/<job_id>` | 輪詢管線進度 |
-| GET | `/api/doubts` | 疑義列表 |
-| GET | `/api/timeline` | 時間軸分析結果 |
-| GET | `/api/l1` | L1 功能圖形 ViewModel |
-| GET | `/api/l2/<feature_id>` | L2 模組圖形 ViewModel |
-| POST | `/api/l2/<feature_id>/generate` | 觸發 L2 LLM 生成 |
-| GET | `/api/structure` | AST 結構原料 |
-| GET | `/api/layer-explanation/<fid>/<layer>` | 層說明快取 |
-| POST | `/api/layer-explanation/<fid>/<layer>/generate` | 觸發層說明 LLM 生成 |
+| GET | `/api/project` | Project path and available data status |
+| GET | `/api/snapshots` | Version snapshot list |
+| GET | `/api/report/latest` | Latest diff report |
+| POST | `/api/update` | Trigger diff pipeline |
+| GET | `/api/update/status/<job_id>` | Poll pipeline progress |
+| GET | `/api/doubts` | Doubt list |
+| GET | `/api/timeline` | Timeline analysis results |
+| GET | `/api/l1` | L1 feature diagram ViewModel |
+| GET | `/api/l2/<feature_id>` | L2 module diagram ViewModel |
+| POST | `/api/l2/<feature_id>/generate` | Trigger L2 LLM generation |
+| GET | `/api/structure` | AST structure data |
+| GET | `/api/layer-explanation/<fid>/<layer>` | Layer explanation cache |
+| POST | `/api/layer-explanation/<fid>/<layer>/generate` | Trigger layer explanation LLM generation |
 
-## 技術棧
+## Tech Stack
 
-| 元件 | 用途 | 授權 |
+| Component | Purpose | License |
 |---|---|---|
-| tree-sitter-language-pack | AST 結構提取（305+ 語言） | MIT |
-| networkx | 拓撲分析 | BSD-3 |
-| jsonschema | 輸出驗證（Draft 2020-12） | MIT |
+| tree-sitter-language-pack | AST extraction (305+ languages) | MIT |
+| networkx | Topology analysis | BSD-3 |
+| jsonschema | Output validation (Draft 2020-12) | MIT |
 | mcp | MCP Server SDK | Apache 2.0 |
-| click | CLI 框架 | BSD-3 |
-| httpx | LLM API 呼叫 | BSD-3 |
-| Cytoscape.js | 互動式圖形（本地打包，無 CDN） | MIT |
-| osv-scanner | 漏洞掃描（選配） | Apache 2.0 |
+| click | CLI framework | BSD-3 |
+| httpx | LLM API calls | BSD-3 |
+| Cytoscape.js | Interactive diagrams (locally bundled, no CDN) | MIT |
+| osv-scanner | Vulnerability scanning (optional) | Apache 2.0 |
 
-## 專案資料
+## Project Data
 
-分析產物存在目標專案的 `.the-door/` 目錄下：
+Analysis artifacts are stored in `.the-door/` inside the target project:
 
 ```
 .the-door/
-├── snapshots/                    # 版本快照（JSON）
-├── fingerprints/                 # 檔案指紋（智慧跳過用）
-├── doubts/                       # 疑義記錄
-├── l2-outputs/                   # L2 模組分析快取
+├── snapshots/                    # Version snapshots (JSON)
+├── fingerprints/                 # File fingerprints (for smart skipping)
+├── doubts/                       # Doubt records
+├── l2-outputs/                   # L2 module analysis cache
 │   └── <feature_id>.json
-├── layer-explanations/           # 層說明快取
+├── layer-explanations/           # Layer explanation cache
 │   └── <feature_id>/
 │       └── <layer>.json
-├── structure.json                # AST 結構原料（the-door extract 產生）
-├── scope-config.json             # 範圍驗核設定
-├── retention-config.json         # 版本保留策略
-└── update-report-<timestamp>.json # 版本比對報告
+├── structure.json                # AST structure data (produced by the-door extract)
+├── scope-config.json             # Scope verification config
+├── retention-config.json         # Snapshot retention policy
+└── update-report-<timestamp>.json # Diff report
 ```
 
-建議將 `.the-door/` 加入 `.gitignore`。
+Add `.the-door/` to your `.gitignore`.
 
-## 開發
+## Development
 
 ```bash
 git clone <repo>
@@ -369,15 +371,15 @@ pip install -e ".[dev]"
 python -m pytest tests/ -x -q
 ```
 
-526 tests（unit + property-based + integration），使用 pytest + Hypothesis。
+526 tests (unit + property-based + integration) using pytest + Hypothesis.
 
-## 授權
+## License
 
 MIT
 
-## 文件
+## Documentation
 
-- [使用者指南](docs/USER-GUIDE.md) — 完整的使用說明
-- [產品規格](the-door-spec-v4.1.md) — 設計理念與架構決策
-- [圖形語言規範](docs/phase-0a/) — L1/L2 圖形語言定義
-- [前端規格](docs/frontend-local-version-viewer/spec.md) — 本地 UI 設計規格
+- [User Guide](docs/USER-GUIDE.md) — Full usage documentation
+- [Product Spec](the-door-spec-v4.1.md) — Design philosophy and architecture decisions
+- [Diagram Language Spec](docs/phase-0a/) — L1/L2 diagram language definition
+- [Frontend Spec](docs/frontend-local-version-viewer/spec.md) — Local UI design spec
