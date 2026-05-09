@@ -2042,9 +2042,13 @@ function renderL2NotAnalyzed(featureId) {
 
 /** 將當前 L1 資料寫入 sessionStorage 並開啟心智圖 popup。 */
 function switchToMindmap() {
-  state.layerState = "mindmap";
-  state.mindmapL2Cache = {};
-  closeGraphDrawer();
-  renderBreadcrumb();
-  renderMindmap();
+  const data = {
+    project: state.projectStatus?.project_path ?? "專案",
+    nodes: state.l1GraphViewModel?.nodes ?? [],
+    diffNodes: state.updateModel?.changes ?? [],       // [{id, change_type, risk_flags}]
+    diffAvailable: state.updateModel?.diff_available ?? false,
+  };
+  sessionStorage.setItem("mindmap-data", JSON.stringify(data));
+  window.open("./mindmap-popup.html", "mindmap",
+    "width=960,height=720,resizable=yes,scrollbars=yes");
 }
