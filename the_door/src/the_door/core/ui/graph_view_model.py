@@ -154,6 +154,7 @@ def build_l2_graph_view_model(l2_output: L2Output) -> dict:
             "id": m.module_id,
             "label": m.label,
             "confidence": m.confidence,
+            "confidence_reason": m.confidence_reason,
             "source_nodes": m.source_nodes,
         }
         for m in l2_output.modules

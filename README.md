@@ -26,14 +26,126 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
 | 疑義追蹤 | 發現異常 → 標記疑義 → 指派 → 解決（含超時升級） |
 | 本地 UI | 瀏覽器工作台，互動式圖形，三層導覽（L1 → L2 → L3） |
 
-## 快速開始
+---
+
+## 一、簡易入門
+
+### 沒有 API Key？用 AI 平台直接分析
+
+如果你使用 **Claude Code**、**Kiro IDE** 或其他支援 MCP 的 AI 平台，不需要自備 API key——由平台的 AI 負責分析，The Door 只負責讀取程式碼與產生圖形。
+
+**步驟：**
+
+1. 安裝套件：
+   ```bash
+   pip install the-door
+   ```
+
+2. 在 AI 平台的 MCP 設定中加入 The Door：
+   ```json
+   {
+     "mcpServers": {
+       "the-door": {
+         "command": "the-door",
+         "args": ["mcp-serve"]
+       }
+     }
+   }
+   ```
+
+3. 在 AI 平台中直接對話，例如：
+   > 「幫我分析 `./my-project` 的 L1 功能圖」
+   > 「比對 `./old` 和 `./new` 之間改了什麼」
+
+AI 會透過 MCP 呼叫 The Door 的工具完成分析，結果直接回傳到對話中。
+
+---
+
+### 有 API Key？自行驅動 CLI
+
+### 安裝（一次性）
 
 ```bash
 pip install the-door
-the-door config init          # 建立設定檔，填入 LLM API key
-the-door analyze ./my-project # 分析專案，輸出功能總覽
-the-door ui ./my-project      # 在瀏覽器中開啟互動式工作台
+the-door config init    # 建立設定檔，填入 LLM API key
 ```
+
+> 設定檔位於 `~/.the-door/config.toml`，支援 OpenAI / Anthropic / Ollama（詳見[詳細操作 → LLM 設定](#llm-設定)）。
+
+---
+
+### 專案路徑說明
+
+`<path>` 填入你要分析的專案目錄路徑。分析產物會自動存在該目錄下的 `.the-door/` 資料夾，不會污染原始碼。
+
+> **差異分析的路徑限制**因使用方式而異（UI vs CLI vs MCP），詳見[詳細操作 → 差異分析路徑規則](#差異分析路徑規則)。
+
+---
+
+### 流程順序：分析 → 快照 → 比對
+
+**差異分析需要兩個時間點的快照才能比對。** 建議的標準流程：
+
+```
+第一次（建立基準）：  the-door analyze ./my-project
+                     ↓ 自動建立快照（存於 .the-door/snapshots/）
+
+開發進行中…
+
+第二次（有新版本後）：the-door analyze ./my-project
+                     ↓ 自動建立新快照
+
+比對兩次快照：        the-door diff ./my-project --baseline <上一版的 label 或 git tag>
+```
+
+> `the-door analyze` 每次執行都會自動建立快照，**不需要手動執行** `snapshot create`。  
+> 若要比對兩個不同目錄（如 `old/` 和 `new/`），直接用 `the-door update` 即可，它會自動分析兩邊再比對。
+
+---
+
+### L1 功能總覽
+
+**一鍵 L1 分析**——讀取專案，輸出所有功能的總覽圖與自然語言說明：
+
+```bash
+the-door analyze ./my-project
+```
+
+**一鍵 L1 差異分析**——比對兩個版本之間改了什麼，風險項目優先顯示：
+
+```bash
+# 方式一：兩個目錄直接比對
+the-door update <old-path> <new-path>
+
+# 方式二：用快照比對（需先執行過兩次 analyze）
+the-door diff <path> --baseline v1.0
+```
+
+> 路徑限制依使用方式不同，詳見[詳細操作 → 差異分析路徑規則](#差異分析路徑規則)。
+
+---
+
+### L2 模組細節
+
+**一鍵 L2 分析**——在瀏覽器工作台查看各功能的模組連動圖（需先完成 L1 分析）：
+
+```bash
+the-door ui ./my-project
+```
+
+> 開啟後點選左側任一功能節點，右側面板點「生成 L2」即可展開模組圖。
+
+**一鍵 L2 差異分析**——比對後直接在 UI 查看 L2 層的變更細節：
+
+```bash
+the-door update <old-path> <new-path> && the-door ui <new-path>
+```
+
+> 差異模式下節點以顏色標示新增／修改／刪除，點選節點可查看 Before/After 詳情。
+
+---
+
+## 二、詳細操作
 
 ### LLM 設定
 
@@ -64,8 +176,6 @@ model = "qwen3:8b"
 
 環境變數 `THE_DOOR_OPENAI_KEY`、`THE_DOOR_ANTHROPIC_KEY`、`THE_DOOR_OLLAMA_URL` 優先於設定檔。
 
-## 主要指令
-
 ### 分析與渲染
 
 ```bash
@@ -90,6 +200,31 @@ the-door ui <path> --no-browser            # 不自動開啟瀏覽器
 - **右側**：詳情面板（Before/After、資料來源、信心標記）
 
 支援三層導覽：L1 功能總覽 → L2 模組連動圖 → L3 原始碼節點圖。差異模式下顯示有顏色標示的變更節點。
+
+### 差異分析路徑規則
+
+差異分析接受兩個路徑（`old_path` / `new_path`），但三種使用方式的限制不同：
+
+| 使用方式 | 需要絕對路徑 | 需在同一根目錄下 |
+|---|---|---|
+| **UI（瀏覽器工作台）** | 是 | **是**，兩個路徑都必須位於啟動 UI 時指定的專案根目錄下 |
+| **CLI** (`the-door update`) | 否，相對路徑會自動轉換 | 否，可比對系統上任意兩個目錄 |
+| **MCP 工具** | 否 | 否，可比對系統上任意兩個目錄 |
+
+**UI 的路徑結構範例：**
+
+```
+C:\projects\my-app\          ← 啟動 UI 時指定的根目錄
+├── v1\                      ← 舊版路徑（必須在根目錄下）
+└── v2\                      ← 新版路徑（必須在根目錄下）
+```
+
+**CLI / MCP 範例（無此限制）：**
+
+```bash
+# 兩個完全不同位置的目錄也可以比對
+the-door update C:\projects\old-app C:\projects\new-app
+```
 
 ### 版本比對
 

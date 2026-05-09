@@ -1600,9 +1600,10 @@ function renderFeatureList(viewModel, layerState) {
     // Description — layer-specific secondary text
     const descEl = document.createElement("span");
     descEl.className = "feature-card-desc";
-    if (layerState === "L2") {
-      const count = node.source_nodes?.length || 0;
-      descEl.textContent = count ? count + " 個原始節點" : "";
+    if (layerState === "L1") {
+      descEl.textContent = node.description || "";
+    } else if (layerState === "L2") {
+      descEl.textContent = node.confidence_reason || "";
     } else if (layerState === "L3") {
       descEl.textContent = node.file || "";
     } else if (layerState === "DIFF") {
