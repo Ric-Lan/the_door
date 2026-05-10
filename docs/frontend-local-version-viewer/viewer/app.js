@@ -597,6 +597,11 @@ function renderTopBar() {
   els.btnBaseline.classList.toggle("active", state.mode === "baseline");
   els.btnCurrent.classList.toggle("active", state.mode === "current");
 
+  const snapA = state.snapshots.find(s => s.version_id === state.versionA);
+  const snapB = state.snapshots.find(s => s.version_id === state.versionB);
+  els.btnBaseline.textContent = snapA ? snapshotLabel(snapA) : "版本 A";
+  els.btnCurrent.textContent  = snapB ? snapshotLabel(snapB) : "版本 B";
+
   els.btnDiff.disabled = !hasDiff;
 
   if (hasDiff && state.mode === "diff") {
@@ -1297,9 +1302,12 @@ function syncFeatureListSelection(nodeId) {
  * Task 8.1 — loadL1Graph()
  * GET /api/l1，建立 L1_Graph_ViewModel，呼叫 initGraph
  */
-async function loadL1Graph() {
+async function loadL1Graph(versionId = null) {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/l1", { cache: "no-store" });
+    const url = versionId
+      ? `http://127.0.0.1:8765/api/l1?version_id=${encodeURIComponent(versionId)}`
+      : "http://127.0.0.1:8765/api/l1";
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       renderError("無法載入 L1 圖形：" + (body?.error?.message || res.status));
