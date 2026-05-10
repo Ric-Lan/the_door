@@ -402,6 +402,6 @@ Dual-licensed:
 ## Documentation
 
 - [User Guide](docs/USER-GUIDE.md) — Full usage documentation
-- [Product Spec](the-door-spec-v4.1.md) — Design philosophy and architecture decisions
+- [Product Spec](docs/the-door-spec-v4.1.md) — Design philosophy and architecture decisions
 - [Diagram Language Spec](docs/phase-0a/) — L1/L2 diagram language definition
 - [Frontend Spec](docs/frontend-local-version-viewer/spec.md) — Local UI design spec

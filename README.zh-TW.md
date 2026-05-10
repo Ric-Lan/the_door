@@ -402,6 +402,6 @@ python -m pytest tests/ -x -q
 ## 文件
 
 - [使用者指南](docs/USER-GUIDE.md) — 完整的使用說明
-- [產品規格](the-door-spec-v4.1.md) — 設計理念與架構決策
+- [產品規格](docs/the-door-spec-v4.1.md) — 設計理念與架構決策
 - [圖形語言規範](docs/phase-0a/) — L1/L2 圖形語言定義
 - [前端規格](docs/frontend-local-version-viewer/spec.md) — 本地 UI 設計規格
