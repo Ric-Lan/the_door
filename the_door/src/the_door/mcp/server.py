@@ -16,6 +16,7 @@ from the_door.mcp.tools import scan_tool
 from the_door.mcp.tools import scope_verify_tool, scope_create_tool, doubt_list_tool, doubt_transition_tool
 from the_door.mcp.tools import timeline_tool, snapshot_prune_tool
 from the_door.mcp.tools import update_tool
+from the_door.mcp.tools import snapshot_write_tool
 
 
 class TheDoorMCPServer:
@@ -102,6 +103,15 @@ class TheDoorMCPServer:
                     inputSchema=snapshot_list_tool.TOOL_SCHEMA,
                 ),
                 Tool(
+                    name="snapshot_write",
+                    description=(
+                        "Write L1 analysis results produced by the calling AI directly into the snapshot store. "
+                        "Use this after extract_structure + your own analysis, instead of calling analyze. "
+                        "No external LLM API key required — you are the LLM."
+                    ),
+                    inputSchema=snapshot_write_tool.TOOL_SCHEMA,
+                ),
+                Tool(
                     name="scan",
                     description="Scan codebase for known vulnerabilities.",
                     inputSchema=scan_tool.TOOL_SCHEMA,
@@ -165,6 +175,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(snapshot_create_tool, arguments)
             elif name == "snapshot_list":
                 return await self._dispatch_tool(snapshot_list_tool, arguments)
+            elif name == "snapshot_write":
+                return await self._dispatch_tool(snapshot_write_tool, arguments)
             elif name == "scan":
                 return await self._dispatch_tool(scan_tool, arguments)
             elif name == "scope_verify":

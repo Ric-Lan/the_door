@@ -57,6 +57,20 @@ class TestToolRegistration:
         assert "llm_output" in validate_tool.inputSchema["properties"]
         assert "structure_json" in validate_tool.inputSchema["properties"]
 
+    @pytest.mark.asyncio
+    async def test_snapshot_write_registered(self, server):
+        """snapshot_write tool is registered with required fields."""
+        tools = await _list_tools(server)
+        tool_names = [t.name for t in tools]
+        assert "snapshot_write" in tool_names
+
+        tool = next(t for t in tools if t.name == "snapshot_write")
+        schema = tool.inputSchema
+        assert "codebase_path" in schema["required"]
+        assert "l1_features" in schema["required"]
+        assert "relations" in schema["properties"]
+        assert "git_tags" in schema["properties"]
+
 
 class TestExtractStructureTool:
     """Tests for the extract_structure MCP tool."""
