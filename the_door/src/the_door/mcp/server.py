@@ -17,6 +17,7 @@ from the_door.mcp.tools import scope_verify_tool, scope_create_tool, doubt_list_
 from the_door.mcp.tools import timeline_tool, snapshot_prune_tool
 from the_door.mcp.tools import update_tool
 from the_door.mcp.tools import snapshot_write_tool
+from the_door.mcp.tools import project_list_tool
 
 
 class TheDoorMCPServer:
@@ -151,6 +152,14 @@ class TheDoorMCPServer:
                     description="Execute full version update analysis pipeline: analyze → diff → scope verify → timeline → report.",
                     inputSchema=update_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="project_list",
+                    description=(
+                        "List all codebases registered in The Door's project registry. "
+                        "Use this to discover available projects before calling extract_structure or snapshot_write."
+                    ),
+                    inputSchema=project_list_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -193,6 +202,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(snapshot_prune_tool, arguments)
             elif name == "update":
                 return await self._dispatch_tool(update_tool, arguments)
+            elif name == "project_list":
+                return await self._dispatch_tool(project_list_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 

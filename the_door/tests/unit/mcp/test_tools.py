@@ -71,6 +71,13 @@ class TestToolRegistration:
         assert "relations" in schema["properties"]
         assert "git_tags" in schema["properties"]
 
+    @pytest.mark.asyncio
+    async def test_project_list_registered(self, server):
+        """project_list tool is registered."""
+        tools = await _list_tools(server)
+        tool_names = [t.name for t in tools]
+        assert "project_list" in tool_names
+
 
 class TestExtractStructureTool:
     """Tests for the extract_structure MCP tool."""
