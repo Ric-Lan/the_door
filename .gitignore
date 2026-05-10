@@ -130,3 +130,6 @@ Thumbs.db
 
 # Temp files
 待執行項目.txt
+
+# Integration test generated data (large JSON files)
+scripts/integration-test/data/
