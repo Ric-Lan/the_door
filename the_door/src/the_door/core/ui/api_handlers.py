@@ -286,17 +286,26 @@ class APIHandlers:
     # GET /api/l1  (Phase UI-3)
     # ------------------------------------------------------------------
 
-    def handle_get_l1(self) -> tuple[int, dict]:
-        """GET /api/l1 — return L1_Graph_ViewModel from latest VersionSnapshot."""
+    def handle_get_l1(self, version_id: str | None = None) -> tuple[int, dict]:
+        """GET /api/l1 — return L1_Graph_ViewModel from a VersionSnapshot.
+
+        If version_id is provided, loads that specific snapshot.
+        Otherwise falls back to the latest snapshot.
+        """
         try:
-            snapshot = SnapshotStore(self._project_root).get_latest()
+            store = SnapshotStore(self._project_root)
+            snapshot = store.get_snapshot(version_id) if version_id else store.get_latest()
             if snapshot is None:
+                msg = (
+                    f"Snapshot '{version_id}' not found."
+                    if version_id
+                    else "No snapshot found. Run analysis first."
+                )
                 return 404, self._make_error(
                     code="no_l1_data",
-                    message="No snapshot found. Run analysis first.",
+                    message=msg,
                     source="handle_get_l1",
                 )
-            # Convert FeatureSummary dataclasses to dicts for the converter
             l1_snapshot_dict = {
                 fid: {
                     "label": fs.label,

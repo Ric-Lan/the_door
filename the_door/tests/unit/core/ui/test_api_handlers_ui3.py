@@ -182,6 +182,45 @@ class TestGetL1:
         assert status == 404
         assert body["error"]["code"] == "no_l1_data"
 
+    def test_handle_get_l1_with_specific_version_id(self, tmp_path):
+        """handle_get_l1(version_id=...) returns that snapshot's L1 data."""
+        snapshot_a = _make_snapshot_with_l1(version_id="aaa")
+        snapshot_b = _make_snapshot_with_l1(version_id="bbb")
+        with patch("the_door.core.ui.api_handlers.SnapshotStore") as MockStore:
+            mock_instance = MockStore.return_value
+            mock_instance.get_snapshot.return_value = snapshot_a
+            mock_instance.get_latest.return_value = snapshot_b
+
+            handlers = _make_handlers(tmp_path)
+            status, body = handlers.handle_get_l1(version_id="aaa")
+
+        assert status == 200
+        mock_instance.get_snapshot.assert_called_once_with("aaa")
+        mock_instance.get_latest.assert_not_called()
+
+    def test_handle_get_l1_invalid_version_id_returns_404(self, tmp_path):
+        """handle_get_l1(version_id=...) returns 404 when snapshot not found."""
+        with patch("the_door.core.ui.api_handlers.SnapshotStore") as MockStore:
+            MockStore.return_value.get_snapshot.return_value = None
+
+            handlers = _make_handlers(tmp_path)
+            status, body = handlers.handle_get_l1(version_id="nonexistent")
+
+        assert status == 404
+        assert body["error"]["code"] == "no_l1_data"
+
+    def test_handle_get_l1_no_version_id_uses_latest(self, tmp_path):
+        """handle_get_l1() with no version_id still falls back to get_latest."""
+        snapshot = _make_snapshot_with_l1()
+        with patch("the_door.core.ui.api_handlers.SnapshotStore") as MockStore:
+            MockStore.return_value.get_latest.return_value = snapshot
+
+            handlers = _make_handlers(tmp_path)
+            status, body = handlers.handle_get_l1()
+
+        assert status == 200
+        MockStore.return_value.get_snapshot.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # GET /api/l2/<feature_id>
