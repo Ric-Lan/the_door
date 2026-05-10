@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from the_door.core.ui.api_handlers import APIHandlers
 from the_door.core.ui.job_store import JobStore
@@ -98,7 +99,9 @@ def _handle_get(
     static_handler: StaticHandler,
 ) -> None:
     """Route GET requests."""
-    path = handler.path.split("?")[0]  # strip query string
+    parsed_url = urlparse(handler.path)
+    path = parsed_url.path
+    query_params = parse_qs(parsed_url.query)
 
     if path.startswith("/api/"):
         # Check method is allowed for static routes
@@ -129,7 +132,8 @@ def _handle_get(
         elif path == "/api/timeline":
             status, body = api_handlers.handle_get_timeline()
         elif path == "/api/l1":
-            status, body = api_handlers.handle_get_l1()
+            version_id = query_params.get("version_id", [None])[0]
+            status, body = api_handlers.handle_get_l1(version_id=version_id)
         elif path == "/api/structure":
             status, body = api_handlers.handle_get_structure()
         elif path.startswith("/api/update/status/"):
