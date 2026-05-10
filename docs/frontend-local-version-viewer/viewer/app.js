@@ -11,6 +11,11 @@
 "use strict";
 
 // ============================================================
+// API base URL — uses current page's host so any port works
+// ============================================================
+const API_BASE = `http://${window.location.host}`;
+
+// ============================================================
 // State — single mutable object
 // ============================================================
 
@@ -60,6 +65,8 @@ const state = {
   versionA: null,
   /** @type {string|null} 版本 B 的 version_id（預設第二新，若有） */
   versionB: null,
+  /** @type {object|null} /api/diff 結果（version compare 模式用） */
+  versionDiff: null,
 };
 
 // ============================================================
@@ -134,7 +141,7 @@ loadProjectStatus();
 
 async function loadProjectStatus() {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/project", { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/project`, { cache: "no-store" });
     if (!res.ok) {
       // Server running but error — show error, don't fallback
       const body = await res.json().catch(() => null);
@@ -167,13 +174,15 @@ async function loadFromApi() {
     await loadSnapshots();
   }
 
-  state.mode = state.updateModel?.diff_available ? "diff" : "baseline";
+  const hasVersionCompare = !!(state.versionA && state.versionB && state.versionA !== state.versionB);
+  state.mode = (state.updateModel?.diff_available || hasVersionCompare) ? "diff" : "baseline";
   state.selectedId = firstSelectableId();
   render();
 
   // Phase UI-3: always load L1 graph from /api/l1 when snapshots exist
   if (ad.has_snapshots) {
-    await loadL1Graph();
+    // In diff mode with version compare, load the "current" (versionB) graph
+    await loadL1Graph(hasVersionCompare ? state.versionB : null);
   }
 }
 
@@ -183,7 +192,7 @@ async function loadFromApi() {
 
 async function loadReport() {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/report/latest", { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/report/latest`, { cache: "no-store" });
     if (!res.ok) {
       if (res.status === 404) {
         state.updateModel = null;
@@ -209,7 +218,7 @@ async function loadReport() {
 
 async function loadSnapshots() {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/snapshots", { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/snapshots`, { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
     state.snapshots = data.snapshots || [];
@@ -257,11 +266,14 @@ function populateVersionSelectors() {
   // 用賦值型 onchange（覆寫而非累積），確保多次呼叫 populateVersionSelectors() 不重複附加 handler
   selA.onchange = async () => {
     state.versionA = selA.value;
+    state.mode = "diff";
     renderTopBar();
-    await loadL1Graph(state.versionA);
+    // Show the "current" version (B) graph, overlay diff A→B
+    await loadL1Graph(state.versionB ?? state.versionA);
   };
   selB.onchange = async () => {
     state.versionB = selB.value;
+    state.mode = "diff";
     renderTopBar();
     await loadL1Graph(state.versionB);
   };
@@ -443,7 +455,7 @@ function showModalError(msg) {
 
 async function submitUpdate(oldPath, newPath) {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/update", {
+    const res = await fetch(`${API_BASE}/api/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
@@ -479,7 +491,7 @@ function stopPolling() {
 
 async function pollJobStatus(jobId) {
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/update/status/" + jobId, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/update/status/` + jobId, { cache: "no-store" });
     if (!res.ok) {
       stopPolling();
       const body = await res.json().catch(() => null);
@@ -545,11 +557,25 @@ function handleApiError(status, body) {
 // Mode switching
 // ============================================================
 
-function setMode(mode) {
-  if (mode === "diff" && !state.updateModel?.diff_available) return;
+async function setMode(mode) {
+  const hasDiff = state.updateModel?.diff_available === true;
+  const hasVersionCompare = !!(state.versionA && state.versionB && state.versionA !== state.versionB);
+  if (mode === "diff" && !hasDiff && !hasVersionCompare) return;
   state.mode = mode;
   state.selectedId = firstSelectableId();
   render();
+
+  // Version-compare mode: reload graph for the appropriate version + overlay
+  if (hasVersionCompare && !hasDiff) {
+    if (mode === "baseline") {
+      await loadL1Graph(state.versionA);
+    } else if (mode === "current") {
+      await loadL1Graph(state.versionB);
+    } else if (mode === "diff") {
+      await loadL1Graph(state.versionB);
+      // Overlay is applied inside loadL1Graph automatically
+    }
+  }
 }
 
 function firstSelectableId() {
@@ -576,11 +602,12 @@ function render() {
 function renderTopBar() {
   const um = state.updateModel;
   const hasDiff = um?.diff_available === true;
+  const hasVersionCompare = !!(state.versionA && state.versionB && state.versionA !== state.versionB);
 
-  // Show/hide mode buttons based on whether diff data is available
+  // Show mode buttons when diff data OR two different versions are selected
   const modeSwitch = document.querySelector(".mode-switch");
   if (modeSwitch) {
-    modeSwitch.hidden = !hasDiff;
+    modeSwitch.hidden = !hasDiff && !hasVersionCompare;
   }
 
   // Summary text
@@ -602,7 +629,7 @@ function renderTopBar() {
   els.btnBaseline.textContent = snapA ? snapshotLabel(snapA) : "版本 A";
   els.btnCurrent.textContent  = snapB ? snapshotLabel(snapB) : "版本 B";
 
-  els.btnDiff.disabled = !hasDiff;
+  els.btnDiff.disabled = !hasDiff && !hasVersionCompare;
 
   if (hasDiff && state.mode === "diff") {
     const cc = um.change_counts || {};
@@ -641,6 +668,29 @@ function renderChangeList() {
   list.textContent = "";
 
   if (state.mode === "diff") {
+    // Version-compare diff (no updateModel): build change list from versionDiff
+    if (!state.updateModel?.diff_available && state.versionDiff) {
+      els.listTitle.textContent  = "變更清單";
+      els.listSource.textContent = "/api/diff";
+      const nodeStates = state.versionDiff.node_states || {};
+      const changedFeatures = (state.l1Model?.features ?? []).filter(
+        f => nodeStates[f.id] && nodeStates[f.id] !== "unchanged"
+      );
+      if (!changedFeatures.length) {
+        renderEmpty(list, "兩個版本之間無功能差異。");
+        return;
+      }
+      changedFeatures.forEach(feature => {
+        const change = {
+          id: feature.id,
+          label: feature.label,
+          change_type: nodeStates[feature.id],
+        };
+        list.appendChild(changeListButton(change));
+      });
+      return;
+    }
+
     const changes = state.updateModel?.changes ?? [];
     els.listTitle.textContent  = "變更清單";
     els.listSource.textContent = "UpdateReport.l1_changes";
@@ -1305,8 +1355,8 @@ function syncFeatureListSelection(nodeId) {
 async function loadL1Graph(versionId = null) {
   try {
     const url = versionId
-      ? `http://127.0.0.1:8765/api/l1?version_id=${encodeURIComponent(versionId)}`
-      : "http://127.0.0.1:8765/api/l1";
+      ? `${API_BASE}/api/l1?version_id=${encodeURIComponent(versionId)}`
+      : `${API_BASE}/api/l1`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
@@ -1340,8 +1390,58 @@ async function loadL1Graph(versionId = null) {
     renderTopBar();
     renderChangeList();
     renderDetailPanel();
+
+    // Apply diff overlay if two distinct versions are selected
+    if (state.versionA && state.versionB && state.versionA !== state.versionB) {
+      await loadDiffOverlay(state.versionA, state.versionB);
+    }
   } catch (err) {
     renderError("載入 L1 圖形失敗：" + (err.message || "network error"));
+  }
+}
+
+/**
+ * loadDiffOverlay — fetch /api/diff and apply diff_state colors to Cytoscape nodes
+ */
+async function loadDiffOverlay(baselineId, currentId) {
+  if (!baselineId || !currentId || baselineId === currentId) return;
+  try {
+    const url = `${API_BASE}/api/diff?baseline=${encodeURIComponent(baselineId)}&current=${encodeURIComponent(currentId)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Save diff result to state so renderChangeList can use it
+    state.versionDiff = data;
+
+    // Apply color overlay to Cytoscape nodes if available
+    const nodeStates = data.node_states || {};
+    if (state.cytoscapeInstance) {
+      state.cytoscapeInstance.nodes().forEach(node => {
+        const diffState = nodeStates[node.id()];
+        if (diffState && diffState !== "unchanged") {
+          node.data("change_type", diffState);
+        } else {
+          node.removeData("change_type");
+        }
+      });
+    }
+
+    // Update summary text
+    const s = data.summary || {};
+    const total = s.total_changed ?? 0;
+    if (total > 0) {
+      els.summaryText.textContent =
+        `版本比較：${s.added ?? 0} 新增 / ${s.removed ?? 0} 移除 / ` +
+        `${(s.attribute_changed ?? 0) + (s.dependency_changed ?? 0)} 修改`;
+    } else {
+      els.summaryText.textContent = "版本比較：兩版本功能完全相同。";
+    }
+
+    // Re-render change list with diff data
+    renderChangeList();
+  } catch (e) {
+    console.warn("Diff overlay failed:", e);
   }
 }
 
@@ -1360,7 +1460,7 @@ async function switchToL2(featureId) {
   loadLayerExplanation(featureId, "l2"); // fire and forget
 
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/l2/" + encodeURIComponent(featureId), { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/l2/` + encodeURIComponent(featureId), { cache: "no-store" });
     if (res.status === 404) {
       renderL2NotAnalyzed(featureId);
       return;
@@ -1399,7 +1499,7 @@ async function switchToL3(moduleId) {
   }
 
   try {
-    const res = await fetch("http://127.0.0.1:8765/api/structure", { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/structure`, { cache: "no-store" });
     if (res.status === 404) {
       const container = document.getElementById("graph-container");
       if (container) {
@@ -1486,7 +1586,7 @@ function switchToL2FromL3() {
 async function loadLayerExplanation(featureId, layer) {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8765/api/layer-explanation/" + encodeURIComponent(featureId) + "/" + layer,
+      `${API_BASE}/api/layer-explanation/` + encodeURIComponent(featureId) + "/" + layer,
       { cache: "no-store" }
     );
     const layerExplanationEl = document.getElementById("layer-explanation");
@@ -1520,7 +1620,7 @@ async function loadLayerExplanation(featureId, layer) {
 async function generateL2(featureId) {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8765/api/l2/" + encodeURIComponent(featureId) + "/generate",
+      `${API_BASE}/api/l2/` + encodeURIComponent(featureId) + "/generate",
       { method: "POST" }
     );
     if (!res.ok) {
@@ -1545,7 +1645,7 @@ async function generateL2(featureId) {
 async function generateLayerExplanation(featureId, layer) {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8765/api/layer-explanation/" + encodeURIComponent(featureId) + "/" + layer + "/generate",
+      `${API_BASE}/api/layer-explanation/` + encodeURIComponent(featureId) + "/" + layer + "/generate",
       { method: "POST" }
     );
     if (!res.ok) {
@@ -1767,7 +1867,7 @@ async function pollUntilComplete(jobId, onComplete) {
         return;
       }
       try {
-        const res = await fetch("http://127.0.0.1:8765/api/update/status/" + jobId, { cache: "no-store" });
+        const res = await fetch(`${API_BASE}/api/update/status/` + jobId, { cache: "no-store" });
         if (!res.ok) { clearInterval(handle); resolve(); return; }
         const job = await res.json();
         if (job.status === "completed") {

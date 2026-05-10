@@ -89,6 +89,7 @@ _API_ROUTES: dict[str, str] = {
     "/api/doubts": "GET",
     "/api/timeline": "GET",
     "/api/l1": "GET",
+    "/api/diff": "GET",
     "/api/structure": "GET",
 }
 
@@ -134,6 +135,13 @@ def _handle_get(
         elif path == "/api/l1":
             version_id = query_params.get("version_id", [None])[0]
             status, body = api_handlers.handle_get_l1(version_id=version_id)
+        elif path == "/api/diff":
+            baseline_id = query_params.get("baseline", [None])[0]
+            current_id = query_params.get("current", [None])[0]
+            if not baseline_id or not current_id:
+                _send_api_error(handler, 400, "missing_params", "baseline and current query params required", path)
+                return
+            status, body = api_handlers.handle_diff_versions(baseline_id, current_id)
         elif path == "/api/structure":
             status, body = api_handlers.handle_get_structure()
         elif path.startswith("/api/update/status/"):

@@ -334,6 +334,54 @@ class APIHandlers:
             )
 
     # ------------------------------------------------------------------
+    # GET /api/diff?baseline=<version_id>&current=<version_id>
+    # ------------------------------------------------------------------
+
+    def handle_diff_versions(self, baseline_id: str, current_id: str) -> tuple[int, dict]:
+        """GET /api/diff — compute L1 diff between two snapshots by version_id."""
+        from the_door.core.diff.diff_engine import DiffEngine
+        try:
+            store = SnapshotStore(self._project_root)
+            baseline = store.get_snapshot(baseline_id)
+            current = store.get_snapshot(current_id)
+            if baseline is None:
+                return 404, self._make_error(
+                    code="snapshot_not_found",
+                    message=f"Baseline snapshot '{baseline_id}' not found.",
+                    source="handle_diff_versions",
+                )
+            if current is None:
+                return 404, self._make_error(
+                    code="snapshot_not_found",
+                    message=f"Current snapshot '{current_id}' not found.",
+                    source="handle_diff_versions",
+                )
+            engine = DiffEngine()
+            diff_result = engine.compute_l1_diff(baseline, current)
+            node_states = {
+                nd.node_id: nd.diff_state
+                for nd in diff_result.node_diffs
+            }
+            return 200, {
+                "baseline_id": baseline_id,
+                "current_id": current_id,
+                "summary": {
+                    "added": diff_result.summary.added_count,
+                    "removed": diff_result.summary.removed_count,
+                    "attribute_changed": diff_result.summary.attribute_changed_count,
+                    "dependency_changed": diff_result.summary.dependency_changed_count,
+                    "total_changed": diff_result.summary.total_changed_count,
+                },
+                "node_states": node_states,
+            }
+        except Exception as exc:
+            return 500, self._make_error(
+                code="diff_error",
+                message=str(exc),
+                source="handle_diff_versions",
+            )
+
+    # ------------------------------------------------------------------
     # GET /api/l2/<feature_id>  (Phase UI-3)
     # ------------------------------------------------------------------
 
