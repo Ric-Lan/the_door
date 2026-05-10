@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>心智圖預覽 — The Door</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+      background: #f0f2f5;
+    }
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      background: #263238;
+      color: white;
+      height: 44px;
+    }
+    #proj-name { font-weight: 700; font-size: 14px; }
+    #subtitle  { font-size: 12px; opacity: 0.65; }
+    #hint      { margin-left: auto; font-size: 11px; opacity: 0.5; font-style: italic; }
+
+    #legend {
+      display: flex;
+      gap: 20px;
+      padding: 7px 32px;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 11px;
+      color: #555;
+    }
+    .leg { display: flex; align-items: center; gap: 6px; }
+    .swatch {
+      width: 22px; height: 12px; border-radius: 3px;
+      display: inline-block;
+    }
+    .sw-l1         { background: #4285F4; }
+    .sw-module     { background: white; border: 1.5px solid #4285F4; }
+    .sw-unanalyzed { background: #f5f5f5; border: 1.5px dashed #bdbdbd; }
+    .sw-error      { background: #fff3f3; border: 1.5px solid #ef5350; }
+
+    #svg-container {
+      overflow: auto;
+      padding: 32px;
+      min-height: calc(100vh - 76px);
+    }
+
+    /* ── SVG interaction ── */
+    #mindmap-svg .l1-node { cursor: pointer; }
+    #mindmap-svg text     { pointer-events: none; user-select: none; }
+
+    /* Expand/collapse animation: SVG re-renders, so just a fast transition on opacity */
+    #mindmap-svg { transition: height 0.2s ease; }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span id="proj-name">The Door</span>
+  <span id="subtitle">心智圖 — 功能關聯概覽</span>
+  <span id="hint">點擊 L1 節點展開／收合 L2 模組</span>
+</div>
+
+<div id="legend">
+  <div class="leg"><span class="swatch sw-l1"></span>L1 功能（可點擊展開）</div>
+  <div class="leg"><span class="swatch sw-module"></span>L2 模組</div>
+  <div class="leg"><span class="swatch sw-unanalyzed"></span>尚未分析</div>
+  <div class="leg"><span class="swatch sw-error"></span>載入失敗</div>
+</div>
+
+<div id="svg-container"></div>
+
+<script>
+"use strict";
+
+// ════════════════════════════════════════════════════════
+// Mock data  (production 版由 sessionStorage 讀取)
+// ════════════════════════════════════════════════════════
+const DATA = {
+  project: "The Door",
+  branches: [
+    {
+      id: "f1", label: "程式碼分析引擎",
+      children: [
+        { id: "m1-1", label: "AST 解析器" },
+        { id: "m1-2", label: "符號表建構" },
+        { id: "m1-3", label: "依賴圖生成" },
+      ],
+    },
+    {
+      id: "f2", label: "版本差異比對",
+      children: [
+        { id: "m2-1", label: "L1 變更偵測" },
+        { id: "m2-2", label: "L2 詳情對比" },
+      ],
+    },
+    {
+      id: "f3", label: "本地 API 伺服器",
+      children: "unanalyzed",
+    },
+    {
+      id: "f4", label: "前端 Viewer",
+      children: [
+        { id: "m4-1", label: "心智圖視圖" },
+        { id: "m4-2", label: "互動圖形（Cy）" },
+        { id: "m4-3", label: "差異模式" },
+        { id: "m4-4", label: "詳情面板" },
+      ],
+    },
+    {
+      id: "f5", label: "弱點偵測層",
+      children: "error",
+    },
+    {
+      id: "f6", label: "範圍邊界驗證",
+      children: [
+        { id: "m6-1", label: "邊界條件分析" },
+        { id: "m6-2", label: "範圍標記器" },
+      ],
+    },
+  ],
+};
+
+// ════════════════════════════════════════════════════════
+// Layout constants
+// ════════════════════════════════════════════════════════
+const ROW_H = 52;
+const PAD_T = 40;
+const PAD_L = 24;
+const PAD_R = 32;
+const PAD_B = 40;
+
+const CTR_W = 112, CTR_H = 40;
+const L1_W  = 152, L1_H  = 34;
+const L2_W  = 152, L2_H  = 28;
+
+const COL_CTR = PAD_L;
+const COL_L1  = COL_CTR + CTR_W + 88;
+const COL_L2  = COL_L1  + L1_W  + 88;
+const SVG_W   = COL_L2  + L2_W  + PAD_R;
+
+const ELBOW_CL1  = Math.round((COL_CTR + CTR_W + COL_L1) / 2);
+const ELBOW_L1L2 = Math.round((COL_L1 + L1_W + COL_L2) / 2);
+
+const COLORS = [
+  "#4285F4", "#EA4335", "#34A853", "#F4B400",
+  "#9C27B0", "#FF5722", "#00897B", "#795548",
+  "#607D8B", "#E91E63",
+];
+
+// ════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════
+const expandedSet = new Set();   // branch ids currently expanded
+
+// ════════════════════════════════════════════════════════
+// Layout  (recomputed every render; O(n))
+// ════════════════════════════════════════════════════════
+function computeLayout(data) {
+  let slot = 0;
+  const branches = [];
+
+  data.branches.forEach((b, bi) => {
+    const color      = COLORS[bi % COLORS.length];
+    const isExpanded = expandedSet.has(b.id);
+    const leaves     = [];
+
+    if (isExpanded) {
+      const ch = b.children;
+      if (Array.isArray(ch) && ch.length > 0) {
+        ch.forEach(l2 => {
+          leaves.push({
+            id: l2.id, label: l2.label,
+            y: PAD_T + slot * ROW_H + ROW_H / 2,
+            type: "module", color,
+          });
+          slot++;
+        });
+      } else {
+        const type  = ch === "unanalyzed" ? "unanalyzed" : "error";
+        const label = type === "unanalyzed" ? "尚未分析" : "載入失敗";
+        leaves.push({
+          id: b.id + "_ph", label,
+          y: PAD_T + slot * ROW_H + ROW_H / 2,
+          type, color,
+        });
+        slot++;
+      }
+    } else {
+      // Collapsed: L1 takes exactly one row, no leaves
+      slot++;
+    }
+
+    // L1 y: center of its leaves when expanded, own slot when collapsed
+    const l1y = isExpanded
+      ? (leaves[0].y + leaves[leaves.length - 1].y) / 2
+      : PAD_T + (slot - 1) * ROW_H + ROW_H / 2;
+
+    branches.push({ id: b.id, label: b.label, y: l1y, color, leaves, isExpanded });
+  });
+
+  const totalH = slot * ROW_H + PAD_T + PAD_B;
+  const ctrY   = (branches[0].y + branches[branches.length - 1].y) / 2;
+  return { branches, totalH, ctrY };
+}
+
+// ════════════════════════════════════════════════════════
+// SVG helpers
+// ════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function truncate(text, maxCh) {
+  return text.length > maxCh ? text.slice(0, maxCh - 1) + "…" : text;
+}
+
+function mkText(cx, cy, text, color, sizePx, weight, maxCh) {
+  const display = truncate(text, maxCh);
+  return `<text x="${cx}" y="${cy}" dy="0.35em" text-anchor="middle"
+    fill="${esc(color)}" font-size="${sizePx}px" font-weight="${weight}"
+    font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif">
+    <title>${esc(text)}</title>${esc(display)}</text>`;
+}
+
+function elbow(x1, y1, x2, y2, bendX) {
+  if (Math.abs(y1 - y2) < 0.5) return `M${x1},${y1} L${x2},${y2}`;
+  return `M${x1},${y1} L${bendX},${y1} L${bendX},${y2} L${x2},${y2}`;
+}
+
+// ════════════════════════════════════════════════════════
+// SVG renderer
+// ════════════════════════════════════════════════════════
+function buildSVG(layout, projectName) {
+  const { branches, totalH, ctrY } = layout;
+  const svgH = Math.max(totalH, 180);
+
+  const lines = [];
+  const nodes = [];
+
+  const defs = `<defs>
+    <marker id="arr" markerWidth="7" markerHeight="7"
+      refX="6.5" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0.5 L0,6.5 L6,3.5 z" fill="context-stroke"/>
+    </marker>
+  </defs>`;
+
+  // ── Center node ──────────────────────────────────────────
+  nodes.push(
+    `<rect x="${COL_CTR}" y="${ctrY - CTR_H / 2}"
+      width="${CTR_W}" height="${CTR_H}" rx="8" fill="#263238"/>`,
+    mkText(COL_CTR + CTR_W / 2, ctrY, projectName, "white", 12, "700", 9),
+  );
+
+  branches.forEach(({ id, label, y: l1y, color, leaves, isExpanded }) => {
+    const cRight  = COL_CTR + CTR_W;
+    const l1Left  = COL_L1;
+    const l1Right = COL_L1 + L1_W;
+    const l2Left  = COL_L2;
+
+    // ── Center → L1 ──────────────────────────────────────
+    lines.push(
+      `<path d="${elbow(cRight, ctrY, l1Left, l1y, ELBOW_CL1)}"
+        stroke="${esc(color)}" stroke-width="1.5" fill="none"
+        marker-end="url(#arr)"/>`,
+    );
+
+    // ── L1 node + expand indicator ────────────────────────
+    // Slightly lighter fill when expanded so state is obvious
+    const l1Fill = isExpanded ? color : color + "cc";  // full / 80% opacity
+    nodes.push(
+      `<rect class="l1-node" data-b="${esc(id)}"
+        x="${COL_L1}" y="${l1y - L1_H / 2}"
+        width="${L1_W}" height="${L1_H}"
+        rx="6" fill="${l1Fill}" stroke="none">
+        <title>${esc(label)}</title></rect>`,
+      mkText(COL_L1 + L1_W / 2 - 8, l1y, label, "white", 12, "600", 9),
+      // Expand indicator (▸ collapsed / ▾ expanded)
+      `<text x="${COL_L1 + L1_W - 14}" y="${l1y}" dy="0.35em"
+        text-anchor="middle"
+        fill="rgba(255,255,255,0.75)" font-size="11px"
+        font-family="sans-serif"
+        pointer-events="none">${isExpanded ? "▾" : "▸"}</text>`,
+    );
+
+    if (!isExpanded) return;  // nothing more to draw for this branch
+
+    // ── L1 → L2 lines ────────────────────────────────────
+    if (leaves.length === 1) {
+      lines.push(
+        `<path d="${elbow(l1Right, l1y, l2Left, leaves[0].y, ELBOW_L1L2)}"
+          stroke="${esc(color)}" stroke-width="1.5" fill="none"
+          marker-end="url(#arr)"/>`,
+      );
+    } else {
+      const minY = leaves[0].y;
+      const maxY = leaves[leaves.length - 1].y;
+      lines.push(
+        `<line x1="${l1Right}" y1="${l1y}" x2="${ELBOW_L1L2}" y2="${l1y}"
+          stroke="${esc(color)}" stroke-width="1.5"/>`,
+        `<line x1="${ELBOW_L1L2}" y1="${minY}" x2="${ELBOW_L1L2}" y2="${maxY}"
+          stroke="${esc(color)}" stroke-width="1.5"/>`,
+      );
+      leaves.forEach(leaf => {
+        lines.push(
+          `<line x1="${ELBOW_L1L2}" y1="${leaf.y}" x2="${l2Left}" y2="${leaf.y}"
+            stroke="${esc(color)}" stroke-width="1.5"
+            marker-end="url(#arr)"/>`,
+        );
+      });
+    }
+
+    // ── L2 nodes ─────────────────────────────────────────
+    leaves.forEach(leaf => {
+      let fill, stroke, textColor, dashAttr;
+      if (leaf.type === "module") {
+        fill = "white"; stroke = color; textColor = color; dashAttr = "";
+      } else if (leaf.type === "unanalyzed") {
+        fill = "#f5f5f5"; stroke = "#bdbdbd"; textColor = "#9e9e9e";
+        dashAttr = 'stroke-dasharray="5 3"';
+      } else {
+        fill = "#fff3f3"; stroke = "#ef5350"; textColor = "#ef5350";
+        dashAttr = "";
+      }
+      nodes.push(
+        `<rect x="${l2Left}" y="${leaf.y - L2_H / 2}"
+          width="${L2_W}" height="${L2_H}"
+          rx="4" fill="${esc(fill)}" stroke="${esc(stroke)}"
+          stroke-width="1.5" ${dashAttr}>
+          <title>${esc(leaf.label)}</title></rect>`,
+        mkText(l2Left + L2_W / 2, leaf.y, leaf.label, textColor, 11, "400", 11),
+      );
+    });
+  });
+
+  return `<svg id="mindmap-svg"
+    xmlns="http://www.w3.org/2000/svg"
+    width="${SVG_W}" height="${svgH}"
+    viewBox="0 0 ${SVG_W} ${svgH}"
+    style="background:white;border-radius:8px;
+           box-shadow:0 2px 12px rgba(0,0,0,0.10);">
+    ${defs}
+    <g>${lines.join("")}</g>
+    <g>${nodes.join("")}</g>
+  </svg>`;
+}
+
+// ════════════════════════════════════════════════════════
+// Interaction
+// ════════════════════════════════════════════════════════
+function bindEvents(svg) {
+  svg.querySelectorAll(".l1-node[data-b]").forEach(el => {
+    el.addEventListener("click", () => {
+      const bid = el.dataset.b;
+      if (expandedSet.has(bid)) {
+        expandedSet.delete(bid);
+      } else {
+        expandedSet.add(bid);
+      }
+      render();
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// Render loop
+// ════════════════════════════════════════════════════════
+const container = document.getElementById("svg-container");
+
+function render() {
+  const layout  = computeLayout(DATA);
+  const svgHtml = buildSVG(layout, DATA.project);
+  container.innerHTML = svgHtml;
+  bindEvents(document.getElementById("mindmap-svg"));
+}
+
+// ── Boot ─────────────────────────────────────────────────
+document.getElementById("proj-name").textContent = DATA.project;
+render();
+</script>
+</body>
+</html>

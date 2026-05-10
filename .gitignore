@@ -133,3 +133,6 @@ Thumbs.db
 
 # Integration test generated data (large JSON files)
 scripts/integration-test/data/
+
+# Local MCP config (contains machine-specific paths)
+.mcp.json
