@@ -32,6 +32,19 @@ The Door is a CLI tool + MCP Server + local UI. It reads your codebase and uses 
 
 ## I. Quick Start
 
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| **Python ≥ 3.10** | Required. [python.org/downloads](https://www.python.org/downloads/) |
+| **pip** | Comes with Python |
+| **osv-scanner** _(optional)_ | Required for `the-door scan`. Install via `go install golang.org/x/vuln/cmd/osv-scanner@latest` or download from [google.github.io/osv-scanner](https://google.github.io/osv-scanner/) |
+| **Ollama** _(optional)_ | Required if using local LLM mode. Install from [ollama.com](https://ollama.com) |
+
+> **MCP mode only** (no API key): also requires a compatible AI platform such as Claude Code or Kiro IDE.
+
+---
+
 ### No API Key? Use an AI Platform Directly
 
 If you use **Claude Code**, **Kiro IDE**, or any other MCP-compatible AI platform, you don't need your own API key — the platform's AI handles the analysis, and The Door just reads the code and produces the diagrams.
@@ -310,7 +323,7 @@ Code → AST extraction (tree-sitter, 305+ languages)
 
 ## Local UI API
 
-`the-door ui` exposes 13 local API endpoints (bound to `127.0.0.1` only):
+`the-door ui` exposes 14 local API endpoints (bound to `127.0.0.1` only):
 
 | Method | Path | Description |
 |---|---|---|
@@ -321,7 +334,8 @@ Code → AST extraction (tree-sitter, 305+ languages)
 | GET | `/api/update/status/<job_id>` | Poll pipeline progress |
 | GET | `/api/doubts` | Doubt list |
 | GET | `/api/timeline` | Timeline analysis results |
-| GET | `/api/l1` | L1 feature diagram ViewModel |
+| GET | `/api/l1?version_id=<id>` | L1 feature diagram ViewModel (optional version) |
+| GET | `/api/diff?baseline=<id>&current=<id>` | Diff two snapshots by version ID |
 | GET | `/api/l2/<feature_id>` | L2 module diagram ViewModel |
 | POST | `/api/l2/<feature_id>/generate` | Trigger L2 LLM generation |
 | GET | `/api/structure` | AST structure data |
@@ -329,6 +343,8 @@ Code → AST extraction (tree-sitter, 305+ languages)
 | POST | `/api/layer-explanation/<fid>/<layer>/generate` | Trigger layer explanation LLM generation |
 
 ## Tech Stack
+
+**Runtime requirement:** Python ≥ 3.10. All Python dependencies below are installed automatically by `pip install the-door`.
 
 | Component | Purpose | License |
 |---|---|---|
@@ -338,8 +354,10 @@ Code → AST extraction (tree-sitter, 305+ languages)
 | mcp | MCP Server SDK | Apache 2.0 |
 | click | CLI framework | BSD-3 |
 | httpx | LLM API calls | BSD-3 |
+| pathspec | `.gitignore`-style file filtering | MPL-2.0 |
+| tomli | TOML config parsing (Python < 3.11 only) | MIT |
 | Cytoscape.js | Interactive diagrams (locally bundled, no CDN) | MIT |
-| osv-scanner | Vulnerability scanning (optional) | Apache 2.0 |
+| osv-scanner | Vulnerability scanning — **external binary, install separately** (see Prerequisites) | Apache 2.0 |
 
 ## Project Data
 

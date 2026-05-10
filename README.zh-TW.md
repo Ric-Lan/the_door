@@ -32,6 +32,19 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
 
 ## 一、簡易入門
 
+### 前置需求
+
+| 需求 | 說明 |
+|---|---|
+| **Python ≥ 3.10** | 必要。[python.org/downloads](https://www.python.org/downloads/) |
+| **pip** | 隨 Python 一起安裝 |
+| **osv-scanner** _(選配)_ | `the-door scan` 需要。安裝方式：`go install golang.org/x/vuln/cmd/osv-scanner@latest`，或從 [google.github.io/osv-scanner](https://google.github.io/osv-scanner/) 下載 |
+| **Ollama** _(選配)_ | 使用本地 LLM 模式時需要。從 [ollama.com](https://ollama.com) 安裝 |
+
+> **MCP 模式（無需 API key）**：還需要支援 MCP 的 AI 平台，例如 Claude Code 或 Kiro IDE。
+
+---
+
 ### 沒有 API Key？用 AI 平台直接分析
 
 如果你使用 **Claude Code**、**Kiro IDE** 或其他支援 MCP 的 AI 平台，不需要自備 API key——由平台的 AI 負責分析，The Door 只負責讀取程式碼與產生圖形。
@@ -310,7 +323,7 @@ the-door mcp-serve                          # 啟動 MCP Server（18 tools）
 
 ## 本地 UI API
 
-`the-door ui` 啟動後提供 13 個本地 API 端點（僅綁定 `127.0.0.1`）：
+`the-door ui` 啟動後提供 14 個本地 API 端點（僅綁定 `127.0.0.1`）：
 
 | Method | Path | 說明 |
 |---|---|---|
@@ -321,7 +334,8 @@ the-door mcp-serve                          # 啟動 MCP Server（18 tools）
 | GET | `/api/update/status/<job_id>` | 輪詢管線進度 |
 | GET | `/api/doubts` | 疑義列表 |
 | GET | `/api/timeline` | 時間軸分析結果 |
-| GET | `/api/l1` | L1 功能圖形 ViewModel |
+| GET | `/api/l1?version_id=<id>` | L1 功能圖形 ViewModel（可指定版本） |
+| GET | `/api/diff?baseline=<id>&current=<id>` | 依 version ID 比對兩個快照 |
 | GET | `/api/l2/<feature_id>` | L2 模組圖形 ViewModel |
 | POST | `/api/l2/<feature_id>/generate` | 觸發 L2 LLM 生成 |
 | GET | `/api/structure` | AST 結構原料 |
@@ -329,6 +343,8 @@ the-door mcp-serve                          # 啟動 MCP Server（18 tools）
 | POST | `/api/layer-explanation/<fid>/<layer>/generate` | 觸發層說明 LLM 生成 |
 
 ## 技術棧
+
+**執行環境需求：** Python ≥ 3.10。以下 Python 套件均由 `pip install the-door` 自動安裝。
 
 | 元件 | 用途 | 授權 |
 |---|---|---|
@@ -338,8 +354,10 @@ the-door mcp-serve                          # 啟動 MCP Server（18 tools）
 | mcp | MCP Server SDK | Apache 2.0 |
 | click | CLI 框架 | BSD-3 |
 | httpx | LLM API 呼叫 | BSD-3 |
+| pathspec | `.gitignore` 風格的檔案過濾 | MPL-2.0 |
+| tomli | TOML 設定檔解析（僅 Python < 3.11） | MIT |
 | Cytoscape.js | 互動式圖形（本地打包，無 CDN） | MIT |
-| osv-scanner | 漏洞掃描（選配） | Apache 2.0 |
+| osv-scanner | 漏洞掃描——**外部執行檔，需另行安裝**（見前置需求） | Apache 2.0 |
 
 ## 專案資料
 
