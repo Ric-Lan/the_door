@@ -15,6 +15,14 @@
           <h1>本地版本 Viewer</h1>
         </div>
 
+        <!-- 版本選擇器（多 snapshot 時顯示） -->
+        <div id="version-selector-bar" class="version-selector-bar" hidden>
+          <label for="select-version-a">版本 A</label>
+          <select id="select-version-a" class="version-select"></select>
+          <label for="select-version-b">版本 B</label>
+          <select id="select-version-b" class="version-select"></select>
+        </div>
+
         <nav class="mode-switch" aria-label="viewer mode">
           <button id="btn-diff"     class="mode-button" type="button" data-mode="diff">差異</button>
           <button id="btn-baseline" class="mode-button" type="button" data-mode="baseline">舊版</button>
