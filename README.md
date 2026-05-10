@@ -60,6 +60,7 @@ If you use **Claude Code**, **Kiro IDE**, or any other MCP-compatible AI platfor
    > "Compare `./old` and `./new` — what changed?"
 
 The AI calls The Door's tools via MCP and returns results directly in the conversation.
+For the exact multi-tool sequence the AI follows, see [`CLAUDE.md`](CLAUDE.md).
 
 ---
 

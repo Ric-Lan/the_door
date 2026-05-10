@@ -60,6 +60,7 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
    > 「比對 `./old` 和 `./new` 之間改了什麼」
 
 AI 會透過 MCP 呼叫 The Door 的工具完成分析，結果直接回傳到對話中。
+具體 AI 呼叫工具的序列，請參考 [`CLAUDE.md`](CLAUDE.md)。
 
 ---
 
