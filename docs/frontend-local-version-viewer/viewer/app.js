@@ -183,6 +183,7 @@ async function loadFromApi() {
   if (ad.has_snapshots) {
     // In diff mode with version compare, load the "current" (versionB) graph
     await loadL1Graph(hasVersionCompare ? state.versionB : null);
+    openGraphDrawer();
   }
 }
 
@@ -222,8 +223,10 @@ async function loadSnapshots() {
     if (!res.ok) return;
     const data = await res.json();
     state.snapshots = data.snapshots || [];
-    state.versionA = state.snapshots[0]?.version_id ?? null;
-    state.versionB = state.snapshots[1]?.version_id ?? null;
+    // versionA = baseline (older), versionB = current (newer)
+    // Snapshots are ordered newest-first, so index 0 = newest = current
+    state.versionA = state.snapshots[1]?.version_id ?? null;
+    state.versionB = state.snapshots[0]?.version_id ?? null;
     populateVersionSelectors();
   } catch (_) {
     // Non-fatal
@@ -259,7 +262,7 @@ function populateVersionSelectors() {
       opt.textContent = snapshotLabel(s);
       sel.appendChild(opt);
     });
-    // Default: A = latest (index 0), B = second latest (index 1)
+    // Default: A = baseline (older), B = current (newer)
     sel.value = idx === 0 ? state.versionA : state.versionB;
   });
 

@@ -78,20 +78,25 @@ identification step yourself.
    Rules: `feature_id` must start with `feat-`. `confidence` must be `high`, `medium`, or `low`.
    Group nodes by functional purpose, not file or class structure.
 
-3. `validate_output(llm_output=<your analysis>, structure_json=<from step 1>)`
-   → Fix any validation errors before continuing.
-
-4. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
+3. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
    → Returns: `version_id`, `label`
 
 **Version diff analysis (comparing two versions):**
 
-Run steps 1–4 for BOTH versions, then:
+Run steps 1–3 for BOTH versions, then:
 
-5. `diff(codebase_path="./new-project", baseline="v1.0.0", format="mermaid")`
+4. `diff(codebase_path="./new-project", baseline="v1.0.0", format="mermaid")`
    → Returns: mermaid diagram of what changed
 
-6. Start UI: `the-door ui ./new-project`
+   > **Cross-directory note:** `diff` reads snapshots from `<codebase_path>/.the-door/snapshots/`.
+   > Both versions' snapshots must be in the **same** directory. If you analyzed them in separate
+   > directories, copy the old version's snapshot file into the new version's snapshot directory:
+   > ```
+   > cp ./old-project/.the-door/snapshots/<old-id>.json ./new-project/.the-door/snapshots/
+   > ```
+   > Then run `diff` against `./new-project`.
+
+5. Start UI: `the-door ui ./new-project`
    → Opens browser workbench with diff visualization
 
 **L2 module detail (after L1 analysis):**
