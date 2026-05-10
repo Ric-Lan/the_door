@@ -53,6 +53,13 @@ const state = {
   diffSortMode: "risk",
   /** @type {string|null} 層說明快取 */
   layerExplanation: null,
+
+  /** @type {Array} 所有 snapshots（from /api/snapshots） */
+  snapshots: [],
+  /** @type {string|null} 版本 A 的 version_id（預設最新） */
+  versionA: null,
+  /** @type {string|null} 版本 B 的 version_id（預設第二新，若有） */
+  versionB: null,
 };
 
 // ============================================================
@@ -204,11 +211,60 @@ async function loadSnapshots() {
   try {
     const res = await fetch("http://127.0.0.1:8765/api/snapshots", { cache: "no-store" });
     if (!res.ok) return;
-    // Snapshots loaded — could be used for version selector (future)
-    // For now just confirm they're available
+    const data = await res.json();
+    state.snapshots = data.snapshots || [];
+    state.versionA = state.snapshots[0]?.version_id ?? null;
+    state.versionB = state.snapshots[1]?.version_id ?? null;
+    populateVersionSelectors();
   } catch (_) {
     // Non-fatal
   }
+}
+
+function snapshotLabel(snapshot) {
+  if (!snapshot) return "（未知）";
+  if (snapshot.git_tags?.length) return snapshot.git_tags[0];
+  if (snapshot.label) return snapshot.label;
+  return snapshot.timestamp?.slice(0, 16).replace("T", " ") ?? "（無時間）";
+}
+
+function populateVersionSelectors() {
+  const selA = document.getElementById("select-version-a");
+  const selB = document.getElementById("select-version-b");
+  const selectorBar = document.getElementById("version-selector-bar");
+  if (!selA || !selB || !selectorBar) return;
+
+  // Single snapshot: hide selector
+  if (state.snapshots.length <= 1) {
+    selectorBar.hidden = true;
+    return;
+  }
+
+  selectorBar.hidden = false;
+
+  [selA, selB].forEach((sel, idx) => {
+    sel.innerHTML = "";
+    state.snapshots.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s.version_id;
+      opt.textContent = snapshotLabel(s);
+      sel.appendChild(opt);
+    });
+    // Default: A = latest (index 0), B = second latest (index 1)
+    sel.value = idx === 0 ? state.versionA : state.versionB;
+  });
+
+  // 用賦值型 onchange（覆寫而非累積），確保多次呼叫 populateVersionSelectors() 不重複附加 handler
+  selA.onchange = async () => {
+    state.versionA = selA.value;
+    renderTopBar();
+    await loadL1Graph(state.versionA);
+  };
+  selB.onchange = async () => {
+    state.versionB = selB.value;
+    renderTopBar();
+    await loadL1Graph(state.versionB);
+  };
 }
 
 // ============================================================
