@@ -237,6 +237,7 @@ class TheDoorMCPServer:
                     }
                     for t in topology.entries
                 ],
+                "analyzed_files": [f.path for f in result.files],
             }
             return [TextContent(type="text", text=json.dumps(output, ensure_ascii=False))]
         except (FileNotFoundError, ValueError) as e:

@@ -95,6 +95,21 @@ class TestExtractStructureTool:
         assert "topology" in data
 
 
+class TestExtractStructureOutput:
+    """Tests for extract_structure response fields."""
+
+    @pytest.mark.asyncio
+    async def test_extract_structure_includes_analyzed_files(self, server, sample_codebase):
+        """extract_structure result includes analyzed_files list."""
+        result = await server._extract_structure({"codebase_path": sample_codebase})
+        data = json.loads(result[0].text)
+
+        assert "analyzed_files" in data
+        assert isinstance(data["analyzed_files"], list)
+        assert len(data["analyzed_files"]) > 0
+        assert all(isinstance(f, str) for f in data["analyzed_files"])
+
+
 class TestValidateOutputTool:
     """Tests for the validate_output MCP tool."""
 
