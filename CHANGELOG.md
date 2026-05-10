@@ -23,13 +23,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `the-door projects` CLI command: lists all registered projects.
 - `project_list` MCP tool: AI can query registered projects via MCP.
 - `the-door ui` now supports interactive project picker when called without a path argument.
+- UI server: `GET /api/diff?baseline=<version_id>&current=<version_id>` endpoint for
+  computing L1 diff between two snapshots by version ID.
 
 ### Changed
 - README MCP Quick Start: Added reference to `CLAUDE.md` for tool orchestration details.
+- UI version selector: version A now defaults to the older (baseline) snapshot,
+  version B to the newer (current) snapshot — previously reversed.
+- CLAUDE.md Mode B pipeline: removed `validate_output` step (format incompatible with
+  Mode B output); added cross-directory snapshot workaround for `diff`.
+- Frontend: API base URL now uses `window.location.host` instead of hardcoded port 8765.
 
 ### Fixed
 - MCP agent-mode pipeline was previously undocumented, causing AI platforms to fail
   to chain tools correctly when attempting no-API-key analysis.
+- UI graph drawer now opens automatically on page load when snapshot data is available.
+- Frontend version comparison logic overhauled to correctly trigger diff overlay when
+  switching versions via the version selector.
 
 ---
 
