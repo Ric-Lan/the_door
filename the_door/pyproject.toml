@@ -36,6 +36,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 markers = [
     "unit: Unit tests for individual modules",
     "property: Property-based tests using Hypothesis",
