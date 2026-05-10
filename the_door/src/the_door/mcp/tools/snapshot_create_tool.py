@@ -39,4 +39,6 @@ async def execute(arguments: dict) -> dict:
     except SnapshotError as e:
         return {"error": str(e)}
 
+    from the_door.core.registry import ProjectRegistry
+    ProjectRegistry().register(codebase_path)
     return {"version_id": snapshot.version_id, "label": snapshot.label}

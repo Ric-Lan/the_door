@@ -51,6 +51,8 @@ async def execute(arguments: dict) -> dict:
 
     result = await reader.read()
 
+    from the_door.core.registry import ProjectRegistry
+    ProjectRegistry().register(codebase_path)
     return {
         "l1": {
             "summary": result.l1_output.summary,
