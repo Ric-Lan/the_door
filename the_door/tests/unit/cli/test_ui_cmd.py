@@ -9,6 +9,37 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
+from the_door.cli.ui_cmd import _resolve_project_choice
+
+# ---------------------------------------------------------------------------
+# Unit tests for _resolve_project_choice (pure function)
+# ---------------------------------------------------------------------------
+
+_PROJECTS = [
+    {"id": "001", "name": "web-app", "path": "/projects/web-app", "registered_at": ""},
+    {"id": "002", "name": "api",     "path": "/projects/api",     "registered_at": ""},
+]
+
+
+def test_resolve_by_first_id():
+    assert _resolve_project_choice(_PROJECTS, "001") == "/projects/web-app"
+
+
+def test_resolve_by_second_id():
+    assert _resolve_project_choice(_PROJECTS, "002") == "/projects/api"
+
+
+def test_resolve_direct_path_fallback():
+    assert _resolve_project_choice(_PROJECTS, "/custom/path") == "/custom/path"
+
+
+def test_resolve_unknown_id_treated_as_path():
+    assert _resolve_project_choice(_PROJECTS, "999") == "999"
+
+
+def test_resolve_empty_projects_returns_choice_as_path():
+    assert _resolve_project_choice([], "/some/path") == "/some/path"
+
 
 def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
