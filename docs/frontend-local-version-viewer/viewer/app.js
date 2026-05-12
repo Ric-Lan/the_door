@@ -2415,5 +2415,165 @@ function _prependNote(note, container) {
  * @param {HTMLElement} container — the detail-content element
  */
 function _appendDiffExplanationSection(featureId, container) {
-  // no-op until Phase RI-5
+  // Only show in diff mode
+  if (state.mode !== "diff") return;
+
+  const section = document.createElement("section");
+  section.className = "detail-section diff-explanation-section";
+
+  const h = document.createElement("h3");
+  h.textContent = "差異推論";
+  section.appendChild(h);
+
+  const bodyEl = document.createElement("div");
+  bodyEl.className = "diff-explanation-body";
+  section.appendChild(bodyEl);
+  container.appendChild(section);
+
+  // Load cached explanation (no LLM call)
+  _loadDiffExplanation(featureId, bodyEl);
+}
+
+async function _loadDiffExplanation(featureId, container) {
+  if (!state.versionA || !state.versionB) {
+    _renderExplanationEmpty(container, featureId);
+    return;
+  }
+  const params = new URLSearchParams({
+    baseline_version_id: state.versionA,
+    current_version_id: state.versionB,
+    output_language: _currentOutputLanguage(),
+  });
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/diff-explanations/${encodeURIComponent(featureId)}?` + params,
+      { cache: "no-store" }
+    );
+    if (!res.ok) { _renderExplanationEmpty(container, featureId); return; }
+    const body = await res.json();
+    if (!body.explanation) {
+      _renderExplanationEmpty(container, featureId);
+    } else {
+      _renderExplanationContent(body.explanation, container, featureId);
+    }
+  } catch (_) {
+    _renderExplanationEmpty(container, featureId);
+  }
+}
+
+function _renderExplanationEmpty(container, featureId) {
+  container.textContent = "";
+  const p = document.createElement("p");
+  p.className = "missing";
+  p.textContent = "尚未產生差異推論。";
+  container.appendChild(p);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "action-button diff-explanation-generate-btn";
+  btn.textContent = "生成差異推論";
+  btn.addEventListener("click", () => _generateDiffExplanation(featureId, container));
+  container.appendChild(btn);
+}
+
+function _renderExplanationContent(explanation, container, featureId) {
+  container.textContent = "";
+
+  const confidence = explanation.confidence || "low";
+  const confidenceMap = { high: "高", medium: "中", low: "低" };
+  const tag = document.createElement("span");
+  tag.className = "confidence-badge confidence-badge-" + confidence;
+  tag.textContent = "信心：" + (confidenceMap[confidence] || confidence);
+  container.appendChild(tag);
+
+  const fields = [
+    ["影響什麼", explanation.impact_summary],
+    ["可達成目的", explanation.possible_purpose],
+    ["注意事項", explanation.caution],
+  ];
+  fields.forEach(([title, text]) => {
+    if (text) container.appendChild(_detailSectionSmall(title, text));
+  });
+
+  const resources = explanation.linked_resources || [];
+  if (resources.length) {
+    const sec = document.createElement("section");
+    sec.className = "detail-section";
+    const h = document.createElement("h3");
+    h.textContent = "連動資源";
+    const ul = document.createElement("ul");
+    ul.className = "source-list";
+    resources.forEach(r => {
+      const li = document.createElement("li");
+      li.textContent = r;
+      ul.appendChild(li);
+    });
+    sec.append(h, ul);
+    container.appendChild(sec);
+  }
+
+  const regenBtn = document.createElement("button");
+  regenBtn.type = "button";
+  regenBtn.className = "action-button diff-explanation-generate-btn";
+  regenBtn.textContent = "重新生成";
+  regenBtn.addEventListener("click", () => _generateDiffExplanation(featureId, container));
+  container.appendChild(regenBtn);
+}
+
+async function _generateDiffExplanation(featureId, container) {
+  if (!state.versionA || !state.versionB) return;
+
+  // Show provider info before calling LLM per spec §7.3
+  const infoEl = document.createElement("p");
+  infoEl.className = "missing";
+  infoEl.textContent = "正在呼叫 LLM 生成推論…";
+  container.textContent = "";
+  container.appendChild(infoEl);
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/diff-explanations/${encodeURIComponent(featureId)}/generate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseline_version_id: state.versionA,
+          current_version_id: state.versionB,
+          output_language: _currentOutputLanguage(),
+        }),
+      }
+    );
+    const body = await res.json();
+    if (!res.ok) {
+      container.textContent = "";
+      const err = document.createElement("p");
+      err.className = "missing";
+      err.textContent = "生成失敗：" + (body?.error?.message || res.status);
+      container.appendChild(err);
+      return;
+    }
+    _renderExplanationContent(body.explanation, container, featureId);
+  } catch (err) {
+    container.textContent = "";
+    const errEl = document.createElement("p");
+    errEl.className = "missing";
+    errEl.textContent = "無法連線：" + (err.message || "network error");
+    container.appendChild(errEl);
+  }
+}
+
+function _currentOutputLanguage() {
+  return document.getElementById("input-language")?.value || "zh-Hant";
+}
+
+function _detailSectionSmall(title, text) {
+  const sec = document.createElement("section");
+  sec.className = "detail-section";
+  const h = document.createElement("h3");
+  h.textContent = title;
+  const p = document.createElement("p");
+  p.textContent = text || "未提供";
+  if (!text) p.className = "missing";
+  sec.append(h, p);
+  return sec;
 }
