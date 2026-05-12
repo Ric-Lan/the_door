@@ -690,6 +690,111 @@ class APIHandlers:
 
         return max(candidates, key=sort_key)
 
+    # ------------------------------------------------------------------
+    # GET /api/notes
+    # ------------------------------------------------------------------
+
+    def handle_get_notes(
+        self,
+        mode: str | None,
+        feature_id: str | None,
+        version_a: str | None,
+        version_b: str | None,
+    ) -> tuple[int, dict]:
+        """Return notes for the given mode + version + feature key."""
+        if not mode or not feature_id:
+            return 400, self._make_error(
+                "missing_params", "mode and feature_id are required", "handle_get_notes"
+            )
+        if mode not in ("baseline", "current", "diff"):
+            return 400, self._make_error(
+                "invalid_mode",
+                f"mode must be baseline, current, or diff; got: {mode}",
+                "handle_get_notes",
+            )
+        if mode == "baseline" and not version_a:
+            return 400, self._make_error(
+                "missing_params", "version_a is required for baseline mode", "handle_get_notes"
+            )
+        if mode == "current" and not version_b:
+            return 400, self._make_error(
+                "missing_params", "version_b is required for current mode", "handle_get_notes"
+            )
+        if mode == "diff" and (not version_a or not version_b):
+            return 400, self._make_error(
+                "missing_params",
+                "version_a and version_b are required for diff mode",
+                "handle_get_notes",
+            )
+        from the_door.core.ui.note_store import NoteStore
+        notes = NoteStore(self._project_root).list_notes(
+            mode, feature_id, version_a, version_b
+        )
+        return 200, {"notes": notes}
+
+    # ------------------------------------------------------------------
+    # POST /api/notes
+    # ------------------------------------------------------------------
+
+    def handle_post_notes(self, body: dict) -> tuple[int, dict]:
+        """Validate and persist a new user note."""
+        mode = body.get("mode")
+        feature_id = body.get("feature_id")
+        name_input = (body.get("name_input") or "").strip()
+        comment = (body.get("comment") or "").strip()
+        version_a = body.get("version_a") or None
+        version_b = body.get("version_b") or None
+
+        if not mode or not feature_id:
+            return 400, self._make_error(
+                "missing_params", "mode and feature_id are required", "handle_post_notes"
+            )
+        if mode not in ("baseline", "current", "diff"):
+            return 400, self._make_error(
+                "invalid_mode",
+                f"mode must be baseline, current, or diff; got: {mode}",
+                "handle_post_notes",
+            )
+        if not name_input:
+            return 400, self._make_error(
+                "empty_name", "name_input must not be empty", "handle_post_notes"
+            )
+        if not comment:
+            return 400, self._make_error(
+                "empty_comment", "comment must not be empty", "handle_post_notes"
+            )
+        if len(name_input) > 40:
+            return 400, self._make_error(
+                "name_too_long",
+                "name_input must be 40 characters or less",
+                "handle_post_notes",
+            )
+        if len(comment) > 2000:
+            return 400, self._make_error(
+                "comment_too_long",
+                "comment must be 2000 characters or less",
+                "handle_post_notes",
+            )
+        if mode == "baseline" and not version_a:
+            return 400, self._make_error(
+                "missing_params", "version_a is required for baseline mode", "handle_post_notes"
+            )
+        if mode == "current" and not version_b:
+            return 400, self._make_error(
+                "missing_params", "version_b is required for current mode", "handle_post_notes"
+            )
+        if mode == "diff" and (not version_a or not version_b):
+            return 400, self._make_error(
+                "missing_params",
+                "version_a and version_b are required for diff mode",
+                "handle_post_notes",
+            )
+        from the_door.core.ui.note_store import NoteStore
+        note = NoteStore(self._project_root).add_note(
+            mode, feature_id, version_a, version_b, name_input, comment
+        )
+        return 201, {"note": note}
+
     @staticmethod
     def _make_error(code: str, message: str, source: str) -> dict:
         """Build a standard API_Error_Response dict."""
