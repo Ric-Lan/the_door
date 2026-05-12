@@ -138,3 +138,36 @@ class TestNotesRouting:
         resp = conn.getresponse()
         assert resp.status == 400
         conn.close()
+
+
+class TestDiffExplanationRouting:
+    def test_get_diff_explanation_returns_200(self, running_server):
+        server, port = running_server
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "GET",
+            "/api/diff-explanations/feat-x"
+            "?baseline_version_id=v1&current_version_id=v2&output_language=zh-Hant",
+        )
+        resp = conn.getresponse()
+        assert resp.status == 200
+        body = json.loads(resp.read())
+        assert "explanation" in body
+        conn.close()
+
+    def test_get_diff_explanation_missing_params_returns_400(self, running_server):
+        server, port = running_server
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/diff-explanations/feat-x?baseline_version_id=v1")
+        resp = conn.getresponse()
+        assert resp.status == 400
+        conn.close()
+
+    def test_get_diff_explanation_unknown_path_returns_404(self, running_server):
+        server, port = running_server
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/diff-explanations/")
+        resp = conn.getresponse()
+        # No feature_id segment — should 400 or 404
+        assert resp.status in (400, 404)
+        conn.close()

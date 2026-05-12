@@ -114,6 +114,7 @@ def _handle_get(
             path.startswith("/api/update/status/")
             or (len(parts) == 4 and parts[1] == "api" and parts[2] == "l2")
             or (len(parts) == 5 and parts[1] == "api" and parts[2] == "layer-explanation")
+            or (len(parts) == 4 and parts[1] == "api" and parts[2] == "diff-explanations")
         )
         if allowed is None and not is_dynamic_get:
             _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
@@ -163,6 +164,15 @@ def _handle_get(
             feature_id = parts[3]
             layer = parts[4]
             status, body = api_handlers.handle_get_layer_explanation(feature_id, layer)
+        elif len(parts) == 4 and parts[1] == "api" and parts[2] == "diff-explanations":
+            # GET /api/diff-explanations/<feature_id>
+            feature_id = parts[3]
+            baseline_version_id = query_params.get("baseline_version_id", [None])[0]
+            current_version_id = query_params.get("current_version_id", [None])[0]
+            output_language = query_params.get("output_language", [None])[0]
+            status, body = api_handlers.handle_get_diff_explanation(
+                feature_id, baseline_version_id, current_version_id, output_language
+            )
         else:
             _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
             return
@@ -244,6 +254,25 @@ def _handle_post(
             layer = parts[4]
             status, response_body = api_handlers.handle_post_layer_explanation_generate(
                 feature_id, layer
+            )
+            _send_json(handler, status, response_body)
+        elif (
+            len(parts) == 5
+            and parts[1] == "api"
+            and parts[2] == "diff-explanations"
+            and parts[4] == "generate"
+        ):
+            # POST /api/diff-explanations/<feature_id>/generate
+            feature_id = parts[3]
+            content_length = int(handler.headers.get("Content-Length", 0))
+            raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
+            try:
+                post_body = json.loads(raw_body) if raw_body else {}
+            except json.JSONDecodeError:
+                _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
+                return
+            status, response_body = api_handlers.handle_post_diff_explanation_generate(
+                feature_id, post_body
             )
             _send_json(handler, status, response_body)
         else:
