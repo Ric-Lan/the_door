@@ -17,16 +17,16 @@
 
         <!-- 版本選擇器（多 snapshot 時顯示） -->
         <div id="version-selector-bar" class="version-selector-bar" hidden>
-          <label for="select-version-a">版本 A</label>
-          <select id="select-version-a" class="version-select"></select>
-          <label for="select-version-b">版本 B</label>
-          <select id="select-version-b" class="version-select"></select>
+          <label for="select-version-a" title="選擇比較基準版本">版本 A</label>
+          <select id="select-version-a" class="version-select" title="選擇比較基準版本"></select>
+          <label for="select-version-b" title="選擇要比較的新版本">版本 B</label>
+          <select id="select-version-b" class="version-select" title="選擇要比較的新版本"></select>
         </div>
 
         <nav class="mode-switch" aria-label="viewer mode">
-          <button id="btn-diff"     class="mode-button" type="button" data-mode="diff">差異</button>
-          <button id="btn-baseline" class="mode-button" type="button" data-mode="baseline">舊版</button>
-          <button id="btn-current"  class="mode-button" type="button" data-mode="current">新版</button>
+          <button id="btn-diff"     class="mode-button" type="button" data-mode="diff"     title="查看 A 版與 B 版之間的功能差異">差異</button>
+          <button id="btn-baseline" class="mode-button" type="button" data-mode="baseline" title="查看 A 版的功能狀態">舊版</button>
+          <button id="btn-current"  class="mode-button" type="button" data-mode="current"  title="查看 B 版的功能狀態">新版</button>
         </nav>
 
         <div class="topbar-actions">
@@ -36,10 +36,10 @@
         </div>
 
         <div class="status-strip" aria-label="analysis status">
-          <span id="count-added"    class="count-badge count-added"    title="新增">+0</span>
-          <span id="count-removed"  class="count-badge count-removed"  title="移除">-0</span>
-          <span id="count-modified" class="count-badge count-modified" title="修改">~0</span>
-          <span id="count-risk"     class="count-badge count-risk"     title="風險" hidden>⚠ 0</span>
+          <span id="count-added"    class="count-badge count-added"    title="B 版相較 A 版新增的功能數量">新增 0</span>
+          <span id="count-removed"  class="count-badge count-removed"  title="B 版相較 A 版移除的功能數量">移除 0</span>
+          <span id="count-modified" class="count-badge count-modified" title="B 版相較 A 版內容或關聯改變的功能數量">修改 0</span>
+          <span id="count-risk"     class="count-badge count-risk"     title="需要留意的差異項目數量" hidden>注意 0</span>
         </div>
       </header>
 

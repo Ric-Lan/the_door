@@ -641,14 +641,14 @@ function renderTopBar() {
     els.countAdded.removeAttribute("hidden");
     els.countRemoved.removeAttribute("hidden");
     els.countModified.removeAttribute("hidden");
-    els.countAdded.textContent    = "+" + (cc.added   ?? 0);
-    els.countRemoved.textContent  = "-" + (cc.removed  ?? 0);
+    els.countAdded.textContent    = "新增 " + (cc.added   ?? 0);
+    els.countRemoved.textContent  = "移除 " + (cc.removed  ?? 0);
     const modified = (cc.attribute_changed ?? 0) + (cc.dependency_changed ?? 0);
-    els.countModified.textContent = "~" + modified;
+    els.countModified.textContent = "修改 " + modified;
 
     const totalRisk = Object.values(rc).reduce((a, b) => a + b, 0);
     if (totalRisk > 0) {
-      els.countRisk.textContent = "⚠ " + totalRisk;
+      els.countRisk.textContent = "注意 " + totalRisk;
       els.countRisk.removeAttribute("hidden");
     } else {
       els.countRisk.setAttribute("hidden", "");
