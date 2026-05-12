@@ -1131,3 +1131,89 @@ h1 {
 .diff-tag-removed          { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
 .diff-tag-attribute_changed   { background: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }
 .diff-tag-dependency_changed  { background: #FFF8E1; color: #E65100; border: 1px solid #FFE082; }
+
+/* ============================================================
+   User notes section (Phase RI-3)
+   ============================================================ */
+
+.user-notes-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.user-notes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.user-notes-form label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.user-notes-name,
+.user-notes-comment {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.user-notes-submit {
+  align-self: flex-start;
+  font-size: 13px;
+}
+
+.user-notes-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 0;
+}
+
+.user-notes-history-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+
+.user-note {
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface-muted);
+}
+
+.user-note > summary {
+  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  list-style: disclosure-closed;
+}
+
+.user-note[open] > summary {
+  list-style: disclosure-open;
+}
+
+.user-note > p {
+  padding: 0 10px 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-time {
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 0;
+}
