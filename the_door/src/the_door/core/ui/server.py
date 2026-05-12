@@ -91,6 +91,7 @@ _API_ROUTES: dict[str, str] = {
     "/api/l1": "GET",
     "/api/diff": "GET",
     "/api/structure": "GET",
+    "/api/notes": "GET",
 }
 
 
@@ -144,6 +145,12 @@ def _handle_get(
             status, body = api_handlers.handle_diff_versions(baseline_id, current_id)
         elif path == "/api/structure":
             status, body = api_handlers.handle_get_structure()
+        elif path == "/api/notes":
+            mode = query_params.get("mode", [None])[0]
+            feature_id = query_params.get("feature_id", [None])[0]
+            version_a = query_params.get("version_a", [None])[0]
+            version_b = query_params.get("version_b", [None])[0]
+            status, body = api_handlers.handle_get_notes(mode, feature_id, version_a, version_b)
         elif path.startswith("/api/update/status/"):
             job_id = path[len("/api/update/status/"):]
             status, body = api_handlers.handle_get_update_status(job_id)
@@ -180,6 +187,19 @@ def _handle_post(
 
     if not path.startswith("/api/"):
         _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
+        return
+
+    # /api/notes supports both GET and POST
+    if path == "/api/notes":
+        content_length = int(handler.headers.get("Content-Length", 0))
+        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
+        try:
+            body = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError:
+            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
+            return
+        status, response_body = api_handlers.handle_post_notes(body)
+        _send_json(handler, status, response_body)
         return
 
     # Check method is allowed for static routes

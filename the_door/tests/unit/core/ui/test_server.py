@@ -79,4 +79,62 @@ def test_cors_header_present(running_server):
     resp = conn.getresponse()
     resp.read()
     assert resp.getheader("Access-Control-Allow-Origin") == "*"
-    conn.close()
+
+
+class TestNotesRouting:
+    def test_get_notes_returns_200_with_valid_params(self, running_server):
+        server, port = running_server
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "GET",
+            "/api/notes?mode=diff&feature_id=feat-x&version_a=v1&version_b=v2",
+        )
+        resp = conn.getresponse()
+        assert resp.status == 200
+        body = json.loads(resp.read())
+        assert "notes" in body
+        conn.close()
+
+    def test_get_notes_missing_params_returns_400(self, running_server):
+        server, port = running_server
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("GET", "/api/notes?feature_id=feat-x")
+        resp = conn.getresponse()
+        assert resp.status == 400
+        conn.close()
+
+    def test_post_notes_returns_201(self, running_server):
+        server, port = running_server
+        payload = json.dumps({
+            "mode": "diff",
+            "feature_id": "feat-x",
+            "version_a": "v1",
+            "version_b": "v2",
+            "name_input": "Ric",
+            "comment": "test note",
+        }).encode()
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "POST", "/api/notes",
+            body=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = conn.getresponse()
+        assert resp.status == 201
+        body = json.loads(resp.read())
+        assert "note" in body
+        conn.close()
+
+    def test_post_notes_empty_name_returns_400(self, running_server):
+        server, port = running_server
+        payload = json.dumps({
+            "mode": "diff", "feature_id": "feat-x",
+            "version_a": "v1", "version_b": "v2",
+            "name_input": "", "comment": "msg",
+        }).encode()
+        conn = HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request("POST", "/api/notes", body=payload,
+                     headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        assert resp.status == 400
+        conn.close()
