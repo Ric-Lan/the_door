@@ -645,6 +645,168 @@ class APIHandlers:
             self._job_store.fail_job(job.job_id, str(exc))
 
     # ------------------------------------------------------------------
+    # GET /api/diff-explanations/<feature_id>
+    # ------------------------------------------------------------------
+
+    def handle_get_diff_explanation(
+        self,
+        feature_id: str,
+        baseline_version_id: str | None,
+        current_version_id: str | None,
+        output_language: str | None,
+    ) -> tuple[int, dict]:
+        """Return cached diff explanation or empty state. Never triggers LLM."""
+        if not baseline_version_id or not current_version_id or not output_language:
+            return 400, self._make_error(
+                "missing_params",
+                "baseline_version_id, current_version_id, and output_language are required",
+                "handle_get_diff_explanation",
+            )
+        from the_door.core.ui.diff_explanation_store import DiffExplanationStore
+        entry = DiffExplanationStore(self._project_root).get(
+            feature_id, baseline_version_id, current_version_id, output_language
+        )
+        return 200, {"explanation": entry}
+
+    # ------------------------------------------------------------------
+    # POST /api/diff-explanations/<feature_id>/generate
+    # ------------------------------------------------------------------
+
+    def handle_post_diff_explanation_generate(
+        self, feature_id: str, body: dict
+    ) -> tuple[int, dict]:
+        """Generate a diff explanation for one feature via LLM and cache it."""
+        baseline_version_id = body.get("baseline_version_id")
+        current_version_id = body.get("current_version_id")
+        output_language = body.get("output_language") or "zh-Hant"
+
+        if not baseline_version_id or not current_version_id:
+            return 400, self._make_error(
+                "missing_params",
+                "baseline_version_id and current_version_id are required",
+                "handle_post_diff_explanation_generate",
+            )
+
+        # Gather diff context from UpdateReport if available
+        diff_context = self._collect_diff_context(
+            feature_id, baseline_version_id, current_version_id
+        )
+
+        # Resolve LLM provider (same pattern as _run_layer_explanation_job)
+        try:
+            config = ConfigManager.load()
+            llm_provider = create_provider(config)
+        except ConfigError as exc:
+            return 503, self._make_error(
+                "provider_not_configured",
+                f"LLM provider is not configured or unavailable: {exc}",
+                "handle_post_diff_explanation_generate",
+            )
+
+        prompt = self._build_diff_explanation_prompt(
+            feature_id, diff_context, output_language
+        )
+        try:
+            raw = asyncio.run(llm_provider.complete(prompt))
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            # LLM returned non-JSON — wrap as low-confidence plain text
+            parsed = {
+                "impact_summary": raw[:500] if raw else "推論格式錯誤。",
+                "possible_purpose": "無法解析推論結果。",
+                "linked_resources": [],
+                "caution": "LLM 回傳非 JSON 格式，請謹慎參考。",
+                "confidence": "low",
+            }
+        except Exception as exc:
+            return 500, self._make_error(
+                "llm_error",
+                f"LLM call failed: {exc}",
+                "handle_post_diff_explanation_generate",
+            )
+
+        entry = {
+            "feature_id": feature_id,
+            "change_type": diff_context.get("change_type", ""),
+            "impact_summary": parsed.get("impact_summary", ""),
+            "possible_purpose": parsed.get("possible_purpose", ""),
+            "linked_resources": parsed.get("linked_resources", []),
+            "caution": parsed.get("caution", ""),
+            "confidence": parsed.get("confidence", "low"),
+            "language": output_language,
+            "generated_at": (
+                datetime.datetime.now(datetime.timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            ),
+            "baseline_version_id": baseline_version_id,
+            "current_version_id": current_version_id,
+        }
+
+        from the_door.core.ui.diff_explanation_store import DiffExplanationStore
+        DiffExplanationStore(self._project_root).save(entry)
+        return 200, {"explanation": entry}
+
+    def _collect_diff_context(
+        self, feature_id: str, baseline_version_id: str, current_version_id: str
+    ) -> dict:
+        """Return available diff data for the feature from UpdateReport."""
+        latest_path = self._find_latest_report_path()
+        if latest_path is None:
+            return {}
+        try:
+            report = json.loads(latest_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        context: dict = {}
+        for entry in report.get("l2_details", []):
+            if entry.get("feature_id") == feature_id:
+                context = {
+                    "change_type": entry.get("change_type", ""),
+                    "current_label": entry.get("current_label", ""),
+                    "current_description": entry.get("current_description", ""),
+                    "baseline_label": entry.get("baseline_label", ""),
+                    "baseline_description": entry.get("baseline_description", ""),
+                    "affected_relations": entry.get("affected_relations", []),
+                }
+                break
+        if not context:
+            for entry in report.get("l1_changes", []):
+                if entry.get("feature_id") == feature_id:
+                    context = {
+                        "change_type": entry.get("change_type", ""),
+                        "current_label": entry.get("current_label", ""),
+                    }
+                    break
+        return context
+
+    @staticmethod
+    def _build_diff_explanation_prompt(
+        feature_id: str, context: dict, output_language: str
+    ) -> str:
+        """Build a structured prompt for diff explanation generation."""
+        ctx_text = json.dumps(context, ensure_ascii=False, indent=2) if context else "（無差異資料）"
+        return f"""你是版本差異分析助理。根據以下差異資料，以 {output_language} 回答四個問題。
+
+差異資料（feature_id: {feature_id}）：
+{ctx_text}
+
+請以 JSON 格式回答，不要包含其他文字：
+{{
+  "impact_summary": "此差異輸出影響什麼（一句話，面向非工程師）",
+  "possible_purpose": "此變更可以達成什麼目的（一句話，用「可能」語氣）",
+  "linked_resources": ["相關功能或模組名稱列表，最多 5 個"],
+  "caution": "需要注意的地方；資料不足時說明推論依據有限",
+  "confidence": "high 或 medium 或 low"
+}}
+
+規則：
+- 只根據提供的資料推論，不要編造需求、commit message 或不存在的資源。
+- 若資料不足，confidence 填 low，caution 說明推論依據有限。
+- 文字面向非工程師，避免不必要的技術術語。
+- 必須使用 {output_language} 語言回答。"""
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
