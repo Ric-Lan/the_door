@@ -95,6 +95,7 @@ const els = {
   inputOldPath:     document.getElementById("input-old-path"),
   inputNewPath:     document.getElementById("input-new-path"),
   modalError:       document.getElementById("modal-error"),
+  inputLanguage:    document.getElementById("input-language"),
   btnModalCancel:   document.getElementById("btn-modal-cancel"),
   btnModalSubmit:   document.getElementById("btn-modal-submit"),
   graphDrawer:      document.getElementById("graph-drawer"),
@@ -426,6 +427,7 @@ function showUpdateModal() {
   const projectPath = state.projectStatus?.project_path || "";
   els.inputOldPath.value = projectPath;
   els.inputNewPath.value = "";
+  if (els.inputLanguage) els.inputLanguage.value = "zh-Hant";
   els.modalError.hidden = true;
 
   // Show project root as hint so user knows the constraint
@@ -461,7 +463,11 @@ async function submitUpdate(oldPath, newPath) {
     const res = await fetch(`${API_BASE}/api/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ old_path: oldPath, new_path: newPath }),
+      body: JSON.stringify({
+        old_path: oldPath,
+        new_path: newPath,
+        output_language: els.inputLanguage?.value || "zh-Hant",
+      }),
     });
     const body = await res.json();
     if (!res.ok) {

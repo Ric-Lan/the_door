@@ -94,3 +94,14 @@ class TestActiveModeButtonCSS:
         block_end = css.index("}", idx)
         block = css[idx:block_end]
         assert "color: var(--accent)" in block
+
+
+class TestModalLanguageField:
+    def test_modal_has_language_select(self):
+        assert 'id="input-language"' in _html()
+
+    def test_language_select_has_zh_hant_option(self):
+        assert 'value="zh-Hant"' in _html()
+
+    def test_language_select_has_en_option(self):
+        assert 'value="en"' in _html()
