@@ -833,6 +833,11 @@ function renderDiffDetailPanel() {
 
   // Attribution — always visible (anti-hallucination)
   content.appendChild(attributionSection(detail.source));
+
+  // RI-5: diff explanation (no-op until Phase RI-5)
+  _appendDiffExplanationSection(state.selectedId, content);
+  // RI-3: user notes (no-op until Phase RI-3)
+  _appendUserNotesSection("diff", state.selectedId, state.versionA, state.versionB, content);
 }
 
 function renderSingleVersionDetailPanel() {
@@ -858,6 +863,11 @@ function renderSingleVersionDetailPanel() {
   content.appendChild(listDetailSection("Source nodes", feature.source_nodes ?? []));
 
   content.appendChild(attributionSection(feature.source));
+
+  // RI-3: user notes — version key depends on mode (baseline uses versionA, current uses versionB)
+  const _noteVA = state.mode === "baseline" ? state.versionA : null;
+  const _noteVB = state.mode === "current"  ? state.versionB : null;
+  _appendUserNotesSection(state.mode, feature.id, _noteVA, _noteVB, content);
 }
 
 // ============================================================
@@ -2033,6 +2043,11 @@ function renderDetailPanelDiff(node) {
   content.appendChild(listDetailSection("風險標記", node.risk_flags || []));
   // NO Enter L2 button in Diff_Mode (Req 9 AC4)
   content.appendChild(attributionSection("UpdateReport.l1_changes[feature_id=" + node.id + "]"));
+
+  // RI-5: diff explanation (no-op until Phase RI-5)
+  _appendDiffExplanationSection(node.id, content);
+  // RI-3: user notes (no-op until Phase RI-3)
+  _appendUserNotesSection("diff", node.id, state.versionA, state.versionB, content);
 }
 
 /**
@@ -2236,4 +2251,37 @@ function switchToMindmap() {
   sessionStorage.setItem("mindmap-data", JSON.stringify(data));
   window.open("./mindmap-popup.html", "mindmap",
     "width=960,height=720,resizable=yes,scrollbars=yes");
+}
+
+// ============================================================
+// Phase RI-3 hook: user notes section
+// Stub — implemented in Phase RI-3. Called from all three
+// detail render paths so RI-3 only needs to fill this function.
+// ============================================================
+
+/**
+ * Appended at the bottom of every right-side detail panel.
+ * @param {"diff"|"baseline"|"current"} mode
+ * @param {string} featureId
+ * @param {string|null} versionA  — required for baseline and diff modes
+ * @param {string|null} versionB  — required for current and diff modes
+ * @param {HTMLElement} container — the detail-content element
+ */
+function _appendUserNotesSection(mode, featureId, versionA, versionB, container) {
+  // no-op until Phase RI-3
+}
+
+// ============================================================
+// Phase RI-5 hook: diff explanation section
+// Stub — implemented in Phase RI-5. Called from the two diff
+// detail render paths so RI-5 only needs to fill this function.
+// ============================================================
+
+/**
+ * Appended after before/after sections in diff detail panels only.
+ * @param {string} featureId
+ * @param {HTMLElement} container — the detail-content element
+ */
+function _appendDiffExplanationSection(featureId, container) {
+  // no-op until Phase RI-5
 }
