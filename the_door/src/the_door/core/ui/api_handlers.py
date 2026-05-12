@@ -209,10 +209,12 @@ class APIHandlers:
                 source="handle_post_update",
             )
 
+        output_language = body.get("output_language") or "zh-Hant"
+
         # 6. Start background thread
         thread = threading.Thread(
             target=self._run_pipeline_job,
-            args=(job, old_path, new_path),
+            args=(job, old_path, new_path, output_language),
             daemon=True,
         )
         thread.start()
@@ -646,10 +648,12 @@ class APIHandlers:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _run_pipeline_job(self, job: UpdateJob, old_path: Path, new_path: Path) -> None:
+    def _run_pipeline_job(
+        self, job: UpdateJob, old_path: Path, new_path: Path, output_language: str = "zh-Hant"
+    ) -> None:
         """Background thread: run pipeline, persist report, update job status."""
         try:
-            config = PipelineConfig(old_path=old_path, new_path=new_path)
+            config = PipelineConfig(old_path=old_path, new_path=new_path, output_language=output_language)
             result = PipelineOrchestrator().run(config, progress_callback=job.update_step)
             report = ReportRenderer().render_json(result)
             self._persist_report(report)

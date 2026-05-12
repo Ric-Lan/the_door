@@ -340,6 +340,39 @@ class TestPostUpdate:
         saved = json.loads(report_files[0].read_text(encoding="utf-8"))
         assert saved["l0_summary"] == "done"
 
+    def test_post_update_passes_output_language_to_pipeline(self, tmp_path):
+        """output_language in body is forwarded as the 4th arg to _run_pipeline_job."""
+        old_dir = tmp_path / "old"
+        new_dir = tmp_path / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+        handlers = _make_handlers(tmp_path)
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value = MagicMock()
+            handlers.handle_post_update({
+                "old_path": str(old_dir),
+                "new_path": str(new_dir),
+                "output_language": "en",
+            })
+        _, kwargs = mock_thread_cls.call_args
+        assert "en" in kwargs.get("args", ())
+
+    def test_post_update_default_output_language_is_zh_hant(self, tmp_path):
+        """When output_language is omitted, _run_pipeline_job receives 'zh-Hant'."""
+        old_dir = tmp_path / "old"
+        new_dir = tmp_path / "new"
+        old_dir.mkdir()
+        new_dir.mkdir()
+        handlers = _make_handlers(tmp_path)
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread_cls.return_value = MagicMock()
+            handlers.handle_post_update({
+                "old_path": str(old_dir),
+                "new_path": str(new_dir),
+            })
+        _, kwargs = mock_thread_cls.call_args
+        assert "zh-Hant" in kwargs.get("args", ())
+
 
 # ---------------------------------------------------------------------------
 # GET /api/update/status/<job_id>

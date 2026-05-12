@@ -831,6 +831,7 @@ class PipelineConfig:
     skip_timeline: bool = False
     force_reanalyze: bool = False
     step_timeouts: StepTimeouts = field(default_factory=StepTimeouts)
+    output_language: str = "zh-Hant"
 
 
 # === Pipeline Execution State ===
@@ -909,6 +910,7 @@ class UpdateReport:
     l2_details: list[L2DetailEntry] = field(default_factory=list)
     l3_appendix: L3Appendix = field(default_factory=L3Appendix)
     interrupted: bool = False
+    output_language: str = "zh-Hant"
 
 
 # === Pipeline Result ===
