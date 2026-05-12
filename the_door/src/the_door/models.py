@@ -899,6 +899,27 @@ class L3Appendix:
 
 
 @dataclass(frozen=True)
+class DiffChangeExplanation:
+    """自然語言差異推論結果。
+
+    confidence: "high" | "medium" | "low"
+    generated_at: ISO 8601 UTC string
+    """
+
+    feature_id: str
+    change_type: str
+    impact_summary: str
+    possible_purpose: str
+    linked_resources: list[str] = field(default_factory=list)
+    caution: str = ""
+    confidence: str = "low"
+    language: str = "zh-Hant"
+    generated_at: str = ""
+    baseline_version_id: str = ""
+    current_version_id: str = ""
+
+
+@dataclass(frozen=True)
 class UpdateReport:
     """版本更新報告的完整結構化資料。"""
 
@@ -911,6 +932,7 @@ class UpdateReport:
     l3_appendix: L3Appendix = field(default_factory=L3Appendix)
     interrupted: bool = False
     output_language: str = "zh-Hant"
+    diff_change_explanations: list[DiffChangeExplanation] = field(default_factory=list)
 
 
 # === Pipeline Result ===
