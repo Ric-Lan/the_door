@@ -10,6 +10,41 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.1.0] — 2026-05-13
+
+### Added
+- **使用者備註（RI-3）**：右側詳情欄新增本地備註系統。備註依 `mode + version key + feature_id`
+  嚴格隔離，存為 append-only JSONL（`NoteStore`）。支援 GET/POST `/api/notes`，
+  UI 以 `<details>/<summary>` 折疊呈現，每次載入自動讀取歷史備註。
+- **輸出語言選擇（RI-4）**：重新分析 Modal 新增語言 select（預設 `zh-Hant`，支援 `en`）。
+  選擇值透過 `POST /api/update` 傳入 pipeline，寫入 `PipelineConfig.output_language`
+  與 `UpdateReport.output_language`。
+- **差異推論（RI-5）**：差異比較模式右側詳情欄新增「差異推論」區塊。使用者手動觸發
+  `POST /api/diff-explanations/<id>/generate`，LLM 依差異資料產生自然語言推論（影響、目的、
+  連動資源、注意事項、信心水準）。結果存入獨立 JSONL cache（`DiffExplanationStore`），
+  不覆寫 `UpdateReport`。A 版/B 版單一模式不顯示此區塊。
+- `DiffChangeExplanation` dataclass（frozen）：記錄 LLM 差異推論結果，
+  含 `confidence`（high/medium/low）、`language`、`generated_at` 等欄位。
+- `NoteStore`、`DiffExplanationStore`：兩個獨立 append-only JSONL store，
+  位於 `.the-door/user-notes/` 與 `.the-door/diff-explanations/`。
+- API 端點：`GET/POST /api/notes`、`GET /api/diff-explanations/<id>`、
+  `POST /api/diff-explanations/<id>/generate`（共新增 4 個端點）。
+
+### Changed
+- **Topbar 視覺強化（RI-2b）**：count badge 符號（+/-/~/⚠）改為中文標籤（新增/移除/修改/注意）。
+  所有 Topbar 控制項加入原生 `title` tooltip。`.mode-button.active` 改用
+  `var(--accent-soft)` 背景 + `var(--accent)` 文字色，視覺可辨識度提升。
+- `UpdateReport` 新增 `output_language: str = "zh-Hant"` 與
+  `diff_change_explanations: list[DiffChangeExplanation]` 欄位（有預設值，向下相容）。
+- `PipelineConfig` 新增 `output_language: str = "zh-Hant"` 欄位。
+
+### Internal
+- 新增 hook stub 架構（RI-2）：`_appendDiffExplanationSection`、`_appendUserNotesSection`
+  從三個 render 函式呼叫，讓 RI-3/RI-5 只需填入對應函式，不修改 render path。
+- 測試數：447 → 647（新增 207 個測試，含 unit、server routing、static viewer 測試）。
+
+---
+
 ## [1.0.6] — 2026-05-10
 
 ### Added
