@@ -3,6 +3,27 @@
 This file tells MCP-compatible AI agents (Claude Code, Kiro, etc.) how to use
 The Door's tools. Read this before calling any tool.
 
+## ⚠️ 開發環境速查（必讀，任何操作前確認）
+
+| 用途 | 路徑 |
+|---|---|
+| **前端源碼（唯一正式版）** | `docs/frontend-local-version-viewer/viewer/` |
+| ⛔ prototype/ 已廢棄，請勿修改 | `docs/frontend-local-version-viewer/prototype/` |
+| Python 後端 | `the_door/src/the_door/` |
+
+**啟動本地伺服器（指令是 `ui`，不是 `serve`）：**
+
+```
+the-door ui "C:\Users\Ric\Desktop\test-targets\the-door-v105" --no-browser --port 8765
+```
+
+路徑傳入的是 test-target 目錄，不是 repo 本身。  
+`_resolve_viewer_dir()` 在 `the_door/src/the_door/cli/ui_cmd.py` 以 5 層 `.parent`
+從 ui_cmd.py 往上定位到主 repo 的 `docs/frontend-local-version-viewer/viewer`。
+前端檔案改完重啟伺服器即生效，不需要 build step。
+
+---
+
 ## MCP Server Setup
 
 The Door MCP server exposes a set of tools (including `extract_structure`,
