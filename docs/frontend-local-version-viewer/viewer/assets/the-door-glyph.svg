@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="The Door glyph">
+  <rect width="64" height="64" rx="10" fill="#0f766e"></rect>
+  <g transform="translate(8 6)">
+    <rect x="11" y="5" width="28" height="38" fill="#d9f3ef" opacity="0.20"></rect>
+    <path d="M11 5 L11 43 M39 5 L39 43 M11 5 L39 5" fill="none" stroke="#d9f3ef" stroke-width="3.5" stroke-linejoin="miter"></path>
+    <line x1="3" y1="46" x2="47" y2="46" stroke="#d9f3ef" stroke-width="3.5" stroke-linecap="square"></line>
+    <circle cx="35" cy="25" r="1.6" fill="#d9f3ef"></circle>
+  </g>
+</svg>

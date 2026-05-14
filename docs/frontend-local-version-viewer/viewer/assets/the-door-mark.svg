@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" width="260" height="64" role="img" aria-label="The Door">
+  
+  <g transform="translate(4 8)">
+    <rect x="11" y="5" width="28" height="38" fill="#d9f3ef"></rect>
+    <path d="M11 5 L11 43 M39 5 L39 43 M11 5 L39 5" fill="none" stroke="#0f766e" stroke-width="3" stroke-linejoin="miter"></path>
+    <line x1="5" y1="45" x2="45" y2="45" stroke="#0f766e" stroke-width="3" stroke-linecap="square"></line>
+    <circle cx="35" cy="25" r="1.4" fill="#0f766e"></circle>
+  </g>
+  
+  <text x="62" y="38" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17202a" letter-spacing="-0.2">The Door</text>
+  <text x="62" y="52" font-family="Segoe UI, Arial, sans-serif" font-size="9" font-weight="400" letter-spacing="0.06em" fill="#667085">門 · CODE → FUNCTIONAL LANGUAGE</text>
+</svg>

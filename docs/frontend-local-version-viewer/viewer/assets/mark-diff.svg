@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 100" width="110" height="100" role="img" aria-label="The Door · Diff">
+  <g transform="rotate(-8 55 50)">
+    <rect x="14" y="10" width="56" height="76" fill="#dc3545" opacity="0.10"></rect>
+    <path d="M14 10 L14 86 M70 10 L70 86 M14 10 L70 10" fill="none" stroke="#dc3545" stroke-width="5" stroke-linejoin="miter"></path>
+    <circle cx="62" cy="50" r="2.5" fill="#dc3545"></circle>
+  </g>
+  <g transform="rotate(8 55 50)">
+    <rect x="40" y="10" width="56" height="76" fill="#28a745" opacity="0.10"></rect>
+    <path d="M40 10 L40 86 M96 10 L96 86 M40 10 L96 10" fill="none" stroke="#28a745" stroke-width="5" stroke-linejoin="miter"></path>
+    <circle cx="88" cy="50" r="2.5" fill="#28a745"></circle>
+  </g>
+  <line x1="6" y1="92" x2="104" y2="92" stroke="#0f766e" stroke-width="6" stroke-linecap="square"></line>
+</svg>

@@ -602,6 +602,32 @@ function render() {
   renderTopBar();
   renderChangeList();
   renderDetailPanel();
+  updateLogoMark();
+  // Diff-mode shell class + banner
+  document.querySelector('.app-shell')
+    ?.classList.toggle('diff-mode', state.mode === 'diff');
+  const banner = document.getElementById('diff-mode-banner');
+  if (banner) banner.hidden = state.mode !== 'diff';
+}
+
+// ============================================================
+// Logo mark — state-aware
+// ============================================================
+
+function updateLogoMark() {
+  const img = document.getElementById('logo-mark');
+  if (!img) return;
+  let next = 'l1';
+  if (state.mode === 'diff' && (state.updateModel?.diff_available || state.versionDiff)) {
+    next = 'diff';
+  } else if (state.layerState === 'L3') {
+    next = 'l3';
+  } else if (state.layerState === 'L2') {
+    next = 'l2';
+  }
+  if (img.dataset.state === next) return;
+  img.dataset.state = next;
+  img.setAttribute('src', `./assets/mark-${next}.svg`);
 }
 
 // ============================================================
@@ -732,7 +758,7 @@ function renderChangeList() {
 function changeListButton(change) {
   const card = document.createElement("button");
   card.type = "button";
-  card.className = "feature-card" + (change.id === state.selectedId ? " active" : "");
+  card.className = "feature-card changed" + (change.id === state.selectedId ? " active" : "");
   card.dataset.nodeId = change.id;
 
   const labelEl = document.createElement("span");
@@ -759,7 +785,8 @@ function changeListButton(change) {
 function featureCard(feature) {
   const card = document.createElement("button");
   card.type = "button";
-  card.className = "feature-card" + (feature.id === state.selectedId ? " active" : "");
+  const isChanged = feature.change_type != null;
+  card.className = "feature-card" + (isChanged ? " changed" : "") + (feature.id === state.selectedId ? " active" : "");
   card.dataset.nodeId = feature.id;
 
   const labelEl = document.createElement("span");
@@ -825,11 +852,29 @@ function renderDiffDetailPanel() {
   content.className = "detail-content";
   content.textContent = "";
 
-  // A-class: Python already filled "未提供"
-  content.appendChild(detailSection("變更前名稱",   detail.before.label));
-  content.appendChild(detailSection("變更前描述",   detail.before.description));
-  content.appendChild(detailSection("變更後名稱",   detail.after.label));
-  content.appendChild(detailSection("變更後描述",   detail.after.description));
+  // A-class: before/after colour wash
+  const baWrap = document.createElement("div");
+  baWrap.className = "before-after";
+  const baBefore = document.createElement("div");
+  baBefore.className = "ba-panel before";
+  const baBeforeLabel = document.createElement("div");
+  baBeforeLabel.className = "ba-label";
+  baBeforeLabel.textContent = "Before";
+  const baBeforeText = document.createElement("div");
+  baBeforeText.className = "ba-text";
+  baBeforeText.textContent = [detail.before.label, detail.before.description].filter(Boolean).join(" — ") || "未提供";
+  baBefore.append(baBeforeLabel, baBeforeText);
+  const baAfter = document.createElement("div");
+  baAfter.className = "ba-panel after";
+  const baAfterLabel = document.createElement("div");
+  baAfterLabel.className = "ba-label";
+  baAfterLabel.textContent = "After";
+  const baAfterText = document.createElement("div");
+  baAfterText.className = "ba-text";
+  baAfterText.textContent = [detail.after.label, detail.after.description].filter(Boolean).join(" — ") || "未提供";
+  baAfter.append(baAfterLabel, baAfterText);
+  baWrap.append(baBefore, baAfter);
+  content.appendChild(baWrap);
 
   // B-class: scope_state is null in Python; JS fills display text
   content.appendChild(detailSection("範圍狀態", detail.scope_state ?? "未提供"));
@@ -1080,13 +1125,24 @@ function buildCytoscapeElements(viewModel) {
     };
   });
 
+  const featuresById = {};
+  (viewModel.nodes || []).forEach((n) => { featuresById[n.id] = n; });
+
+  const confRank = { high: 3, medium: 2, low: 1 };
+  const lowestConf = (a, b) =>
+    (confRank[a] ?? 2) <= (confRank[b] ?? 2) ? a : b;
+
   const edges = (viewModel.edges || []).map((edge) => {
     const { source, target, ...rest } = edge;
+    const src = featuresById[source];
+    const tgt = featuresById[target];
+    const lc = lowestConf(src?.confidence ?? 'medium', tgt?.confidence ?? 'medium');
     return {
       data: {
         id: source + "-" + target,
         source,
         target,
+        lowestConfidence: lc,
         ...rest,
       },
     };
@@ -1191,14 +1247,25 @@ function buildCytoscapeStyle(layerState) {
       selector: "edge",
       style: {
         "width": 2,
-        "line-color": "#78909c",
-        "target-arrow-color": "#78909c",
+        "line-color": "#667085",
+        "target-arrow-color": "#667085",
         "target-arrow-shape": "triangle",
         "arrow-scale": 1.2,
         "curve-style": "bezier",
         "font-size": "10px",
         "color": "#555",
+        "opacity": 0.7,
       },
+    },
+
+    // ── Edge confidence ──────────────────────────────────────
+    {
+      selector: "edge[lowestConfidence = 'medium']",
+      style: { "line-style": "dashed", "opacity": 0.55 },
+    },
+    {
+      selector: "edge[lowestConfidence = 'low']",
+      style: { "line-style": "dotted", "opacity": 0.45 },
     },
 
     // ── Selected edge ────────────────────────────────────────
@@ -1473,6 +1540,7 @@ async function loadDiffOverlay(baselineId, currentId) {
 async function switchToL2(featureId) {
   state.selectedFeatureId = featureId;
   state.layerState = "L2";
+  updateLogoMark();
   renderBreadcrumb();
 
   // Two independent fetches — neither blocks the other (Req 4 AC9)
@@ -1505,6 +1573,7 @@ async function switchToL2(featureId) {
 async function switchToL3(moduleId) {
   state.selectedModuleId = moduleId;
   state.layerState = "L3";
+  updateLogoMark();
   renderBreadcrumb();
 
   // Find source_nodes for this module
@@ -1563,6 +1632,7 @@ function switchToL1() {
   state.layerState = "L1";
   state.selectedFeatureId = null;
   state.selectedModuleId = null;
+  updateLogoMark();
   renderBreadcrumb();
   if (state.l1GraphViewModel) {
     initGraph("graph-container", state.l1GraphViewModel);
@@ -1584,6 +1654,7 @@ function switchToL1() {
 function switchToL2FromL3() {
   state.layerState = "L2";
   state.selectedModuleId = null;
+  updateLogoMark();
   renderBreadcrumb();
   if (state.l2GraphViewModel) {
     initGraph("graph-container", state.l2GraphViewModel);

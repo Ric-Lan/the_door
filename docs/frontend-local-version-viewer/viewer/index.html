@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>The Door Local Version Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/the-door-glyph.svg">
     <link rel="stylesheet" href="./styles.css">
     <script src="./lib/cytoscape.min.js"></script>
   </head>
@@ -11,8 +12,14 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="topbar-title">
-          <p class="eyebrow">The Door — Phase UI-2</p>
-          <h1>本地版本 Viewer</h1>
+          <img id="logo-mark" src="./assets/mark-l1.svg"
+               width="42" height="42"
+               alt="The Door"
+               data-state="l1">
+          <div>
+            <p class="eyebrow">The Door — Local Version Viewer</p>
+            <h1>本地版本 Viewer</h1>
+          </div>
         </div>
 
         <!-- 版本選擇器（多 snapshot 時顯示） -->
@@ -45,6 +52,11 @@
 
       <div id="summary-band" class="summary-band">
         <p id="summary-text">載入中…</p>
+      </div>
+
+      <div id="diff-mode-banner" class="diff-mode-banner" hidden>
+        <span class="diff-mode-dot"></span>
+        <span><strong>DIFF MODE</strong> — 以紅綠標示變動的功能。無變動項以灰色淡化，點選可還原。</span>
       </div>
 
       <!-- Pipeline progress -->
