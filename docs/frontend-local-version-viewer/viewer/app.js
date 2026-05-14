@@ -665,9 +665,11 @@ function renderTopBar() {
 
   els.btnDiff.disabled = !hasDiff && !hasVersionCompare;
 
-  if (hasDiff && state.mode === "diff") {
-    const cc = um.change_counts || {};
-    const rc = um.risk_counts || {};
+  if ((hasDiff || hasVersionCompare) && state.mode === "diff") {
+    // Prefer diff overlay summary (version-compare path) over updateModel counts
+    const vd = state.versionDiff?.summary;
+    const cc = (vd && (vd.total_changed ?? 0) > 0) ? vd : (um?.change_counts || {});
+    const rc = um?.risk_counts || {};
 
     els.countAdded.removeAttribute("hidden");
     els.countRemoved.removeAttribute("hidden");
@@ -1523,16 +1525,8 @@ async function loadDiffOverlay(baselineId, currentId) {
       els.summaryText.textContent = "版本比較：兩版本功能完全相同。";
     }
 
-    // Sync diff overlay counts back to updateModel so renderTopBar badges stay accurate
-    if (state.updateModel && total > 0) {
-      state.updateModel.change_counts = {
-        added:                s.added ?? 0,
-        removed:              s.removed ?? 0,
-        attribute_changed:    s.attribute_changed ?? 0,
-        dependency_changed:   s.dependency_changed ?? 0,
-      };
-      renderTopBar();
-    }
+    // Re-render topbar badges now that state.versionDiff.summary is populated
+    renderTopBar();
 
     // Re-render change list with diff data
     renderChangeList();
