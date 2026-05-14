@@ -176,7 +176,7 @@ async function loadFromApi() {
   }
 
   const hasVersionCompare = !!(state.versionA && state.versionB && state.versionA !== state.versionB);
-  state.mode = (state.updateModel?.diff_available || hasVersionCompare) ? "diff" : "baseline";
+  state.mode = "baseline";
   state.selectedId = firstSelectableId();
   render();
 
@@ -184,7 +184,6 @@ async function loadFromApi() {
   if (ad.has_snapshots) {
     // In diff mode with version compare, load the "current" (versionB) graph
     await loadL1Graph(hasVersionCompare ? state.versionB : null);
-    openGraphDrawer();
   }
 }
 
@@ -1522,6 +1521,17 @@ async function loadDiffOverlay(baselineId, currentId) {
         `${(s.attribute_changed ?? 0) + (s.dependency_changed ?? 0)} 修改`;
     } else {
       els.summaryText.textContent = "版本比較：兩版本功能完全相同。";
+    }
+
+    // Sync diff overlay counts back to updateModel so renderTopBar badges stay accurate
+    if (state.updateModel && total > 0) {
+      state.updateModel.change_counts = {
+        added:                s.added ?? 0,
+        removed:              s.removed ?? 0,
+        attribute_changed:    s.attribute_changed ?? 0,
+        dependency_changed:   s.dependency_changed ?? 0,
+      };
+      renderTopBar();
     }
 
     // Re-render change list with diff data
