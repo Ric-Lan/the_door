@@ -19,6 +19,7 @@ class StaticHandler:
         ".css":  "text/css; charset=utf-8",
         ".js":   "application/javascript; charset=utf-8",
         ".json": "application/json; charset=utf-8",
+        ".svg":  "image/svg+xml",
     }
 
     def __init__(self, viewer_dir: Path) -> None:

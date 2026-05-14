@@ -1249,19 +1249,6 @@ h1 {
   font-size: 13px;
 }
 
-.confidence-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.confidence-badge-high   { background: #d4edda; color: #155724; }
-.confidence-badge-medium { background: #fff3cd; color: #856404; }
-.confidence-badge-low    { background: #f8d7da; color: #721c24; }
-
 /* ── Diff-mode skin ──────────────────────────────────────── */
 .app-shell.diff-mode .topbar {
   background: linear-gradient(to bottom, #f4faf6 0%, var(--surface) 100%);
