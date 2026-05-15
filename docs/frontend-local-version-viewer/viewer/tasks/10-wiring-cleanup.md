@@ -17,9 +17,16 @@
 <!-- 移除 -->
 <script src="./app.js"></script>
 
-<!-- 改為 -->
-<script type="module" src="./js/app.js"></script>
+<!-- 改為（inline module，呼叫 init()） -->
+<script type="module">
+  import { init } from "./js/app.js";
+  init();
+</script>
 ```
+
+### 為何不用 `<script type="module" src="./js/app.js">`
+
+新 `js/app.js` 採用 `export function init()` pattern（Step 9 設計決策），模組頂層**不會**自動 boot — 必須由呼叫端顯式呼叫 `init()`。理由：避免 import 時的 side effects，讓測試可控。
 
 ### 約束
 
@@ -30,8 +37,10 @@
 
 ```html
 <script src="./lib/cytoscape.min.js"></script>
-<!-- （此行之間可以有其他非模組 script，但通常不需要） -->
-<script type="module" src="./js/app.js"></script>
+<script type="module">
+  import { init } from "./js/app.js";
+  init();
+</script>
 ```
 
 ---
