@@ -340,10 +340,18 @@ class ParseResult:
 class FeatureSummary:
     """Summarized feature data stored in a version snapshot.
 
-    A lightweight projection of Feature — only the fields needed for diff comparison
-    plus optional ``trigger_description`` which the viewer surfaces in the L1
-    detail panel. The field is optional so legacy snapshots that pre-date it
-    continue to deserialize without modification.
+    Projects :class:`Feature` to the minimum needed for diff comparison plus
+    the bits the viewer needs to drill down. ``trigger_description`` is the
+    user-facing trigger text and ``source_nodes`` is the AST node ids the
+    LLM attributed to this feature — without it, L2 generation has no way
+    to know which subset of structure.json to cluster. Both default to
+    empty/None so legacy snapshots deserialize unchanged.
+
+    ``source_nodes`` is a tuple (not list) so the dataclass stays hashable
+    under ``frozen=True``; callers serialize it as a JSON list at boundaries.
+    Diff comparison (:mod:`core.diff.diff_engine`) only keys on label and
+    description, so adding/removing nodes here does not flip a feature into
+    ``attribute_changed``.
     """
 
     feature_id: str
@@ -352,6 +360,7 @@ class FeatureSummary:
     source_node_count: int
     confidence: str  # "high" | "medium" | "low"
     trigger_description: str | None = None
+    source_nodes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

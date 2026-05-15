@@ -277,7 +277,10 @@ def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progre
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass  # git not available, proceed without
 
-    # Build snapshot data from analysis result
+    # Build snapshot data from analysis result. Preserve trigger_description
+    # and source_nodes from the LLM's L1Output so the viewer can drill into
+    # L2/L3 without having to re-infer which AST nodes belong to which
+    # feature.
     l1_snap: dict[str, FeatureSummary] = {}
     for f in result.l1_output.features:
         l1_snap[f.feature_id] = FeatureSummary(
@@ -286,6 +289,8 @@ def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progre
             description=f.description,
             source_node_count=len(f.source_nodes),
             confidence=f.confidence,
+            trigger_description=f.trigger_description,
+            source_nodes=tuple(f.source_nodes),
         )
 
     relations = [

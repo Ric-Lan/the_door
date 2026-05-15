@@ -65,6 +65,68 @@ class TestSnapshotWriteTool:
         assert data["l1_snapshot"]["feat-auth"]["confidence"] == "high"
 
     @pytest.mark.asyncio
+    async def test_source_nodes_persisted_when_provided(self, tmp_project):
+        """source_nodes from the caller are persisted on disk so the viewer
+        can drill from L1 to L2 without re-inferring node ownership."""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+            "relations": VALID_RELATIONS,
+        })
+        files = list((tmp_project / ".the-door" / "snapshots").glob("*.json"))
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        assert data["l1_snapshot"]["feat-auth"]["source_nodes"] == [
+            "UserAuth.login", "SessionManager.create",
+        ]
+        assert data["l1_snapshot"]["feat-data"]["source_nodes"] == ["DataStore.read"]
+
+    @pytest.mark.asyncio
+    async def test_trigger_description_persisted_when_provided(self, tmp_project):
+        """Optional trigger_description survives the round trip."""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": [{
+                "feature_id": "feat-auth",
+                "label": "Authentication",
+                "description": "...",
+                "source_node_count": 1,
+                "confidence": "high",
+                "trigger_description": "User submits POST /login",
+            }],
+        })
+        files = list((tmp_project / ".the-door" / "snapshots").glob("*.json"))
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        assert data["l1_snapshot"]["feat-auth"]["trigger_description"] == (
+            "User submits POST /login"
+        )
+
+    @pytest.mark.asyncio
+    async def test_missing_optional_fields_omitted_from_disk(self, tmp_project):
+        """If the caller didn't pass trigger_description / source_nodes,
+        the JSON file should omit those keys (not write null/[])."""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": [{
+                "feature_id": "feat-minimal",
+                "label": "Minimal",
+                "description": "...",
+                "source_node_count": 0,
+                "confidence": "low",
+            }],
+        })
+        files = list((tmp_project / ".the-door" / "snapshots").glob("*.json"))
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        entry = data["l1_snapshot"]["feat-minimal"]
+        assert "trigger_description" not in entry
+        assert "source_nodes" not in entry
+
+    @pytest.mark.asyncio
     async def test_relations_stored_correctly(self, tmp_project):
         """Relations are persisted in feature_relations_snapshot."""
         from the_door.mcp.tools.snapshot_write_tool import execute

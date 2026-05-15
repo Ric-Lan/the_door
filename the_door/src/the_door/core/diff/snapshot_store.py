@@ -172,6 +172,8 @@ class SnapshotStore:
             }
             if fs.trigger_description is not None:
                 entry["trigger_description"] = fs.trigger_description
+            if fs.source_nodes:
+                entry["source_nodes"] = list(fs.source_nodes)
             l1_data[fid] = entry
 
         l1_5_data = {}
@@ -235,6 +237,7 @@ class SnapshotStore:
                 source_node_count=fdata["source_node_count"],
                 confidence=fdata["confidence"],
                 trigger_description=fdata.get("trigger_description"),
+                source_nodes=tuple(fdata.get("source_nodes", ())),
             )
 
         l1_5_snapshot = {}

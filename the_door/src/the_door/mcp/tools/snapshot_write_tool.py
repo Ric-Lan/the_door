@@ -21,7 +21,12 @@ TOOL_SCHEMA = {
             "description": (
                 "L1 features produced by the calling AI. Each item must have: "
                 "feature_id (str, slug format e.g. 'feat-auth'), label (str), "
-                "description (str), source_node_count (int), confidence ('high'|'medium'|'low')."
+                "description (str), source_node_count (int), confidence "
+                "('high'|'medium'|'low'). Optionally provide trigger_description "
+                "(str) and source_nodes (list of structure.json node_ids) so the "
+                "viewer can show the trigger summary in the L1 detail panel and "
+                "drill into L2/L3 without re-inferring which AST nodes belong "
+                "to this feature."
             ),
             "items": {
                 "type": "object",
@@ -32,6 +37,11 @@ TOOL_SCHEMA = {
                     "description": {"type": "string"},
                     "source_node_count": {"type": "integer"},
                     "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "trigger_description": {"type": "string"},
+                    "source_nodes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                 },
             },
         },
@@ -98,6 +108,8 @@ async def execute(arguments: dict) -> dict:
             description=feat["description"],
             source_node_count=int(feat["source_node_count"]),
             confidence=feat["confidence"],
+            trigger_description=feat.get("trigger_description"),
+            source_nodes=tuple(feat.get("source_nodes", ())),
         )
 
     known_ids = set(l1_snapshot.keys())
