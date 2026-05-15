@@ -41,7 +41,7 @@ export function changeListButton(item, isActive, callbacks) {
   metaEl.appendChild(badge);
 
   card.append(labelEl, descEl, metaEl);
-  card.addEventListener('click', () => callbacks?.onSelect?.(item.id));
+  card.addEventListener('click', () => callbacks?.onSelectChange?.(item.id));
   return card;
 }
 
@@ -70,7 +70,7 @@ export function featureCard(feature, isActive, callbacks) {
   }
 
   card.append(labelEl, descEl, metaEl);
-  card.addEventListener('click', () => callbacks?.onSelect?.(feature.id));
+  card.addEventListener('click', () => callbacks?.onSelectFeature?.(feature));
   return card;
 }
 

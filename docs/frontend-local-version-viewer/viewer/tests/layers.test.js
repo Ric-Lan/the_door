@@ -145,9 +145,11 @@ describe('loadL1Graph', () => {
     expect(state.l1Model.stats.feature_count).toBe(2);
     expect(graph.initGraph).toHaveBeenCalledWith('graph-container', vm);
     expect(graph.renderLegend).toHaveBeenCalled();
-    expect(uiTopbar.renderTopBar).toHaveBeenCalled();
-    expect(uiList.renderChangeList).toHaveBeenCalled();
-    expect(uiDetail.renderDetailPanel).toHaveBeenCalled();
+    // loadL1Graph no longer triggers top-bar / change-list / detail-panel
+    // rendering — that's the caller's (app.js) responsibility.
+    expect(uiTopbar.renderTopBar).not.toHaveBeenCalled();
+    expect(uiList.renderChangeList).not.toHaveBeenCalled();
+    expect(uiDetail.renderDetailPanel).not.toHaveBeenCalled();
   });
 
   it('appends version_id to URL when versionId given', async () => {
@@ -313,8 +315,10 @@ describe('loadDiffOverlay', () => {
     expect(els.summaryText.textContent).toContain('2 新增');
     expect(els.summaryText.textContent).toContain('1 移除');
     expect(els.summaryText.textContent).toContain('2 修改');
-    expect(uiTopbar.renderTopBar).toHaveBeenCalled();
-    expect(uiList.renderChangeList).toHaveBeenCalled();
+    // loadDiffOverlay no longer triggers top-bar / change-list rendering —
+    // caller (app.js) re-renders after the await chain completes.
+    expect(uiTopbar.renderTopBar).not.toHaveBeenCalled();
+    expect(uiList.renderChangeList).not.toHaveBeenCalled();
   });
 
   it('shows "兩版本功能完全相同" when total_changed === 0', async () => {

@@ -275,6 +275,64 @@ describe('renderSingleVersionDetailPanel', () => {
     expect(h3s).toContain('描述');
     expect(h3s).toContain('Source nodes');
   });
+
+  it('appends Enter L2 button when callbacks.onEnterL2 is provided', () => {
+    state.selectedId = 'feat-1';
+    state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
+    const onEnterL2 = vi.fn();
+    renderSingleVersionDetailPanel({ onEnterL2 });
+    const btn = els.detailContent.querySelector('button.action-button');
+    expect(btn).not.toBeNull();
+    expect(btn.textContent).toBe('進入 L2');
+    btn.click();
+    expect(onEnterL2).toHaveBeenCalledWith('feat-1');
+  });
+
+  it('omits Enter L2 button when no callbacks given', () => {
+    state.selectedId = 'feat-1';
+    state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
+    renderSingleVersionDetailPanel();
+    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+  });
+
+  it('omits Enter L2 button when callbacks.onEnterL2 is missing', () => {
+    state.selectedId = 'feat-1';
+    state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
+    renderSingleVersionDetailPanel({});
+    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+  });
+});
+
+// ── renderDetailPanel dispatcher with callbacks ──────────────────
+
+describe('renderDetailPanel dispatcher — passes callbacks through', () => {
+  it('forwards onEnterL2 to renderSingleVersionDetailPanel (non-diff mode)', () => {
+    state.mode = 'baseline';
+    state.selectedId = 'feat-1';
+    state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
+    const onEnterL2 = vi.fn();
+    renderDetailPanel({ onEnterL2 });
+    const btn = els.detailContent.querySelector('button.action-button');
+    expect(btn).not.toBeNull();
+    btn.click();
+    expect(onEnterL2).toHaveBeenCalledWith('feat-1');
+  });
+
+  it('ignores callbacks in diff mode (no Enter L2 button in diff view)', () => {
+    state.mode = 'diff';
+    state.selectedId = 'feat-1';
+    state.updateModel = {
+      details: {
+        'feat-1': {
+          source: 'src',
+          before: { label: 'b', description: 'bd' },
+          after: { label: 'a', description: 'ad' },
+        },
+      },
+    };
+    renderDetailPanel({ onEnterL2: vi.fn() });
+    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+  });
 });
 
 // ── renderDetailPanelL1 ────────────────────────────────────────────

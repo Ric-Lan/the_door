@@ -68,12 +68,12 @@ describe('changeListButton', () => {
     expect(btn.classList.contains('active')).toBe(false);
   });
 
-  it('calls callbacks.onSelect with item.id on click', () => {
-    const onSelect = vi.fn();
+  it('calls callbacks.onSelectChange with item.id on click', () => {
+    const onSelectChange = vi.fn();
     const item = { id: 'feat-42', label: 'F', change_type: 'added' };
-    const btn = changeListButton(item, false, { onSelect });
+    const btn = changeListButton(item, false, { onSelectChange });
     btn.click();
-    expect(onSelect).toHaveBeenCalledWith('feat-42');
+    expect(onSelectChange).toHaveBeenCalledWith('feat-42');
   });
 
   it('reads description from updateModel.details (after)', () => {
@@ -147,12 +147,12 @@ describe('featureCard', () => {
     expect(btn.querySelector('.confidence-badge')).toBeNull();
   });
 
-  it('calls callbacks.onSelect with feature.id on click', () => {
-    const onSelect = vi.fn();
+  it('calls callbacks.onSelectFeature with full feature on click', () => {
+    const onSelectFeature = vi.fn();
     const feature = { id: 'feat-99', label: 'F', description: '' };
-    const btn = featureCard(feature, false, { onSelect });
+    const btn = featureCard(feature, false, { onSelectFeature });
     btn.click();
-    expect(onSelect).toHaveBeenCalledWith('feat-99');
+    expect(onSelectFeature).toHaveBeenCalledWith(feature);
   });
 
   it('does not throw when callbacks is null', () => {

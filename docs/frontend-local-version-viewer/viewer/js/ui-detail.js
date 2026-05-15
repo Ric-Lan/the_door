@@ -77,11 +77,11 @@ export function attributionSection(source) {
   return div;
 }
 
-export function renderDetailPanel() {
+export function renderDetailPanel(callbacks = {}) {
   if (state.mode === 'diff') {
     renderDiffDetailPanel();
   } else {
-    renderSingleVersionDetailPanel();
+    renderSingleVersionDetailPanel(callbacks);
   }
 }
 
@@ -132,7 +132,7 @@ export function renderDiffDetailPanel() {
   _appendUserNotesSection('diff', state.selectedId, state.versionA, state.versionB, content);
 }
 
-export function renderSingleVersionDetailPanel() {
+export function renderSingleVersionDetailPanel(callbacks = {}) {
   const features = state.l1Model?.features ?? [];
   const feature = features.find(f => f.id === state.selectedId);
   if (!feature) {
@@ -149,6 +149,14 @@ export function renderSingleVersionDetailPanel() {
   content.appendChild(detailSection('信心等級',   feature.confidence));
   content.appendChild(detailSection('信心理由',   feature.confidence_reason));
   content.appendChild(listDetailSection('Source nodes', feature.source_nodes ?? []));
+  if (callbacks.onEnterL2) {
+    const enterL2Btn = document.createElement('button');
+    enterL2Btn.type = 'button';
+    enterL2Btn.className = 'action-button';
+    enterL2Btn.textContent = '進入 L2';
+    enterL2Btn.addEventListener('click', () => callbacks.onEnterL2(feature.id));
+    content.appendChild(enterL2Btn);
+  }
   content.appendChild(attributionSection(feature.source));
   _appendUserNotesSection(state.mode, feature.id, state.versionA, state.versionB, content);
 }

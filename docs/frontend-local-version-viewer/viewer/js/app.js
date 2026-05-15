@@ -11,7 +11,12 @@ import {
   showModalError,
   submitUpdate,
 } from "./ui-modal.js";
-import { loadL1Graph, switchToL1, switchToMindmap } from "./layers.js";
+import {
+  loadL1Graph,
+  switchToL1,
+  switchToL2,
+  switchToMindmap,
+} from "./layers.js";
 import {
   initGraph,
   renderLegend,
@@ -21,8 +26,11 @@ import {
 
 export function render() {
   renderTopBar();
-  renderChangeList({ onSelect: selectItem });
-  renderDetailPanel();
+  renderChangeList({
+    onSelectFeature,
+    onSelectChange,
+  });
+  renderDetailPanel({ onEnterL2: switchToL2 });
   updateLogoMark();
   document
     .querySelector(".app-shell")
@@ -31,8 +39,26 @@ export function render() {
   if (banner) banner.hidden = state.mode !== "diff";
 }
 
-function selectItem(id) {
+// Diff-mode card click: full re-render via renderDiffDetailPanel.
+function onSelectChange(id) {
   state.selectedId = id;
+  render();
+}
+
+// Non-diff L1 card click: state mutation + Cytoscape sync, then full render()
+// to keep the default-load and post-click detail panels identical (same fields,
+// same Enter L2 button).
+function onSelectFeature(feature) {
+  state.selectedId = feature.id;
+  state.selectedFeatureId = feature.id;
+  if (state.cytoscapeInstance) {
+    state.cytoscapeInstance.elements().unselect();
+    const cyNode = state.cytoscapeInstance.getElementById(feature.id);
+    if (cyNode) {
+      cyNode.select();
+      state.cytoscapeInstance.animate({ fit: { eles: cyNode, padding: 50 } });
+    }
+  }
   render();
 }
 
@@ -63,6 +89,7 @@ export async function setMode(mode) {
     } else if (mode === "diff") {
       await loadL1Graph(state.versionB);
     }
+    render();
   }
 }
 
@@ -117,6 +144,7 @@ async function loadFromApi() {
 
   if (ad.has_snapshots) {
     await loadL1Graph(hasVersionCompare ? state.versionB : null);
+    render();
   }
 }
 
@@ -234,12 +262,14 @@ function populateVersionSelectors() {
     state.mode = "diff";
     renderTopBar();
     await loadL1Graph(state.versionB ?? state.versionA);
+    render();
   };
   selB.onchange = async () => {
     state.versionB = selB.value;
     state.mode = "diff";
     renderTopBar();
     await loadL1Graph(state.versionB);
+    render();
   };
 }
 

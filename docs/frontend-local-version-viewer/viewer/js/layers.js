@@ -2,11 +2,10 @@ import { state } from "./state.js";
 import { els } from "./dom.js";
 import { API_BASE } from "./api.js";
 import { initGraph, renderLegend } from "./graph.js";
-import { renderTopBar, updateLogoMark } from "./ui-topbar.js";
-import { renderChangeList, changeSymbol } from "./ui-list.js";
+import { updateLogoMark } from "./ui-topbar.js";
+import { changeSymbol } from "./ui-list.js";
 import {
   renderError,
-  renderDetailPanel,
   renderDetailPanelL1,
   renderDetailPanelL2,
   renderDetailPanelL3,
@@ -65,13 +64,14 @@ export async function loadL1Graph(versionId = null) {
     if (!state.updateModel?.diff_available) {
       state.selectedId = state.l1Model.features[0]?.id ?? null;
     }
-    renderTopBar();
-    renderChangeList();
-    renderDetailPanel();
 
     if (state.versionA && state.versionB && state.versionA !== state.versionB) {
       await loadDiffOverlay(state.versionA, state.versionB);
     }
+    // NOTE: Top-bar / change-list / detail-panel rendering is the caller's
+    // responsibility (app.js). loadL1Graph only updates state + graph + legend
+    // + breadcrumb (its own UI concerns). This avoids needing callbacks here
+    // and matches the orchestrator pattern.
   } catch (err) {
     renderError("載入 L1 圖形失敗：" + (err.message || "network error"));
   }
@@ -108,9 +108,7 @@ export async function loadDiffOverlay(baselineId, currentId) {
     } else {
       els.summaryText.textContent = "版本比較：兩版本功能完全相同。";
     }
-
-    renderTopBar();
-    renderChangeList();
+    // Top-bar / change-list rendering is the caller's responsibility (app.js).
   } catch (e) {
     console.warn("Diff overlay failed:", e);
   }
