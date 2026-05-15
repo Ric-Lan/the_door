@@ -1,4 +1,4 @@
-const API_BASE = "";
+export const API_BASE = "";
 
 export async function fetchProjectStatus() {
   const res = await fetch(`${API_BASE}/api/project`, { cache: "no-store" });

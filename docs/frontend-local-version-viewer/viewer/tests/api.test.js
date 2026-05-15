@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  API_BASE,
   fetchProjectStatus,
   fetchLatestReport,
   fetchSnapshots,
@@ -32,6 +33,12 @@ describe('api.js', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('API_BASE', () => {
+    it('is exported as empty string (same-origin)', () => {
+      expect(API_BASE).toBe('');
+    });
   });
 
   describe('fetchProjectStatus', () => {
