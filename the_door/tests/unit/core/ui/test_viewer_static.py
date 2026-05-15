@@ -15,7 +15,10 @@ _VIEWER = (
 )
 _HTML = _VIEWER / "index.html"
 _CSS  = _VIEWER / "styles.css"
-_JS   = _VIEWER / "app.js"
+# After the Step 10–11 modular refactor, the per-area Chinese labels live in
+# js/ui-topbar.js (count badges). We grep that file instead of the deleted
+# monolithic app.js.
+_UI_TOPBAR = _VIEWER / "js" / "ui-topbar.js"
 
 
 def _html() -> str:
@@ -26,8 +29,8 @@ def _css() -> str:
     return _CSS.read_text(encoding="utf-8")
 
 
-def _js() -> str:
-    return _JS.read_text(encoding="utf-8")
+def _ui_topbar() -> str:
+    return _UI_TOPBAR.read_text(encoding="utf-8")
 
 
 class TestTopbarTooltips:
@@ -62,20 +65,20 @@ class TestTopbarTooltips:
 
 
 class TestChineseLabelsInJS:
-    """app.js renderTopBar must output Chinese labels."""
+    """ui-topbar.js renderTopBar must output Chinese labels."""
 
     def test_count_added_uses_chinese(self):
-        assert '"新增 "' in _js()
+        assert "'新增 '" in _ui_topbar()
 
     def test_count_removed_uses_chinese(self):
-        assert '"移除 "' in _js()
+        assert "'移除 '" in _ui_topbar()
 
     def test_count_modified_uses_chinese(self):
-        assert '"修改 "' in _js()
+        assert "'修改 '" in _ui_topbar()
 
     def test_count_risk_uses_chinese(self):
         # "注意 " + totalRisk
-        assert '"注意 "' in _js()
+        assert "'注意 '" in _ui_topbar()
 
 
 class TestActiveModeButtonCSS:

@@ -187,10 +187,8 @@ def test_build_l1_trigger_description_present():
     assert node["trigger_description"] == "User clicks submit"
 
 
-def test_build_l1_from_snapshot_trigger_description_null():
-    """build_l1_graph_view_model_from_snapshot always sets trigger_description to null
-    because FeatureSummary does not carry that field."""
-    # l1_snapshot: dict[str, FeatureSummary-like dict]
+def test_build_l1_from_snapshot_trigger_description_null_for_legacy_summary():
+    """Legacy FeatureSummary dicts (without trigger_description) map to null."""
     l1_snapshot = {
         "feat-a": {
             "feature_id": "feat-a",
@@ -210,6 +208,26 @@ def test_build_l1_from_snapshot_trigger_description_null():
     node = vm["nodes"][0]
     assert node["id"] == "feat-a"
     assert node["trigger_description"] is None
+
+
+def test_build_l1_from_snapshot_forwards_trigger_description_when_present():
+    """When the snapshot's FeatureSummary carries trigger_description, it propagates
+    to the L1_Graph_ViewModel — used by manually-edited snapshots and any future
+    schema that records the field."""
+    l1_snapshot = {
+        "feat-a": {
+            "label": "Feature A",
+            "description": "Does A",
+            "source_node_count": 2,
+            "confidence": "high",
+            "trigger_description": "Triggered on /api/foo POST request",
+        }
+    }
+    feature_relations_snapshot = []
+
+    vm = build_l1_graph_view_model_from_snapshot(l1_snapshot, feature_relations_snapshot)
+
+    assert vm["nodes"][0]["trigger_description"] == "Triggered on /api/foo POST request"
 
 
 def test_build_l1_from_snapshot_dangling_edge_omitted():

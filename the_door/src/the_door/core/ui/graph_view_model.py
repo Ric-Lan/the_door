@@ -98,7 +98,8 @@ def build_l1_graph_view_model_from_snapshot(
     """Convert VersionSnapshot fields to L1_Graph_ViewModel.
 
     Used by GET /api/l1 which reads from VersionSnapshot (not L1Output).
-    trigger_description is always null (not present in FeatureSummary).
+    trigger_description is forwarded if present on the snapshot summary;
+    older snapshots that don't carry it serialize as null.
 
     Returns dict with keys: nodes, edges, warnings.
     """
@@ -110,7 +111,7 @@ def build_l1_graph_view_model_from_snapshot(
             "label": summary["label"],
             "confidence": summary["confidence"],
             "description": summary["description"],
-            "trigger_description": None,  # FeatureSummary does not have this field
+            "trigger_description": summary.get("trigger_description"),
         }
         for feature_id, summary in l1_snapshot.items()
     ]

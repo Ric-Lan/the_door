@@ -340,7 +340,10 @@ class ParseResult:
 class FeatureSummary:
     """Summarized feature data stored in a version snapshot.
 
-    A lightweight projection of Feature — only the fields needed for diff comparison.
+    A lightweight projection of Feature — only the fields needed for diff comparison
+    plus optional ``trigger_description`` which the viewer surfaces in the L1
+    detail panel. The field is optional so legacy snapshots that pre-date it
+    continue to deserialize without modification.
     """
 
     feature_id: str
@@ -348,6 +351,7 @@ class FeatureSummary:
     description: str
     source_node_count: int
     confidence: str  # "high" | "medium" | "low"
+    trigger_description: str | None = None
 
 
 @dataclass(frozen=True)

@@ -313,6 +313,7 @@ class APIHandlers:
                     "label": fs.label,
                     "confidence": fs.confidence,
                     "description": fs.description,
+                    "trigger_description": fs.trigger_description,
                 }
                 for fid, fs in snapshot.l1_snapshot.items()
             }

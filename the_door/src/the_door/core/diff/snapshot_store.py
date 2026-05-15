@@ -164,12 +164,15 @@ class SnapshotStore:
         """Convert VersionSnapshot to JSON-serializable dict."""
         l1_data = {}
         for fid, fs in snapshot.l1_snapshot.items():
-            l1_data[fid] = {
+            entry = {
                 "label": fs.label,
                 "description": fs.description,
                 "source_node_count": fs.source_node_count,
                 "confidence": fs.confidence,
             }
+            if fs.trigger_description is not None:
+                entry["trigger_description"] = fs.trigger_description
+            l1_data[fid] = entry
 
         l1_5_data = {}
         for bid, bs in snapshot.l1_5_snapshot.items():
@@ -231,6 +234,7 @@ class SnapshotStore:
                 description=fdata["description"],
                 source_node_count=fdata["source_node_count"],
                 confidence=fdata["confidence"],
+                trigger_description=fdata.get("trigger_description"),
             )
 
         l1_5_snapshot = {}
