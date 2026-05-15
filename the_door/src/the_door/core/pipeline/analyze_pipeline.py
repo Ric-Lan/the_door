@@ -139,6 +139,20 @@ def _run_pipeline_inner(
         topology=topo_result.entries,
     )
 
+    # 4b. Persist structure.json before the LLM step. The viewer's L2
+    # generation and /api/structure endpoint read from this path; without
+    # it, users who go through `the-door analyze` (instead of explicit
+    # `the-door extract`) can't drill into L2/L3 from the UI. Writing
+    # before the cost gate also means a rejected-cost run still leaves
+    # the AST artifact behind for re-use.
+    from the_door.core.extraction.structure_serializer import (
+        default_structure_path,
+        write_structure_json,
+    )
+    structure_path = default_structure_path(codebase_path)
+    write_structure_json(structure_path, structure, scan_result)
+    progress(f"Structure JSON persisted to {structure_path}")
+
     # 5. Cost estimation
     estimator = CostEstimator(
         provider_name=td_config.default_provider,

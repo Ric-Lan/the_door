@@ -11,15 +11,16 @@ from pathlib import Path
 import click
 
 from the_door.core.extraction.ast_extractor import ASTExtractor
+from the_door.core.extraction.structure_serializer import (
+    build_structure_dict,
+    default_structure_path,
+    write_structure_json,
+)
 from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.vulnerability.vulnerability_scanner import VulnerabilityScanner
+from the_door.models import StructureJSON
 
 logger = logging.getLogger(__name__)
-
-
-def _default_output_path(codebase_path: str) -> Path:
-    """Where viewer + L2/L3 pipelines read structure.json from."""
-    return Path(codebase_path) / ".the-door" / "structure.json"
 
 
 def _emit_stdout_utf8(text: str) -> None:
@@ -87,56 +88,22 @@ def extract_cmd(codebase_path: str, output_file: str | None, to_stdout: bool):
         analyzer = TopologyAnalyzer()
         topology = analyzer.analyze(result.nodes, result.edges)
 
-        # Build Structure JSON
-        output = {
-            "files": [{"path": f.path, "language": f.language} for f in result.files],
-            "nodes": [
-                {
-                    "node_id": n.node_id, "type": n.type, "name": n.name,
-                    "file": n.file, "language": n.language,
-                    "decorators": n.decorators, "parameters": n.parameters,
-                    "return_type": n.return_type, "docstring": n.docstring,
-                    "comments": n.comments,
-                }
-                for n in result.nodes
-            ],
-            "edges": [
-                {"from": e.from_node, "to": e.to_node, "type": e.type}
-                for e in result.edges
-            ],
-            "topology": [
-                {
-                    "node_id": t.node_id, "in_degree": t.in_degree,
-                    "out_degree": t.out_degree, "topology_rank": t.topology_rank,
-                    "is_entry_point": t.is_entry_point, "batch_assignment": t.batch_assignment,
-                }
-                for t in topology.entries
-            ],
-            "vulnerabilities": [
-                {
-                    "cve_id": v.cve_id, "package": v.package, "version": v.version,
-                    "severity": v.severity, "cvss": v.cvss, "source": v.source,
-                }
-                for v in scan_result.entries
-            ],
-        }
-
-        if scan_result.db_freshness:
-            output["vulnerability_db_freshness"] = {
-                "timestamp": scan_result.db_freshness.timestamp,
-                "mode": scan_result.db_freshness.mode,
-                "stale_warning": scan_result.db_freshness.stale_warning,
-            }
-
-        json_str = json.dumps(output, indent=2, ensure_ascii=False)
+        # Pack into the canonical StructureJSON dataclass + delegate
+        # on-disk shape to the shared serializer (shared with analyze pipeline).
+        structure = StructureJSON(
+            files=result.files,
+            nodes=result.nodes,
+            edges=result.edges,
+            topology=topology.entries,
+        )
 
         if to_stdout:
-            _emit_stdout_utf8(json_str)
+            data = build_structure_dict(structure, scan_result)
+            _emit_stdout_utf8(json.dumps(data, indent=2, ensure_ascii=False))
             return
 
-        target = Path(output_file) if output_file else _default_output_path(codebase_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json_str, encoding="utf-8")
+        target = Path(output_file) if output_file else default_structure_path(codebase_path)
+        write_structure_json(target, structure, scan_result)
         click.echo(f"Structure JSON written to {target}")
 
     except (FileNotFoundError, ValueError) as e:
