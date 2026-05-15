@@ -1,6 +1,7 @@
 """CLI extract command — runs AST extraction + topology analysis."""
 from __future__ import annotations
 
+import io
 import json
 import logging
 import sys
@@ -16,11 +17,53 @@ from the_door.core.vulnerability.vulnerability_scanner import VulnerabilityScann
 logger = logging.getLogger(__name__)
 
 
+def _default_output_path(codebase_path: str) -> Path:
+    """Where viewer + L2/L3 pipelines read structure.json from."""
+    return Path(codebase_path) / ".the-door" / "structure.json"
+
+
+def _emit_stdout_utf8(text: str) -> None:
+    """Print text to stdout as UTF-8.
+
+    On Windows the default stdout codec follows the system locale
+    (e.g. cp950 for Traditional Chinese), which fails when the codebase's
+    docstrings or comments contain emoji / CJK chars not in that codepage.
+    We reconfigure stdout to UTF-8 before writing.
+    """
+    try:
+        # Python 3.7+ — reconfigure works on TextIOWrapper backing real stdout.
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, io.UnsupportedOperation):
+        # Click's CliRunner replaces stdout with a non-reconfigurable buffer;
+        # the runner itself doesn't enforce a locale codec so the write below
+        # is safe.
+        pass
+    click.echo(text)
+
+
 @click.command("extract")
 @click.argument("codebase_path")
-@click.option("-o", "--output", "output_file", default=None, help="Output file path (default: stdout)")
-def extract_cmd(codebase_path: str, output_file: str | None):
-    """Extract AST structure and topology from a codebase."""
+@click.option(
+    "-o", "--output", "output_file",
+    default=None,
+    help="Output file path (default: <codebase_path>/.the-door/structure.json)",
+)
+@click.option(
+    "--stdout", "to_stdout",
+    is_flag=True, default=False,
+    help="Print JSON to stdout instead of writing to a file.",
+)
+def extract_cmd(codebase_path: str, output_file: str | None, to_stdout: bool):
+    """Extract AST structure and topology from a codebase.
+
+    By default, writes to ``<codebase_path>/.the-door/structure.json``, which
+    is the location the viewer's L2 generation and ``/api/structure`` endpoint
+    read from. Use ``-o <path>`` to write elsewhere, or ``--stdout`` to print.
+    """
+    if output_file and to_stdout:
+        click.echo("Error: --stdout cannot be combined with -o/--output.", err=True)
+        sys.exit(2)
+
     try:
         extractor = ASTExtractor()
         scanner = VulnerabilityScanner()
@@ -87,11 +130,14 @@ def extract_cmd(codebase_path: str, output_file: str | None):
 
         json_str = json.dumps(output, indent=2, ensure_ascii=False)
 
-        if output_file:
-            Path(output_file).write_text(json_str, encoding="utf-8")
-            click.echo(f"Structure JSON written to {output_file}")
-        else:
-            click.echo(json_str)
+        if to_stdout:
+            _emit_stdout_utf8(json_str)
+            return
+
+        target = Path(output_file) if output_file else _default_output_path(codebase_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json_str, encoding="utf-8")
+        click.echo(f"Structure JSON written to {target}")
 
     except (FileNotFoundError, ValueError) as e:
         click.echo(f"Error: {e}", err=True)

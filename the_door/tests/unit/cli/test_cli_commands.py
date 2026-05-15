@@ -39,15 +39,29 @@ def sample_structure_json(fixtures_dir):
 class TestExtractCommand:
     """Tests for the `extract` CLI command."""
 
-    def test_extract_valid_path_produces_json(self, runner, sample_codebase):
-        """Test: extract command with valid path produces JSON output."""
-        result = runner.invoke(main, ["extract", sample_codebase])
-        assert result.exit_code == 0
-        output = json.loads(result.output)
-        assert "files" in output
-        assert "nodes" in output
-        assert "edges" in output
-        assert "topology" in output
+    def test_extract_default_writes_to_dot_the_door(self, runner, sample_codebase, tmp_path):
+        """Default behaviour: extract <path> writes <path>/.the-door/structure.json.
+
+        The viewer's L2 generation and /api/structure read from this exact path,
+        so writing here makes the documented "Run 'the-door extract' first" hint
+        actually work without extra flags.
+        """
+        # Copy sample codebase into tmp_path so we don't pollute the fixture.
+        import shutil
+        codebase_dst = tmp_path / "codebase"
+        shutil.copytree(sample_codebase, codebase_dst)
+
+        result = runner.invoke(main, ["extract", str(codebase_dst)])
+        assert result.exit_code == 0, result.output
+        structure_path = codebase_dst / ".the-door" / "structure.json"
+        assert structure_path.exists(), f"expected {structure_path} to exist"
+        data = json.loads(structure_path.read_text(encoding="utf-8"))
+        assert "files" in data
+        assert "nodes" in data
+        assert "edges" in data
+        assert "topology" in data
+        # Echoes the path so users know where it went.
+        assert "structure.json" in result.output
 
     def test_extract_invalid_path_shows_error(self, runner):
         """Test: extract command with invalid path shows error, exit code 1."""
@@ -56,13 +70,34 @@ class TestExtractCommand:
         assert "Error" in result.output or "Error" in (result.stderr_bytes or b"").decode()
 
     def test_extract_output_to_file(self, runner, sample_codebase, tmp_path):
-        """Test: extract command with -o flag writes to file."""
+        """Test: extract command with -o flag writes to the requested file."""
         output_file = str(tmp_path / "output.json")
         result = runner.invoke(main, ["extract", sample_codebase, "-o", output_file])
         assert result.exit_code == 0
         assert Path(output_file).exists()
-        data = json.loads(Path(output_file).read_text())
+        data = json.loads(Path(output_file).read_text(encoding="utf-8"))
         assert "nodes" in data
+
+    def test_extract_output_creates_parent_dirs(self, runner, sample_codebase, tmp_path):
+        """`-o` and the default path both auto-create missing parent dirs."""
+        output_file = str(tmp_path / "nested" / "subdir" / "structure.json")
+        result = runner.invoke(main, ["extract", sample_codebase, "-o", output_file])
+        assert result.exit_code == 0
+        assert Path(output_file).exists()
+
+    def test_extract_stdout_flag_prints_json(self, runner, sample_codebase):
+        """`--stdout` prints JSON to stdout (no file written)."""
+        result = runner.invoke(main, ["extract", sample_codebase, "--stdout"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "nodes" in data
+
+    def test_extract_stdout_and_output_are_mutually_exclusive(self, runner, sample_codebase, tmp_path):
+        """Conflicting flags: --stdout + -o produces exit 2."""
+        output_file = str(tmp_path / "out.json")
+        result = runner.invoke(main, ["extract", sample_codebase, "--stdout", "-o", output_file])
+        assert result.exit_code == 2
+        assert "cannot be combined" in result.output
 
 
 class TestValidateCommand:
