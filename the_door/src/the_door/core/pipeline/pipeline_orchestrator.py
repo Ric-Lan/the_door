@@ -545,12 +545,21 @@ class PipelineOrchestrator:
 
         features = []
         for fid, fs in latest.l1_snapshot.items():
+            # FeatureSummary doesn't carry `trigger` or `confidence_reason`
+            # (the LLM-side fields), so cache rebuild fills them with empty
+            # strings. `trigger_description` and `source_nodes` ARE persisted
+            # (commits ba39192 and 8933100) — propagate them so the very
+            # next snapshot write doesn't overwrite the on-disk values with
+            # empties.
             features.append(Feature(
                 feature_id=fid,
                 label=fs.label,
                 description=fs.description,
+                trigger="",
+                trigger_description=fs.trigger_description or "",
                 confidence=fs.confidence,
-                source_nodes=[],  # Not stored in snapshot
+                confidence_reason="",
+                source_nodes=list(fs.source_nodes),
             ))
 
         feature_relations = []
