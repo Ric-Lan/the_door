@@ -264,7 +264,7 @@ class TimelineRenderer:
             lines.append(f"  Label: {feature.label}")
             lines.append(f"  Description: {feature.description}")
             lines.append(f"  Confidence: {feature.confidence}")
-            lines.append(f"  Source Nodes: {feature.source_node_count}")
+            lines.append(f"  Source Nodes: {len(feature.source_nodes)}")
             lines.append(f"  狀態：{state_label} {marker}")
 
             # Side-by-side description comparison for drift events
