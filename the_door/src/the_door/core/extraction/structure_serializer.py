@@ -12,10 +12,11 @@ inputs.
 """
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 
-from the_door.models import ScanResult, StructureJSON
+from the_door.models import ASTNode, Edge, FileInfo, ScanResult, StructureJSON, TopologyEntry
 
 
 def build_structure_dict(
@@ -68,6 +69,61 @@ def build_structure_dict(
         }
 
     return output
+
+
+def parse_structure_dict(data: dict) -> StructureJSON:
+    """Inverse of build_structure_dict. Reconstructs StructureJSON from a parsed dict."""
+    files = [
+        FileInfo(path=f["path"], language=f["language"])
+        for f in data["files"]
+    ]
+    nodes = [
+        ASTNode(
+            node_id=n["node_id"],
+            type=n["type"],
+            name=n["name"],
+            file=n["file"],
+            language=n["language"],
+            decorators=n.get("decorators", []),
+            parameters=n.get("parameters", []),
+            return_type=n.get("return_type"),
+            docstring=n.get("docstring"),
+            comments=n.get("comments", []),
+        )
+        for n in data["nodes"]
+    ]
+    edges = [
+        Edge(from_node=e["from"], to_node=e["to"], type=e["type"])
+        for e in data["edges"]
+    ]
+    topology = [
+        TopologyEntry(
+            node_id=t["node_id"],
+            in_degree=t["in_degree"],
+            out_degree=t["out_degree"],
+            topology_rank=t["topology_rank"],
+            is_entry_point=t["is_entry_point"],
+            batch_assignment=t["batch_assignment"],
+        )
+        for t in data["topology"]
+    ]
+    return StructureJSON(files=files, nodes=nodes, edges=edges, topology=topology)
+
+
+def write_versioned_structure(
+    project_path: Path,
+    version_id: str,
+    structure: StructureJSON,
+    scan_result: ScanResult | None,
+) -> Path:
+    """Write a gzipped structure dict to .the-door/structures/<version_id>.json.gz."""
+    dst_dir = Path(project_path) / ".the-door" / "structures"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    path = dst_dir / f"{version_id}.json.gz"
+    data = build_structure_dict(structure, scan_result)
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    return path
 
 
 def default_structure_path(codebase_path: str | Path) -> Path:

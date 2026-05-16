@@ -6,6 +6,7 @@ Snapshots stored as individual JSON files in .the-door/snapshots/.
 
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import re
@@ -14,6 +15,7 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
+from the_door.core.extraction.structure_serializer import parse_structure_dict
 from the_door.models import (
     BaselineInfo,
     BlockSummary,
@@ -22,6 +24,7 @@ from the_door.models import (
     RelationSummary,
     SnapshotError,
     SnapshotNotFoundError,
+    StructureJSON,
     VersionSnapshot,
     VulnerabilityEntry,
 )
@@ -33,6 +36,7 @@ class SnapshotStore:
     """Manage version snapshot creation, persistence, and retrieval."""
 
     def __init__(self, project_root: Path):
+        self._project_path = project_root
         self._snapshots_dir = project_root / ".the-door" / "snapshots"
 
     def create_snapshot(
@@ -146,6 +150,19 @@ class SnapshotStore:
         file_path = self._snapshots_dir / f"{version_id}.json"
         if file_path.exists():
             file_path.unlink()
+
+    def get_structure(self, version_id: str) -> StructureJSON | None:
+        """Load a persisted gzipped structure by version_id. Returns None if missing or corrupt."""
+        path = self._project_path / ".the-door" / "structures" / f"{version_id}.json.gz"
+        if not path.is_file():
+            return None
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                data = json.load(f)
+            return parse_structure_dict(data)
+        except (gzip.BadGzipFile, json.JSONDecodeError, KeyError, OSError, EOFError) as e:
+            warnings.warn(f"structure_corrupted at {path.name}: {e}", UserWarning, stacklevel=2)
+            return None
 
     def _load_all_snapshots(self) -> list[VersionSnapshot]:
         """Load all snapshot files from disk. Skip corrupted files with warning."""
