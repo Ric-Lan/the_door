@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -187,3 +188,32 @@ def _clean_tmp_path(tmp_path):
         else:
             child.unlink()
     yield
+
+
+# ============================================================================
+# v105 scenario fixture
+# ============================================================================
+
+
+_V105_DEFAULT = Path(r"C:\Users\Ric\Desktop\test-targets\the-door-v105")
+_V105_ENV = "THE_DOOR_V105_FIXTURE"
+
+
+@pytest.fixture
+def v105_fixture(tmp_path):
+    """A writable copy of the v105 test target's .the-door/ state.
+
+    Source resolution:
+    1. THE_DOOR_V105_FIXTURE env var (if set, must point at an existing dir with .the-door/)
+    2. The default Windows path used during spec development
+    3. pytest.skip if neither is available
+
+    The fixture copies .the-door/ into tmp_path so tests can mutate state safely.
+    Source code for v1.0.5 is NOT copied — tests that need the source files use
+    their own minimal fixtures.
+    """
+    src = Path(os.environ.get(_V105_ENV, _V105_DEFAULT))
+    if not (src / ".the-door").is_dir():
+        pytest.skip(f"v105 fixture not available at {src}; set {_V105_ENV} to override")
+    shutil.copytree(src / ".the-door", tmp_path / ".the-door")
+    return tmp_path
