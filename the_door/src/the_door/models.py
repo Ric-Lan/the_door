@@ -68,6 +68,7 @@ class ExtractionResult:
     nodes: list[ASTNode] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     errors: list[ExtractionError] = field(default_factory=list)
+    warnings: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 @dataclass

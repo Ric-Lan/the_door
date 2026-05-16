@@ -300,3 +300,34 @@ class TestASTExtractor:
         extractor = ASTExtractor()
         with pytest.raises((FileNotFoundError, ValueError, OSError)):
             extractor.extract("/nonexistent/path/that/does/not/exist")
+
+
+# === Collision disambiguation tests (Task 01.7) ===
+
+COLLIDING_INIT = Path(__file__).parent.parent.parent.parent / "fixtures" / "sample_codebases" / "colliding_init"
+
+
+def test_extract_disambiguates_three_colliding_init():
+    result = ASTExtractor().extract(str(COLLIDING_INIT))
+    init_ids = [
+        n.node_id for n in result.nodes
+        if n.node_id.endswith("::__init__") or "::__init__#" in n.node_id
+    ]
+    assert len(init_ids) == 3
+    assert len(set(init_ids)) == 3
+    assert any(nid.endswith("::__init__") for nid in init_ids)
+    assert any(nid.endswith("::__init__#2") for nid in init_ids)
+    assert any(nid.endswith("::__init__#3") for nid in init_ids)
+    assert len(set(n.node_id for n in result.nodes)) == len(result.nodes)
+
+
+def test_extract_no_collision_no_suffix(tmp_path):
+    tmp_path.joinpath("a.py").write_text("def foo():\n    pass\n")
+    result = ASTExtractor().extract(str(tmp_path))
+    assert all("#" not in n.node_id for n in result.nodes)
+
+
+def test_extract_collision_is_deterministic():
+    r1 = ASTExtractor().extract(str(COLLIDING_INIT))
+    r2 = ASTExtractor().extract(str(COLLIDING_INIT))
+    assert [n.node_id for n in r1.nodes] == [n.node_id for n in r2.nodes]
