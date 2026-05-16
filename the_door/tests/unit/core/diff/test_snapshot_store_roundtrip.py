@@ -114,6 +114,53 @@ class TestFeatureSummaryOnDiskShape:
         assert fs.trigger_description is None
         assert fs.source_nodes == ()
 
+    def test_create_snapshot_overrides_caller_source_node_count(self, store, tmp_path):
+        fs = FeatureSummary(
+            feature_id="feat-x",
+            label="x",
+            description="d",
+            confidence="high",
+            source_node_count=99,
+            source_nodes=("a", "b"),
+        )
+        snapshot = store.create_snapshot(
+            l1_snapshot={"feat-x": fs},
+            feature_relations=[],
+            analyzed_files=[],
+        )
+        on_disk = json.loads((tmp_path / ".the-door" / "snapshots" / f"{snapshot.version_id}.json").read_text())
+        assert on_disk["l1_snapshot"]["feat-x"]["source_node_count"] == 2
+
+
+def test_deserialize_legacy_drift_warns_and_normalizes(tmp_path):
+    snap_dir = tmp_path / ".the-door" / "snapshots"
+    snap_dir.mkdir(parents=True)
+    vid = "abc12345-0000-0000-0000-000000000000"
+    (snap_dir / f"{vid}.json").write_text(json.dumps({
+        "version_id": vid,
+        "timestamp": "2026-01-01T00:00:00Z",
+        "trigger": "manual",
+        "label": None,
+        "git_tags": [],
+        "commit_hash": None,
+        "analyzed_files": [],
+        "feature_relations_snapshot": [],
+        "l1_snapshot": {
+            "feat-x": {
+                "feature_id": "feat-x", "label": "x", "description": "d",
+                "trigger_description": "td",
+                "confidence": "high",
+                "source_node_count": 5,
+                "source_nodes": [],
+            }
+        },
+    }))
+    with pytest.warns(UserWarning, match=r"source_nodes_drift.*feat-x"):
+        snap = SnapshotStore(tmp_path).get_snapshot(vid)
+    fs = snap.l1_snapshot["feat-x"]
+    assert fs.source_node_count == 0
+    assert fs.source_nodes == ()
+
 
 class TestSourceNodesNotInDiff:
     """source_nodes is a viewer-display field, not a diff signal. Adding,

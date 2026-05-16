@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import uuid
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -167,7 +168,7 @@ class SnapshotStore:
             entry = {
                 "label": fs.label,
                 "description": fs.description,
-                "source_node_count": fs.source_node_count,
+                "source_node_count": len(fs.source_nodes),
                 "confidence": fs.confidence,
             }
             if fs.trigger_description is not None:
@@ -228,16 +229,27 @@ class SnapshotStore:
 
     def _deserialize_snapshot(self, data: dict) -> VersionSnapshot:
         """Convert JSON dict back to VersionSnapshot."""
+        version_id = data.get("version_id", "unknown")
         l1_snapshot = {}
         for fid, fdata in data.get("l1_snapshot", {}).items():
+            declared_count = fdata.get("source_node_count", 0)
+            source_nodes = tuple(fdata.get("source_nodes", ()) or ())
+            if declared_count > 0 and not source_nodes:
+                warnings.warn(
+                    f"source_nodes_drift in snapshot {version_id} feature {fid}: "
+                    f"declared count={declared_count} but source_nodes empty; normalized to 0/()",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                declared_count = 0
             l1_snapshot[fid] = FeatureSummary(
                 feature_id=fid,
                 label=fdata["label"],
                 description=fdata["description"],
-                source_node_count=fdata["source_node_count"],
+                source_node_count=declared_count,
                 confidence=fdata["confidence"],
                 trigger_description=fdata.get("trigger_description"),
-                source_nodes=tuple(fdata.get("source_nodes", ())),
+                source_nodes=source_nodes,
             )
 
         l1_5_snapshot = {}
