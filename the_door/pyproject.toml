@@ -41,4 +41,6 @@ markers = [
     "unit: Unit tests for individual modules",
     "property: Property-based tests using Hypothesis",
     "integration: Integration tests for end-to-end pipelines",
+    "contract: cross-tier seam contract tests; gated by pytest.skip until both producer and consumer tasks land",
+    "scenario: end-to-end scenario tests; gated by pytest.skip until prerequisite tiers land",
 ]
