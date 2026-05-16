@@ -17,6 +17,7 @@ from pathlib import Path
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.extraction.file_discovery import FileDiscovery
+from the_door.core.extraction.structure_serializer import write_versioned_structure
 from the_door.core.llm.config_manager import ConfigManager
 from the_door.core.llm.provider import create_provider
 from the_door.core.reading.batch_reader import BatchReader
@@ -179,6 +180,15 @@ def _run_pipeline_inner(
     snapshot = _create_auto_snapshot(
         codebase_path, extraction, result, scan_result, progress,
     )
+
+    try:
+        write_versioned_structure(codebase_path, snapshot.version_id, structure, scan_result)
+    except Exception as e:
+        logger.warning(
+            "versioned_structure_write_failed",
+            extra={"version_id": snapshot.version_id, "error": str(e)},
+        )
+        progress(f"per-version structure write failed: {e}")
 
     return AnalyzeResult(
         snapshot=snapshot,
