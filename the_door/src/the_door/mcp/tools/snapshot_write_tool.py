@@ -21,16 +21,17 @@ TOOL_SCHEMA = {
             "description": (
                 "L1 features produced by the calling AI. Each item must have: "
                 "feature_id (str, slug format e.g. 'feat-auth'), label (str), "
-                "description (str), source_node_count (int), confidence "
-                "('high'|'medium'|'low'). Optionally provide trigger_description "
-                "(str) and source_nodes (list of structure.json node_ids) so the "
-                "viewer can show the trigger summary in the L1 detail panel and "
-                "drill into L2/L3 without re-inferring which AST nodes belong "
-                "to this feature."
+                "description (str), confidence ('high'|'medium'|'low'). "
+                "Optionally provide source_nodes (list of structure.json node_ids) "
+                "so the viewer can drill into L2/L3 without re-inferring which AST "
+                "nodes belong to this feature; source_node_count is derived from "
+                "source_nodes and may be omitted. Optionally provide "
+                "trigger_description (str) so the viewer can show the trigger "
+                "summary in the L1 detail panel."
             ),
             "items": {
                 "type": "object",
-                "required": ["feature_id", "label", "description", "source_node_count", "confidence"],
+                "required": ["feature_id", "label", "description", "confidence"],
                 "properties": {
                     "feature_id": {"type": "string"},
                     "label": {"type": "string"},
@@ -106,7 +107,7 @@ async def execute(arguments: dict) -> dict:
             feature_id=fid,
             label=feat["label"],
             description=feat["description"],
-            source_node_count=int(feat["source_node_count"]),
+            source_node_count=len(feat.get("source_nodes", []) or []),
             confidence=feat["confidence"],
             trigger_description=feat.get("trigger_description"),
             source_nodes=tuple(feat.get("source_nodes", ())),

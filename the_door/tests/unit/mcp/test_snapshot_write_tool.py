@@ -257,3 +257,24 @@ class TestSnapshotWriteTool:
         snapshots_dir = tmp_project / ".the-door" / "snapshots"
         data = json.loads(list(snapshots_dir.glob("*.json"))[0].read_text(encoding="utf-8"))
         assert data["analyzed_files"] == ["src/auth.py", "src/data.py"]
+
+    @pytest.mark.asyncio
+    async def test_snapshot_write_succeeds_without_source_node_count(self, tmp_project):
+        """source_node_count is optional; it is derived from source_nodes when absent."""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        args = {
+            "codebase_path": str(tmp_project),
+            "l1_features": [{
+                "feature_id": "feat-a", "label": "A", "description": "d",
+                "trigger": "t", "trigger_description": "td",
+                "confidence": "high", "confidence_reason": "r",
+                "source_nodes": ["n1", "n2", "n3"],
+                # source_node_count intentionally absent
+            }],
+            "relations": [],
+        }
+        result = await execute(args)
+        assert "error" not in result
+        on_disk = json.loads((tmp_project / ".the-door" / "snapshots" / f"{result['version_id']}.json").read_text())
+        assert on_disk["l1_snapshot"]["feat-a"]["source_node_count"] == 3
