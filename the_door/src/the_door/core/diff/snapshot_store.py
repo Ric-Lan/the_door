@@ -12,6 +12,7 @@ import logging
 import re
 import uuid
 import warnings
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,6 +31,18 @@ from the_door.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SnapshotEntry:
+    """Lightweight summary of a persisted snapshot for UI / guidance consumers."""
+
+    version_id: str
+    label: str | None
+    git_tags: tuple[str, ...]
+    commit_hash: str | None
+    timestamp: str
+    has_persisted_structure: bool
 
 
 class SnapshotStore:
@@ -141,6 +154,31 @@ class SnapshotStore:
         """Return all snapshots sorted by timestamp descending (most recent first)."""
         snapshots = self._load_all_snapshots()
         return sorted(snapshots, key=lambda s: s.timestamp, reverse=True)
+
+    def list_analyzed_versions(self) -> list[SnapshotEntry]:
+        """Return SnapshotEntry list for all persisted snapshots, sorted by timestamp DESC."""
+        snap_dir = self._project_path / ".the-door" / "snapshots"
+        struct_dir = self._project_path / ".the-door" / "structures"
+        if not snap_dir.is_dir():
+            return []
+        entries = []
+        for snap_path in snap_dir.glob("*.json"):
+            try:
+                data = json.loads(snap_path.read_text(encoding="utf-8"))
+                vid = data["version_id"]
+                timestamp = data["timestamp"]
+            except (json.JSONDecodeError, OSError, KeyError):
+                continue
+            entries.append(SnapshotEntry(
+                version_id=vid,
+                label=data.get("label"),
+                git_tags=tuple(data.get("git_tags", [])),
+                commit_hash=data.get("commit_hash"),
+                timestamp=timestamp,
+                has_persisted_structure=(struct_dir / f"{vid}.json.gz").is_file(),
+            ))
+        entries.sort(key=lambda e: e.timestamp, reverse=True)
+        return entries
 
     def delete_snapshot(self, version_id: str) -> None:
         """Delete a snapshot JSON file by version_id.

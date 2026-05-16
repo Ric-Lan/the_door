@@ -29,11 +29,10 @@ def test_v105_incremental_flow(v105_fixture):
 
 
 def _step_1_inspect_returns_one_snapshot(project):
-    """Removed by: 01-core-data Task 01.5 (SnapshotStore.list_analyzed_versions)."""
-    pytest.skip("blocked on 01-core-data Task 01.5")
-    # from the_door.core.diff.snapshot_store import SnapshotStore
-    # entries = SnapshotStore(project).list_analyzed_versions()
-    # assert any(e.label == "v1.0.0" for e in entries)
+    """Step 1 unblocked by Task 01.5."""
+    from the_door.core.diff.snapshot_store import SnapshotStore
+    entries = SnapshotStore(project).list_analyzed_versions()
+    assert any(e.label == "v1.0.0" for e in entries)
 
 
 def _step_2_inspector_emits_systemstate(project):

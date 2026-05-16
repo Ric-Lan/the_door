@@ -9,14 +9,14 @@ import pytest
 
 @pytest.mark.contract
 def test_snapshotentry_field_set_matches_consumer_expectation(tmp_path):
-    pytest.skip("blocked on 01-core-data Task 01.5 (producer) AND 02-guidance-engine Task 02.3 (consumer)")
+    pytest.skip("blocked on 02-guidance-engine Task 02.3 (consumer)")
 
-    # PRODUCER SIDE — remove skip in 01.5 commit, populate this block:
-    # from the_door.core.diff.snapshot_store import SnapshotStore
-    # ... seed a snapshot, call list_analyzed_versions()
-    # entries = SnapshotStore(tmp_path).list_analyzed_versions()
-    # assert len(entries) == 1
-    # producer_entry = entries[0]
+    from the_door.core.diff.snapshot_store import SnapshotStore
+    store = SnapshotStore(tmp_path)
+    store.create_snapshot(l1_snapshot={}, feature_relations=[], analyzed_files=[])
+    entries = store.list_analyzed_versions()
+    assert len(entries) == 1
+    producer_entry = entries[0]
 
     # CONSUMER SIDE — remove skip in 02.3 commit, populate this block:
     # from the_door.core.guidance.state import StateInspector

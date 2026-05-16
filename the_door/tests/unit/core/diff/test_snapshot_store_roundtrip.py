@@ -12,10 +12,12 @@ import json
 
 import pytest
 
-from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.core.diff.snapshot_store import SnapshotEntry, SnapshotStore
+from the_door.core.extraction.structure_serializer import write_versioned_structure
 from the_door.models import (
     FeatureSummary,
     RelationSummary,
+    StructureJSON,
     VersionSnapshot,
 )
 
@@ -160,6 +162,27 @@ def test_deserialize_legacy_drift_warns_and_normalizes(tmp_path):
     fs = snap.l1_snapshot["feat-x"]
     assert fs.source_node_count == 0
     assert fs.source_nodes == ()
+
+
+def _sample_structure() -> StructureJSON:
+    return StructureJSON(files=[], nodes=[], edges=[], topology=[])
+
+
+def test_list_analyzed_versions_marks_has_persisted_structure(tmp_path):
+    import time
+    store = SnapshotStore(tmp_path)
+    s1 = store.create_snapshot(l1_snapshot={}, feature_relations=[], analyzed_files=[])
+    time.sleep(0.002)
+    s2 = store.create_snapshot(l1_snapshot={}, feature_relations=[], analyzed_files=[])
+    write_versioned_structure(tmp_path, s2.version_id, _sample_structure(), None)
+    entries = store.list_analyzed_versions()
+    assert len(entries) == 2
+    by_id = {e.version_id: e for e in entries}
+    assert by_id[s1.version_id].has_persisted_structure is False
+    assert by_id[s2.version_id].has_persisted_structure is True
+    assert by_id[s1.version_id].label is None
+    assert by_id[s2.version_id].label is None
+    assert entries[0].version_id == s2.version_id
 
 
 class TestSourceNodesNotInDiff:
