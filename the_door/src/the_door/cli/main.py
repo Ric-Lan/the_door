@@ -2,6 +2,9 @@
 
 import click
 
+from the_door.cli.next_action_renderer import render_remediation
+from the_door.core.guidance.remediation import Remediation
+
 from the_door.cli.extract_cmd import extract_cmd
 from the_door.cli.validate_cmd import validate_cmd
 from the_door.cli.mcp_serve_cmd import mcp_serve_cmd
@@ -21,6 +24,25 @@ from the_door.cli.update_cmd import update_cmd
 from the_door.cli.ui_cmd import ui_cmd
 from the_door.cli.projects_cmd import projects_cmd
 from the_door.cli.status_cmd import status_cmd
+
+
+class CliRemediableError(click.ClickException):
+    """A CLI error carrying a Remediation envelope (Task 04.4, S1.3 + F3).
+
+    Click invokes ``.show()`` on uncaught ``ClickException`` instances; we route
+    that through ``render_remediation`` so every domain error renders as the
+    same F3-style ``Error: <msg>`` + optional ``Try: <next-action>`` block to
+    stderr.
+    """
+
+    exit_code = 1
+
+    def __init__(self, remediation: Remediation):
+        super().__init__(remediation.message)
+        self.remediation = remediation
+
+    def show(self, file=None):  # noqa: ARG002 — click signature
+        render_remediation(self.remediation)
 
 
 @click.group()

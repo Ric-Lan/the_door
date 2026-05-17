@@ -21,27 +21,51 @@ def diff_cmd(codebase_path, baseline, output_json, layer, output_file):
     from the_door.core.diff.diff_renderer import DiffRenderer
     from the_door.models import SnapshotNotFoundError, DiffError
 
+    from the_door.cli.main import CliRemediableError
+    from the_door.core.guidance.remediation import Remediation, REMEDIATION_CATALOGUE
+    from the_door.core.guidance.state import StateInspector
+    from the_door.core.guidance.suggester import NextActionSuggester
+
+    def _suggest_next_action(failure_code: str):
+        state = StateInspector(Path(codebase_path)).inspect()
+        actions = NextActionSuggester().suggest(state, context="after_error", failure_code=failure_code)
+        return actions[0] if actions else None
+
     store = SnapshotStore(Path(codebase_path))
 
     # Get current (latest) snapshot
     current = store.get_latest()
     if current is None:
-        click.echo(f"No snapshots found in {codebase_path}/.the-door/snapshots/. Run `the-door analyze` first.", err=True)
-        sys.exit(1)
+        raise CliRemediableError(Remediation(
+            code="no_snapshot_for_baseline",
+            message=(
+                f"{REMEDIATION_CATALOGUE['no_snapshot_for_baseline']} "
+                f"({codebase_path}/.the-door/snapshots/ 為空,先跑 `the-door analyze`。)"
+            ),
+            next_action=_suggest_next_action("no_snapshot_for_baseline"),
+        ))
 
     # Resolve baseline
     try:
         baseline_snap = store.resolve_baseline(baseline)
     except SnapshotNotFoundError as e:
-        click.echo(f"Cannot resolve baseline '{baseline}'. Available snapshots:", err=True)
-        for snap_info in e.available:
-            parts = [f"  {snap_info['version_id'][:8]}  {snap_info['timestamp']}  {snap_info['trigger']}"]
-            if snap_info.get('git_tags'):
-                parts.append(f"  tags: {', '.join(snap_info['git_tags'])}")
-            if snap_info.get('label'):
-                parts.append(f"  label: {snap_info['label']}")
-            click.echo(" ".join(parts), err=True)
-        sys.exit(1)
+        # Preserve the available-snapshots UX inside the message — render_remediation
+        # writes message verbatim so users still see what they could have referenced.
+        lines = [f"snapshot_not_found: 找不到 baseline '{baseline}'."]
+        if e.available:
+            lines.append("Available snapshots:")
+            for snap_info in e.available:
+                row = f"  {snap_info['version_id'][:8]}  {snap_info['timestamp']}  {snap_info['trigger']}"
+                if snap_info.get("git_tags"):
+                    row += f"  tags: {', '.join(snap_info['git_tags'])}"
+                if snap_info.get("label"):
+                    row += f"  label: {snap_info['label']}"
+                lines.append(row)
+        raise CliRemediableError(Remediation(
+            code="snapshot_not_found",
+            message="\n".join(lines),
+            next_action=_suggest_next_action("snapshot_not_found"),
+        ))
 
     # Compute diff
     engine = DiffEngine()
@@ -51,8 +75,11 @@ def diff_cmd(codebase_path, baseline, output_json, layer, output_file):
         else:
             diff_result = engine.compute_l1_5_diff(baseline_snap, current)
     except DiffError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        raise CliRemediableError(Remediation(
+            code="diff_failed",
+            message=f"diff_failed: {e}",
+            next_action=_suggest_next_action("diff_failed"),
+        ))
 
     # Patch resolved_from into baseline_info for renderer label formatting
     from the_door.models import BaselineInfo, DiffResult as DiffResultModel
