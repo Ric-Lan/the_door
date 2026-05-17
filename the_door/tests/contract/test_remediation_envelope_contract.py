@@ -8,15 +8,14 @@ import pytest
 
 @pytest.mark.contract
 def test_error_envelope_shape_satisfies_all_consumers():
-    pytest.skip("blocked on 02-guidance-engine Task 02.6 (producer) AND 04-cli-ux Task 04.4 (CLI consumer) AND 05-viewer-frontend Task 05.8 (viewer consumer)")
+    pytest.skip("blocked on 04-cli-ux Task 04.4 (CLI consumer) AND 05-viewer-frontend Task 05.8 (viewer consumer)")
 
-    # PRODUCER — populated in 02.6:
-    # from the_door.core.guidance.remediation import Remediation, make_error_envelope
-    # from the_door.core.guidance.actions import NextAction
-    # rem = Remediation(code="x", message="m",
-    #                   next_action=NextAction(id="a.b", title="t", rationale="r", priority=1,
-    #                                          cli_command="ls"))
-    # envelope = make_error_envelope(code="x", message="m", remediation=rem, source="here")
+    from the_door.core.guidance.remediation import Remediation, make_error_envelope
+    from the_door.core.guidance.actions import NextAction
+    rem = Remediation(code="x", message="m",
+                      next_action=NextAction(id="a.b", title="t", rationale="r", priority=1,
+                                             cli_command="ls"))
+    envelope = make_error_envelope(code="x", message="m", remediation=rem, source="here")
 
     # CONSUMERS — what each side needs:
     # CLI renderer (04.4) needs:
