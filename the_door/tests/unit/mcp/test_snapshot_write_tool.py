@@ -5,10 +5,48 @@ import json
 import pytest
 from pathlib import Path
 
+from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.models import FeatureSummary
+
 
 @pytest.fixture
 def tmp_project(tmp_path):
     """A temporary project directory with no existing snapshots."""
+    return tmp_path
+
+
+def _load_snapshot_by_vid(project_path: Path, version_id: str):
+    """Reload a snapshot from disk by version_id."""
+    return SnapshotStore(Path(project_path)).get_snapshot(version_id)
+
+
+@pytest.fixture
+def seeded_v105_fixture(tmp_path):
+    """Seed a project with a v1.0.0 baseline snapshot containing 11 features.
+
+    The baseline intentionally does NOT include ``feat-ui-server`` — the
+    inheritance test merges in an ``updated_features`` entry for it, yielding
+    11 inherited + 1 new = 12 features.
+    """
+    store = SnapshotStore(tmp_path)
+    l1_snapshot: dict[str, FeatureSummary] = {
+        f"feat-baseline-{i}": FeatureSummary(
+            feature_id=f"feat-baseline-{i}",
+            label=f"Baseline feature {i}",
+            description=f"baseline feature {i}",
+            source_node_count=1,
+            confidence="high",
+            source_nodes=(f"node-{i}",),
+        )
+        for i in range(11)
+    }
+    store.create_snapshot(
+        l1_snapshot=l1_snapshot,
+        feature_relations=[],
+        analyzed_files=[],
+        trigger="manual",
+        label="v1.0.0",
+    )
     return tmp_path
 
 
@@ -278,3 +316,55 @@ class TestSnapshotWriteTool:
         assert "error" not in result
         on_disk = json.loads((tmp_project / ".the-door" / "snapshots" / f"{result['version_id']}.json").read_text())
         assert on_disk["l1_snapshot"]["feat-a"]["source_node_count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_snapshot_write_with_inherit_from_merges_features(self, seeded_v105_fixture):
+        """O1-T6: inherit_from + updated_features merges into a new snapshot."""
+        from the_door.mcp.tools import snapshot_write_tool
+        args = {
+            "codebase_path": str(seeded_v105_fixture),
+            "inherit_from": "v1.0.0",
+            "updated_features": [{
+                "feature_id": "feat-ui-server",
+                "label": "Local Version Viewer Server (updated)",
+                "description": "now serves v1.0.5",
+                "trigger": "user runs ui",
+                "trigger_description": "td",
+                "confidence": "high",
+                "confidence_reason": "r",
+                "source_nodes": ["node-a", "node-b"],
+            }],
+        }
+        result = await snapshot_write_tool.execute(args)
+        assert "error" not in result
+        snapshot = _load_snapshot_by_vid(seeded_v105_fixture, result["version_id"])
+        assert len(snapshot.l1_snapshot) == 12
+        assert snapshot.l1_snapshot["feat-ui-server"].label == "Local Version Viewer Server (updated)"
+
+    @pytest.mark.asyncio
+    async def test_snapshot_write_without_inherit_from_unchanged(self, tmp_path):
+        """O1-T7: regression — calling snapshot_write the old way still works."""
+        from the_door.mcp.tools import snapshot_write_tool
+        args = {
+            "codebase_path": str(tmp_path),
+            "l1_features": [{"feature_id": "feat-a", "label": "A", "description": "d",
+                             "trigger": "t", "trigger_description": "td",
+                             "confidence": "high", "confidence_reason": "r",
+                             "source_nodes": ["n1"]}],
+            "relations": [],
+        }
+        result = await snapshot_write_tool.execute(args)
+        assert "error" not in result
+
+    @pytest.mark.asyncio
+    async def test_snapshot_write_inherit_from_unknown_returns_error_envelope(self, tmp_project):
+        """When inherit_from cannot be resolved, return the baseline_not_found envelope."""
+        from the_door.mcp.tools import snapshot_write_tool
+        args = {
+            "codebase_path": str(tmp_project),
+            "inherit_from": "nonexistent-label",
+            "updated_features": [],
+        }
+        result = await snapshot_write_tool.execute(args)
+        assert "error" in result
+        assert result["error"]["remediation"]["code"] == "baseline_not_found"

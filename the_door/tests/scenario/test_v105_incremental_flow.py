@@ -69,11 +69,47 @@ def _step_4_compute_affected_features_isolates_feat_ui_server(project):
 
 
 def _step_5_snapshot_write_inherits_unchanged_features(project, diff):
-    """Removed by: 03-pipeline-mcp Task 03.6 (snapshot_write inherit_from extension)."""
-    pytest.skip("blocked on 03-pipeline-mcp Task 03.6")
-    # ... call snapshot_write_tool.execute with inherit_from + updated_features ...
-    # Assert the resulting snapshot has all baseline features, with feat-ui-server replaced.
-    # return new_snapshot
+    """Removed by: 03-pipeline-mcp Task 03.6 (snapshot_write inherit_from extension).
+
+    Step 4 still skips (blocked on a v1.0.5-source-aware orchestrator path),
+    so ``diff`` is ``None`` here. We exercise the inherit_from contract
+    directly: write a new snapshot inheriting from ``v1.0.0`` with a single
+    updated feature, and assert the merge succeeded.
+    """
+    import asyncio
+    from the_door.core.diff.snapshot_store import SnapshotStore
+    from the_door.mcp.tools import snapshot_write_tool
+
+    store = SnapshotStore(project)
+    baseline = store.resolve_baseline("v1.0.0")
+    baseline_feature_ids = set(baseline.l1_snapshot.keys())
+    # Pick any baseline feature to "update" — exact id doesn't matter for the
+    # contract assertion (that inheritance preserves baseline features).
+    target_id = next(iter(baseline_feature_ids))
+
+    result = asyncio.get_event_loop().run_until_complete(
+        snapshot_write_tool.execute({
+            "codebase_path": str(project),
+            "inherit_from": "v1.0.0",
+            "updated_features": [{
+                "feature_id": target_id,
+                "label": "scenario-updated",
+                "description": "updated by step 5",
+                "trigger": "t",
+                "trigger_description": "td",
+                "confidence": "high",
+                "confidence_reason": "r",
+                "source_nodes": ["node-a"],
+            }],
+        })
+    )
+    assert "error" not in result, result
+    new_snapshot = store.get_snapshot(result["version_id"])
+    # All baseline features survive the merge.
+    assert baseline_feature_ids.issubset(set(new_snapshot.l1_snapshot.keys()))
+    # The updated feature took effect.
+    assert new_snapshot.l1_snapshot[target_id].label == "scenario-updated"
+    return new_snapshot
 
 
 def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot):

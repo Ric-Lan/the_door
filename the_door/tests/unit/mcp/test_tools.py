@@ -67,7 +67,10 @@ class TestToolRegistration:
         tool = next(t for t in tools if t.name == "snapshot_write")
         schema = tool.inputSchema
         assert "codebase_path" in schema["required"]
-        assert "l1_features" in schema["required"]
+        # l1_features is now optional (caller may use inherit_from instead).
+        assert "l1_features" in schema["properties"]
+        assert "inherit_from" in schema["properties"]
+        assert "updated_features" in schema["properties"]
         assert "relations" in schema["properties"]
         assert "git_tags" in schema["properties"]
 
