@@ -66,3 +66,6 @@ def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes
         click.echo(f"Output written to {output}")
     else:
         click.echo(json_output)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)

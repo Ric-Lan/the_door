@@ -82,6 +82,9 @@ def scope_verify(codebase_path: str, scope_ref: str, output_json: bool, render: 
     else:
         click.echo(text)
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=output_json)
+
 
 @scope_group.command("create")
 @click.argument("scope_name")
@@ -126,23 +129,29 @@ def scope_create(scope_name: str, codebase_path: str):
     else:
         click.echo("No L1 analysis output available for feature reference.")
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)
+
 
 @scope_group.command("list")
 @click.option("--codebase-path", type=click.Path(exists=True), default=".", help="Codebase 根目錄路徑")
 def scope_list(codebase_path: str):
     """列出所有 scope definition 檔案。"""
     from pathlib import Path
+    from the_door.cli.post_run_hook import cli_post_run_hook
 
     project_root = Path(codebase_path)
     scopes_dir = project_root / ".the-door" / "scopes"
 
     if not scopes_dir.exists():
         click.echo("No scope definitions found.")
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     scope_files = sorted(scopes_dir.glob("*.json"))
     if not scope_files:
         click.echo("No scope definitions found.")
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     click.echo("Scope definitions:")
@@ -154,6 +163,8 @@ def scope_list(codebase_path: str):
             click.echo(f"  {sf.name}: {name} ({feature_count} features)")
         except (json.JSONDecodeError, OSError):
             click.echo(f"  {sf.name}: (error reading file)")
+
+    cli_post_run_hook(codebase_path, json_mode_active=False)
 
 
 @scope_group.command("show")
@@ -197,6 +208,9 @@ def scope_show(scope_name: str, codebase_path: str):
                 click.echo(f"  {fid}: {label}")
             else:
                 click.echo(f"  {fid}")
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)
 
 
 # ---------------------------------------------------------------------------

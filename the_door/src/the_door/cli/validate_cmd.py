@@ -38,3 +38,9 @@ def validate_cmd(llm_output_path: str, structure_json_path: str):
     click.echo(json.dumps(output, indent=2))
     if not result.passed:
         sys.exit(1)
+
+    # validate always emits JSON to stdout — treat as machine mode so the
+    # `Next:` block doesn't bleed into stdout-consuming tooling.
+    from pathlib import Path
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(Path.cwd(), json_mode_active=True)

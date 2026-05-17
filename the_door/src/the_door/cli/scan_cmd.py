@@ -84,3 +84,6 @@ def scan_cmd(codebase_path: str, output_json: bool, offline: bool, output_file: 
         click.echo(f"Output written to {output_file}")
     else:
         click.echo(text)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=output_json)

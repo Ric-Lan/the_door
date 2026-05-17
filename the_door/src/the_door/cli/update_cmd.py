@@ -125,3 +125,6 @@ def update_cmd(
         click.echo(f"Output written to {output_file}", err=True)
     else:
         click.echo(text)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(new_path, json_mode_active=output_json)

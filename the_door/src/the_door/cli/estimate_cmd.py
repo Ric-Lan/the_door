@@ -69,3 +69,6 @@ def estimate_cmd(codebase_path: str, provider: str | None, model: str | None, ou
         Path(output).write_text(json_output, encoding="utf-8")
     else:
         click.echo(json_output)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)

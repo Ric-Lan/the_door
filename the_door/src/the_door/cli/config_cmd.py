@@ -28,3 +28,6 @@ def config_init(path: str | None):
     click.echo("     THE_DOOR_OPENAI_KEY=sk-your-key")
     click.echo("     THE_DOOR_ANTHROPIC_KEY=your-key")
     click.echo("     THE_DOOR_OLLAMA_URL=http://localhost:11434")
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(Path.cwd(), json_mode_active=False)

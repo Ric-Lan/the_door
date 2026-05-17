@@ -88,3 +88,6 @@ def render_cmd(input_file: str, output: str | None):
         click.echo(f"Mermaid output written to {output}")
     else:
         click.echo(mermaid)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(Path.cwd(), json_mode_active=False)

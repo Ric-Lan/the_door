@@ -72,6 +72,8 @@ def timeline_cmd(codebase_path, render, output_json, feature_id, since, output_f
 
         text = renderer.render_feature_detail(ft, snapshots)
         _output(text, output_file)
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=output_json)
         return
 
     # Full timeline analysis
@@ -86,6 +88,9 @@ def timeline_cmd(codebase_path, render, output_json, feature_id, since, output_f
         text = renderer.render_text(result)
 
     _output(text, output_file)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=output_json)
 
 
 def _output(text: str, output_file: str | None) -> None:

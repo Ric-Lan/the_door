@@ -25,3 +25,7 @@ def regenerate_cmd(feature_id: str, accept: bool, output: str | None):
         Path(output).write_text(json_output, encoding="utf-8")
     else:
         click.echo(json_output)
+
+    from pathlib import Path
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(Path.cwd(), json_mode_active=False)

@@ -100,11 +100,16 @@ def extract_cmd(codebase_path: str, output_file: str | None, to_stdout: bool):
         if to_stdout:
             data = build_structure_dict(structure, scan_result)
             _emit_stdout_utf8(json.dumps(data, indent=2, ensure_ascii=False))
+            from the_door.cli.post_run_hook import cli_post_run_hook
+            cli_post_run_hook(codebase_path, json_mode_active=to_stdout)
             return
 
         target = Path(output_file) if output_file else default_structure_path(codebase_path)
         write_structure_json(target, structure, scan_result)
         click.echo(f"Structure JSON written to {target}")
+
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=to_stdout)
 
     except (FileNotFoundError, ValueError) as e:
         click.echo(f"Error: {e}", err=True)

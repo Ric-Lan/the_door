@@ -52,6 +52,9 @@ def snapshot_create(codebase_path, label):
     click.echo(f"Snapshot created: {snapshot.version_id}")
     click.echo(f"Label: {label}")
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)
+
 
 @snapshot_group.command("list")
 @click.argument("codebase_path", type=click.Path(exists=True), default=".")
@@ -63,8 +66,11 @@ def snapshot_list(codebase_path):
     store = SnapshotStore(Path(codebase_path))
     snapshots = store.list_snapshots()
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+
     if not snapshots:
         click.echo("No snapshots found.")
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     # Table header
@@ -76,6 +82,8 @@ def snapshot_list(codebase_path):
         tags = ", ".join(snap.git_tags) if snap.git_tags else ""
         label_str = snap.label or ""
         click.echo(f"{short_id:<10} {snap.timestamp:<26} {snap.trigger:<8} {tags:<20} {label_str}")
+
+    cli_post_run_hook(codebase_path, json_mode_active=False)
 
 
 @snapshot_group.command("prune")
@@ -122,8 +130,11 @@ def snapshot_prune(codebase_path, dry_run, force, max_snapshots):
         snapshots, max_snapshots=effective_max, enabled=config_enabled
     )
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+
     if not decision.to_remove:
         click.echo("所有快照均在保留範圍內")
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     # Build a lookup for display
@@ -145,14 +156,18 @@ def snapshot_prune(codebase_path, dry_run, force, max_snapshots):
             )
 
     if dry_run:
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     if not force:
         if not click.confirm("確認刪除？"):
             click.echo("已取消")
+            cli_post_run_hook(codebase_path, json_mode_active=False)
             return
 
     for vid in decision.to_remove:
         store.delete_snapshot(vid)
 
     click.echo(f"已刪除 {len(decision.to_remove)} 個快照")
+
+    cli_post_run_hook(codebase_path, json_mode_active=False)

@@ -31,13 +31,17 @@ def doubt_list(state: str | None, doubt_type: str | None, output_json: bool, cod
 
     doubts = store.list_doubts(states=states, types=types)
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+
     if output_json:
         data = [_serialize_doubt_brief(d) for d in doubts]
         click.echo(json.dumps(data, indent=2, ensure_ascii=False))
+        cli_post_run_hook(codebase_path, json_mode_active=output_json)
         return
 
     if not doubts:
         click.echo("No doubts found.")
+        cli_post_run_hook(codebase_path, json_mode_active=output_json)
         return
 
     click.echo(f"{'ID':10s} {'State':15s} {'Type':22s} {'Source Node':20s} {'Assigned To':15s} {'Created At':20s}")
@@ -49,6 +53,8 @@ def doubt_list(state: str | None, doubt_type: str | None, output_json: bool, cod
             f"{d.doubt_id[:8]:10s} {d.current_state:15s} {d.doubt_type:22s} "
             f"{d.source_node:20s} {assigned:15s} {created:20s}"
         )
+
+    cli_post_run_hook(codebase_path, json_mode_active=output_json)
 
 
 @doubt_group.command("show")
@@ -99,6 +105,9 @@ def doubt_show(doubt_id: str, codebase_path: str):
         click.echo(f"  Resolved By: {doubt.resolution.resolved_by}")
         click.echo(f"  Resolved At: {doubt.resolution.resolved_at}")
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)
+
 
 @doubt_group.command("assign")
 @click.argument("doubt_id")
@@ -121,6 +130,8 @@ def doubt_assign(doubt_id: str, assignee: str, codebase_path: str):
     try:
         doubt = store.assign(resolved_id, assignee, actor=assignee)
         click.echo(f"Doubt {doubt.doubt_id[:8]} assigned to {assignee} (state: {doubt.current_state})")
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=False)
     except DoubtNotFoundError:
         click.echo(f"Error: Doubt not found: '{doubt_id}'", err=True)
         sys.exit(1)
@@ -176,6 +187,8 @@ def doubt_resolve(doubt_id: str, resolution_type: str, reason: str, codebase_pat
             sys.exit(1)
 
         click.echo(f"Doubt {updated.doubt_id[:8]} resolved as {resolution_type} (state: {updated.current_state})")
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=False)
     except DoubtTerminalError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
@@ -205,6 +218,8 @@ def doubt_escalate(doubt_id: str, reason: str, codebase_path: str):
     try:
         doubt = store.escalate(resolved_id, reason, actor="cli_user")
         click.echo(f"Doubt {doubt.doubt_id[:8]} escalated (state: {doubt.current_state})")
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=False)
     except DoubtNotFoundError:
         click.echo(f"Error: Doubt not found: '{doubt_id}'", err=True)
         sys.exit(1)

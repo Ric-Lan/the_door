@@ -91,6 +91,9 @@ def diff_cmd(codebase_path, baseline, output_json, layer, output_file):
     else:
         click.echo(text)
 
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=output_json)
+
 
 def _serialize_diff_result(diff_result) -> dict:
     """Serialize DiffResult to JSON-compatible dict."""

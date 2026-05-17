@@ -18,6 +18,8 @@ def history_cmd(codebase_path: str, output: str | None):
     if not chain_path.exists():
         click.echo(f"No narrative chain found at {chain_path}")
         click.echo("Run 'the-door analyze' first to create a narrative chain.")
+        from the_door.cli.post_run_hook import cli_post_run_hook
+        cli_post_run_hook(codebase_path, json_mode_active=False)
         return
 
     chain = NarrativeChain(chain_path)
@@ -28,3 +30,6 @@ def history_cmd(codebase_path: str, output: str | None):
         click.echo(f"History written to {output}")
     else:
         click.echo(readable)
+
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    cli_post_run_hook(codebase_path, json_mode_active=False)
