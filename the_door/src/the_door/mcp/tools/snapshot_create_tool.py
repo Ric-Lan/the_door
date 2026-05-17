@@ -15,9 +15,11 @@ async def execute(arguments: dict) -> dict:
     """Execute the snapshot_create tool."""
     from pathlib import Path
     from the_door.core.diff.snapshot_store import SnapshotStore
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import SnapshotError
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     label = arguments.get("label")
 
     store = SnapshotStore(Path(codebase_path))
@@ -41,4 +43,4 @@ async def execute(arguments: dict) -> dict:
 
     from the_door.core.registry import ProjectRegistry
     ProjectRegistry().register(codebase_path)
-    return {"version_id": snapshot.version_id, "label": snapshot.label}
+    return wrap({"version_id": snapshot.version_id, "label": snapshot.label}, project_path=project_root, context="mcp")

@@ -36,6 +36,7 @@ TOOL_SCHEMA = {
 async def execute(arguments: dict) -> dict:
     from pathlib import Path
     from the_door.core.scope.doubt_store import DoubtStore
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import (
         DoubtNotFoundError,
         DoubtTerminalError,
@@ -97,7 +98,7 @@ async def execute(arguments: dict) -> dict:
     except InvalidTransitionError as e:
         return {"error": True, "message": str(e)}
 
-    return {
+    return wrap({
         "doubt_id": doubt.doubt_id,
         "source_node": doubt.source_node,
         "doubt_type": doubt.doubt_type,
@@ -116,4 +117,4 @@ async def execute(arguments: dict) -> dict:
             if doubt.resolution is not None
             else None
         ),
-    }
+    }, project_path=project_root, context="mcp")

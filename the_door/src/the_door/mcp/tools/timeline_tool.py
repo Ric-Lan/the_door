@@ -19,8 +19,10 @@ async def execute(arguments: dict) -> dict:
 
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.timeline.timeline_engine import TimelineEngine
+    from the_door.mcp.tools._response_envelope import wrap
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     feature_id = arguments.get("feature_id")
     since = arguments.get("since")
 
@@ -57,11 +59,11 @@ async def execute(arguments: dict) -> dict:
                 "error": "Feature not found",
                 "available_features": sorted(all_ids),
             }
-        return _serialize_feature_timeline(ft)
+        return wrap(_serialize_feature_timeline(ft), project_path=project_root, context="mcp")
 
     # Full timeline analysis
     result = engine.analyze(snapshots)
-    return _serialize_timeline_result(result)
+    return wrap(_serialize_timeline_result(result), project_path=project_root, context="mcp")
 
 
 def _serialize_timeline_result(result) -> dict:

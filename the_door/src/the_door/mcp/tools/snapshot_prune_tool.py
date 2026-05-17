@@ -24,10 +24,12 @@ async def execute(arguments: dict) -> dict:
 
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.timeline.retention_engine import RetentionEngine
+    from the_door.mcp.tools._response_envelope import wrap
 
     logger = logging.getLogger(__name__)
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     dry_run = arguments.get("dry_run", True)
     max_snapshots_override = arguments.get("max_snapshots")
 
@@ -78,4 +80,4 @@ async def execute(arguments: dict) -> dict:
             store.delete_snapshot(vid)
         result["deleted_count"] = len(decision.to_remove)
 
-    return result
+    return wrap(result, project_path=project_root, context="mcp")

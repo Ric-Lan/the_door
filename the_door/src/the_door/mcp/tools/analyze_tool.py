@@ -10,6 +10,7 @@ from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.llm.config_manager import ConfigManager
 from the_door.core.llm.provider import create_provider
 from the_door.core.reading.batch_reader import BatchReader
+from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import StructureJSON
 
 
@@ -27,6 +28,7 @@ TOOL_SCHEMA = {
 async def execute(arguments: dict) -> dict:
     """Execute the analyze tool."""
     codebase_path = arguments.get("codebase_path", "")
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
 
     config = ConfigManager.load()
     if arguments.get("provider"):
@@ -53,7 +55,7 @@ async def execute(arguments: dict) -> dict:
 
     from the_door.core.registry import ProjectRegistry
     ProjectRegistry().register(codebase_path)
-    return {
+    return wrap({
         "l1": {
             "summary": result.l1_output.summary,
             "features": [
@@ -73,4 +75,4 @@ async def execute(arguments: dict) -> dict:
             "total_tokens": result.total_tokens_used,
             "pruned_nodes": result.pruned_node_count,
         },
-    }
+    }, project_path=project_root, context="mcp")

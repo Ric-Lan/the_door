@@ -23,6 +23,7 @@ TOOL_SCHEMA = {
 async def execute(arguments: dict) -> dict:
     from pathlib import Path
     from the_door.core.scope.doubt_store import DoubtStore
+    from the_door.mcp.tools._response_envelope import wrap
 
     codebase_path = arguments.get("codebase_path", ".")
     state_filter = arguments.get("state")
@@ -36,7 +37,7 @@ async def execute(arguments: dict) -> dict:
 
     doubts = store.list_doubts(states=states, types=types)
 
-    return {
+    return wrap({
         "doubts": [
             {
                 "doubt_id": d.doubt_id,
@@ -61,4 +62,4 @@ async def execute(arguments: dict) -> dict:
             for d in doubts
         ],
         "total": len(doubts),
-    }
+    }, project_path=project_root, context="mcp")

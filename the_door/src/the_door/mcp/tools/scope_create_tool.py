@@ -24,6 +24,7 @@ async def execute(arguments: dict) -> dict:
         scope_name_to_filename,
         serialize_scope_definition,
     )
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import ScopeDefinition
 
     scope_name = arguments["scope_name"]
@@ -44,7 +45,7 @@ async def execute(arguments: dict) -> dict:
         json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    return {
+    return wrap({
         "scope_file": str(scope_file),
         "scope_name": scope_name,
-    }
+    }, project_path=project_root, context="mcp")

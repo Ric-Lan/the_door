@@ -19,9 +19,11 @@ async def execute(arguments: dict) -> dict:
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.diff.diff_engine import DiffEngine
     from the_door.core.diff.diff_renderer import DiffRenderer
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import SnapshotNotFoundError, DiffError, BaselineInfo, DiffResult
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     baseline_ref = arguments["baseline"]
     output_format = arguments.get("format", "mermaid")
     layer = arguments.get("layer", "l1")
@@ -67,7 +69,7 @@ async def execute(arguments: dict) -> dict:
 
     if output_format == "json":
         # Return structured diff result
-        return {
+        return wrap({
             "baseline_info": {"version_id": diff_result.baseline_info.version_id, "timestamp": diff_result.baseline_info.timestamp},
             "current_info": {"version_id": diff_result.current_info.version_id, "timestamp": diff_result.current_info.timestamp},
             "summary": {
@@ -79,11 +81,11 @@ async def execute(arguments: dict) -> dict:
             },
             "node_diffs": [{"node_id": nd.node_id, "diff_state": nd.diff_state} for nd in diff_result.node_diffs],
             "edge_diffs": [{"from_node": ed.from_node, "to_node": ed.to_node, "diff_state": ed.diff_state} for ed in diff_result.edge_diffs],
-        }
+        }, project_path=project_root, context="mcp")
     else:
         renderer = DiffRenderer()
         if layer == "l1":
             mermaid_text = renderer.render_l1_diff(diff_result)
         else:
             mermaid_text = renderer.render_l1_5_diff(diff_result)
-        return {"mermaid": mermaid_text}
+        return wrap({"mermaid": mermaid_text}, project_path=project_root, context="mcp")

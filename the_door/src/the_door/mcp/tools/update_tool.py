@@ -48,6 +48,7 @@ async def execute(arguments: dict) -> dict:
 
     from the_door.core.pipeline.pipeline_orchestrator import PipelineOrchestrator
     from the_door.core.pipeline.report_renderer import ReportRenderer
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import (
         AnalyzeConfig,
         PipelineConfig,
@@ -98,12 +99,14 @@ async def execute(arguments: dict) -> dict:
     except Exception as e:
         return {"error": f"管線執行失敗：{e}"}
 
-    # Render report in requested format
+    # Render report in requested format. Use new_path as project context
+    # since per-spec table the path key is codebase_path; for update we use new.
+    project_root = new.resolve()
     renderer = ReportRenderer()
     if output_format == "markdown":
-        return {"markdown": renderer.render_markdown(result)}
+        return wrap({"markdown": renderer.render_markdown(result)}, project_path=project_root, context="mcp")
     elif output_format == "mermaid":
-        return {"mermaid": renderer.render_mermaid(result)}
+        return wrap({"mermaid": renderer.render_mermaid(result)}, project_path=project_root, context="mcp")
     else:
         # Default: JSON
-        return renderer.render_json(result)
+        return wrap(renderer.render_json(result), project_path=project_root, context="mcp")

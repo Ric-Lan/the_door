@@ -7,6 +7,7 @@ from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.llm.config_manager import ConfigManager
 from the_door.core.rendering.cost_estimator import CostEstimator
+from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import StructureJSON
 
 TOOL_SCHEMA = {
@@ -22,6 +23,7 @@ TOOL_SCHEMA = {
 async def execute(arguments: dict) -> dict:
     """Execute the estimate tool."""
     codebase_path = arguments.get("codebase_path", "")
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
 
     config = ConfigManager.load()
     if arguments.get("provider"):
@@ -45,7 +47,7 @@ async def execute(arguments: dict) -> dict:
     estimator = CostEstimator(provider_name=provider_name, model_name=model_name)
     estimate = estimator.estimate(structure)
 
-    return {
+    return wrap({
         "provider": estimate.provider,
         "model": estimate.model,
         "batch_count": estimate.batch_count,
@@ -54,4 +56,4 @@ async def execute(arguments: dict) -> dict:
         "estimated_cost_usd": estimate.estimated_cost_usd,
         "is_local": estimate.is_local,
         "node_count": len(structure.nodes),
-    }
+    }, project_path=project_root, context="mcp")

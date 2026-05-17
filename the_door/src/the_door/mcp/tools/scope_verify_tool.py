@@ -25,6 +25,7 @@ async def execute(arguments: dict) -> dict:
     )
     from the_door.core.scope.doubt_store import DoubtStore
     from the_door.core.diff.snapshot_store import SnapshotStore
+    from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import ScopeDefinitionError
 
     scope_file = arguments["scope_file"]
@@ -54,7 +55,7 @@ async def execute(arguments: dict) -> dict:
     )
 
     # Serialize ScopeResult
-    return {
+    return wrap({
         "scope_name": scope_result.scope_name,
         "entries": [
             {
@@ -71,7 +72,7 @@ async def execute(arguments: dict) -> dict:
             "in_scope_incomplete": scope_result.counts.in_scope_incomplete,
         },
         "new_doubts": len(new_doubts),
-    }
+    }, project_path=project_root, context="mcp")
 
 
 def _snapshot_to_l1_output(snapshot):

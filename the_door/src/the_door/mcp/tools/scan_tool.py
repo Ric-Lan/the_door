@@ -28,8 +28,10 @@ async def execute(arguments: dict) -> dict:
     from pathlib import Path
     from the_door.core.vulnerability.vulnerability_scanner import VulnerabilityScanner
     from the_door.core.vulnerability.vulnerability_renderer import VulnerabilityRenderer
+    from the_door.mcp.tools._response_envelope import wrap
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     offline = arguments.get("offline", False)
     fmt = arguments.get("format", "summary")
 
@@ -37,7 +39,7 @@ async def execute(arguments: dict) -> dict:
     result = scanner.scan(Path(codebase_path))
 
     if fmt == "raw":
-        return {
+        return wrap({
             "vulnerabilities": [
                 {
                     "cve_id": v.cve_id,
@@ -51,12 +53,12 @@ async def execute(arguments: dict) -> dict:
             ],
             "warnings": result.warnings,
             "scanner_available": result.scanner_available,
-        }
+        }, project_path=project_root, context="mcp")
     else:
         renderer = VulnerabilityRenderer()
         summary = renderer.build_vulnerability_summary(result.entries, result.db_freshness)
         header = renderer.format_summary_header(summary)
-        return {
+        return wrap({
             "header": header,
             "total_critical": summary.total_critical,
             "total_high": summary.total_high,
@@ -76,4 +78,4 @@ async def execute(arguments: dict) -> dict:
             "db_freshness": summary.db_freshness_display,
             "warnings": result.warnings,
             "scanner_available": result.scanner_available,
-        }
+        }, project_path=project_root, context="mcp")

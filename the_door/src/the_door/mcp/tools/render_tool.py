@@ -1,7 +1,10 @@
 """MCP tool: render — generate Mermaid text from L1 or L1.5 JSON."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from the_door.core.rendering.mermaid_renderer import MermaidRenderer
+from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import (
     Feature, FeatureRelation, L1Output,
     L1_5Block, BlockRelation, InfrastructureBlock, L1_5Output,
@@ -19,6 +22,7 @@ TOOL_SCHEMA = {
 async def execute(arguments: dict) -> dict:
     """Execute the render tool."""
     data = arguments.get("output_json", {})
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     renderer = MermaidRenderer()
 
     if "l1_5" in data:
@@ -72,4 +76,4 @@ async def execute(arguments: dict) -> dict:
     else:
         return {"error": "Input must contain 'l1' or 'l1_5' key"}
 
-    return {"mermaid": mermaid}
+    return wrap({"mermaid": mermaid}, project_path=project_root, context="mcp")

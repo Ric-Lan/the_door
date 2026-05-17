@@ -14,12 +14,14 @@ async def execute(arguments: dict) -> dict:
     """Execute the snapshot_list tool."""
     from pathlib import Path
     from the_door.core.diff.snapshot_store import SnapshotStore
+    from the_door.mcp.tools._response_envelope import wrap
 
     codebase_path = arguments["codebase_path"]
+    project_root = Path(arguments.get("codebase_path") or arguments.get("project_path") or Path.cwd())
     store = SnapshotStore(Path(codebase_path))
     snapshots = store.list_snapshots()
 
-    return {
+    return wrap({
         "snapshots": [
             {
                 "version_id": s.version_id,
@@ -31,4 +33,4 @@ async def execute(arguments: dict) -> dict:
             }
             for s in snapshots
         ]
-    }
+    }, project_path=project_root, context="mcp")
