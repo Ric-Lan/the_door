@@ -45,13 +45,12 @@ def _step_2_inspector_emits_systemstate(project):
 
 
 def _step_3_suggester_recommends_incremental(state):
-    """Removed by: 02-guidance-engine Task 02.5 (NextActionSuggester)."""
-    pytest.skip("blocked on 02-guidance-engine Task 02.5")
-    # from the_door.core.guidance.suggester import NextActionSuggester
-    # actions = NextActionSuggester().suggest(state, context="cli")
-    # # When API key present + 1 snapshot, top suggestion is incremental analysis
-    # if state.has_api_key:
-    #     assert actions[0].id == "analyze.incremental"
+    """Step 3 unblocked by Task 02.5."""
+    from the_door.core.guidance.suggester import NextActionSuggester
+    actions = NextActionSuggester().suggest(state, context="cli")
+    # When API key present + 1 snapshot, top suggestion is incremental analysis
+    if state.has_api_key:
+        assert actions[0].id == "analyze.incremental"
 
 
 def _step_4_compute_affected_features_isolates_feat_ui_server(project):
