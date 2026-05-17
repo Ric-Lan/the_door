@@ -18,6 +18,7 @@ from the_door.mcp.tools import timeline_tool, snapshot_prune_tool
 from the_door.mcp.tools import update_tool
 from the_door.mcp.tools import snapshot_write_tool
 from the_door.mcp.tools import project_list_tool
+from the_door.mcp.tools import system_status_tool
 
 
 class TheDoorMCPServer:
@@ -160,6 +161,11 @@ class TheDoorMCPServer:
                     ),
                     inputSchema=project_list_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="system_status",
+                    description="Report current project state + next-action suggestions",
+                    inputSchema=system_status_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -204,6 +210,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(update_tool, arguments)
             elif name == "project_list":
                 return await self._dispatch_tool(project_list_tool, arguments)
+            elif name == "system_status":
+                return await self._dispatch_tool(system_status_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
