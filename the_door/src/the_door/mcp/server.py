@@ -19,6 +19,7 @@ from the_door.mcp.tools import update_tool
 from the_door.mcp.tools import snapshot_write_tool
 from the_door.mcp.tools import project_list_tool
 from the_door.mcp.tools import system_status_tool
+from the_door.mcp.tools import analyze_changes_tool
 
 
 class TheDoorMCPServer:
@@ -166,6 +167,14 @@ class TheDoorMCPServer:
                     description="Report current project state + next-action suggestions",
                     inputSchema=system_status_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="analyze_changes",
+                    description=(
+                        "Read-only incremental analysis: compute IncrementalDiff between current "
+                        "codebase and a baseline snapshot (label / tag / SHA / date / version_id)."
+                    ),
+                    inputSchema=analyze_changes_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -212,6 +221,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(project_list_tool, arguments)
             elif name == "system_status":
                 return await self._dispatch_tool(system_status_tool, arguments)
+            elif name == "analyze_changes":
+                return await self._dispatch_tool(analyze_changes_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
