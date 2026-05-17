@@ -8,8 +8,17 @@ import click
 
 
 @click.command("update")
-@click.argument("old_path", type=click.Path(exists=True))
-@click.argument("new_path", type=click.Path(exists=True))
+@click.argument("path_a", type=click.Path(), required=False)
+@click.argument("path_b", type=click.Path(), required=False)
+@click.option(
+    "--from-snapshot",
+    "from_snapshot",
+    default=None,
+    help=(
+        "Baseline snapshot ref (label / tag / SHA / date / UUID)."
+        " Mutually exclusive with positional old_path."
+    ),
+)
 @click.option("--scope", "scope_name", default=None, help="Scope definition 名稱，用於範圍驗核")
 @click.option("--json", "output_json", is_flag=True, help="輸出結構化 JSON 報告")
 @click.option("--render", is_flag=True, help="輸出 Mermaid diff 圖形")
@@ -20,8 +29,9 @@ import click
 @click.option("-o", "--output", "output_file", type=click.Path(), default=None, help="輸出到檔案（UTF-8）")
 @click.option("--force-reanalyze", is_flag=True, help="強制重新分析（忽略既存 snapshot）")
 def update_cmd(
-    old_path: str,
-    new_path: str,
+    path_a: str | None,
+    path_b: str | None,
+    from_snapshot: str | None,
     scope_name: str | None,
     output_json: bool,
     render: bool,
@@ -34,11 +44,81 @@ def update_cmd(
 ):
     """執行完整的版本更新分析管線。
 
-    比較 OLD_PATH（舊版）和 NEW_PATH（新版）兩個 codebase，
-    自動執行分析、比對、範圍驗核、時間軸更新，
-    輸出互動式版本更新報告。
+    三種合法呼叫形式：
+
+    \b
+    1. ``update <old_path> <new_path>``                    — 傳統雙路徑全量比對
+    2. ``update --from-snapshot <ref> <current_path>``     — 對 baseline snapshot 跑增量分析
+    3. ``update --from-snapshot <ref>``                    — 同上，預設 current_path = cwd
     """
     from pathlib import Path
+
+    from the_door.cli.main import CliRemediableError
+    from the_door.cli.post_run_hook import cli_post_run_hook
+    from the_door.core.guidance.actions import NextAction
+    from the_door.core.guidance.remediation import Remediation
+
+    # ── Branch A: incremental flow via --from-snapshot ────────────────────
+    if from_snapshot:
+        # With --from-snapshot we accept AT MOST one positional (the current
+        # path). A second positional means the caller is mixing the legacy
+        # `<old> <new>` form with the new flag — surface a conflict.
+        if path_b is not None:
+            raise CliRemediableError(
+                Remediation(
+                    code="conflicting_flags",
+                    message=(
+                        "--from-snapshot replaces <old_path>;"
+                        " pass at most one positional (the current path)."
+                    ),
+                    next_action=NextAction(
+                        id="update.use_from_snapshot",
+                        title="改用 --from-snapshot + 單一 current_path",
+                        rationale=(
+                            "--from-snapshot 已取代舊版 <old_path>，"
+                            "再多一個位置參數會語意混淆。"
+                        ),
+                        priority=1,
+                        cli_command=(
+                            f"the-door update --from-snapshot {from_snapshot}"
+                            " <current_path>"
+                        ),
+                    ),
+                )
+            )
+
+        current_path = Path(path_a).resolve() if path_a else Path.cwd()
+
+        from the_door.core.pipeline.incremental_pipeline import (
+            IncrementalAnalysisError,
+            run_incremental_pipeline,
+        )
+
+        try:
+            run_incremental_pipeline(
+                codebase_path=current_path, baseline_ref=from_snapshot
+            )
+        except IncrementalAnalysisError as e:
+            raise CliRemediableError(e.remediation) from e
+
+        cli_post_run_hook(current_path, json_mode_active=output_json)
+        return
+
+    # ── Branch B: legacy positional form ─────────────────────────────────
+    if path_a is None or path_b is None:
+        raise click.UsageError(
+            "update requires either '<old_path> <new_path>'"
+            " or '--from-snapshot <ref> [<current_path>]'"
+        )
+
+    old_path = path_a
+    new_path = path_b
+
+    # Validate the paths exist (we relaxed click's exists=True so the new
+    # incremental branch above can accept defaults / non-required positionals).
+    for label, raw in (("OLD_PATH", old_path), ("NEW_PATH", new_path)):
+        if not Path(raw).exists():
+            raise click.UsageError(f"{label} does not exist: {raw}")
 
     from the_door.core.pipeline.pipeline_orchestrator import PipelineOrchestrator
     from the_door.core.pipeline.report_renderer import ReportRenderer
@@ -126,5 +206,4 @@ def update_cmd(
     else:
         click.echo(text)
 
-    from the_door.cli.post_run_hook import cli_post_run_hook
     cli_post_run_hook(new_path, json_mode_active=output_json)
