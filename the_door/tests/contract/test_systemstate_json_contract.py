@@ -10,16 +10,15 @@ import pytest
 
 @pytest.mark.contract
 def test_systemstate_json_keys_match_viewer_consumer():
-    pytest.skip("blocked on 02-guidance-engine Task 02.2 (producer) AND 05-viewer-frontend Task 05.3 (consumer)")
+    pytest.skip("blocked on 05-viewer-frontend Task 05.3 (consumer)")
 
-    # PRODUCER SIDE — populated in 02.2:
-    # from the_door.core.guidance.state import SystemState, to_json_dict
-    # from pathlib import Path
-    # state = SystemState(project_path=Path("/x"), has_dot_the_door=False,
-    #                     has_structure_json=False, snapshots=(),
-    #                     l2_features_analyzed=frozenset(),
-    #                     has_api_key=False, api_provider=None, warnings=())
-    # produced = to_json_dict(state)
+    from the_door.core.guidance.state import SystemState, to_json_dict
+    from pathlib import Path
+    state = SystemState(project_path=Path("/x"), has_dot_the_door=False,
+                        has_structure_json=False, snapshots=(),
+                        l2_features_analyzed=frozenset(),
+                        has_api_key=False, api_provider=None, warnings=())
+    produced = to_json_dict(state)
 
     # CONSUMER SIDE — what the viewer's onboarding card reads (05.6) MUST be present:
     # required_keys = {

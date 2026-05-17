@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -6,7 +6,7 @@ from the_door.core.diff.snapshot_store import SnapshotEntry
 
 ApiProvider = Literal["anthropic", "openai", "ollama"]
 
-__all__ = ["SnapshotEntry", "StateWarning", "SystemState", "ApiProvider"]
+__all__ = ["SnapshotEntry", "StateWarning", "SystemState", "ApiProvider", "to_json_dict"]
 
 
 @dataclass(frozen=True)
@@ -35,3 +35,22 @@ class SystemState:
     @property
     def latest_snapshot(self) -> SnapshotEntry | None:
         return self.snapshots[0] if self.snapshots else None
+
+
+def _value_to_json(value):
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, frozenset):
+        return sorted(value)
+    if isinstance(value, tuple):
+        return [_value_to_json(v) for v in value]
+    if is_dataclass(value):
+        return {f.name: _value_to_json(getattr(value, f.name)) for f in fields(value)}
+    return value
+
+
+def to_json_dict(state: SystemState) -> dict:
+    out = {f.name: _value_to_json(getattr(state, f.name)) for f in fields(state)}
+    out["has_snapshots"] = state.has_snapshots
+    out["latest_snapshot"] = _value_to_json(state.latest_snapshot)
+    return out
