@@ -36,13 +36,12 @@ def _step_1_inspect_returns_one_snapshot(project):
 
 
 def _step_2_inspector_emits_systemstate(project):
-    """Removed by: 02-guidance-engine Task 02.3 (StateInspector.inspect)."""
-    pytest.skip("blocked on 02-guidance-engine Task 02.3")
-    # from the_door.core.guidance.state import StateInspector
-    # state = StateInspector(project).inspect()
-    # assert state.has_dot_the_door is True
-    # assert len(state.snapshots) >= 1
-    # return state
+    """Step 2 unblocked by Task 02.3."""
+    from the_door.core.guidance.state import StateInspector
+    state = StateInspector(project).inspect()
+    assert state.has_dot_the_door is True
+    assert len(state.snapshots) >= 1
+    return state
 
 
 def _step_3_suggester_recommends_incremental(state):

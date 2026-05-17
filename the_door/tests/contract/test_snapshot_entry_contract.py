@@ -9,8 +9,6 @@ import pytest
 
 @pytest.mark.contract
 def test_snapshotentry_field_set_matches_consumer_expectation(tmp_path):
-    pytest.skip("blocked on 02-guidance-engine Task 02.3 (consumer)")
-
     from the_door.core.diff.snapshot_store import SnapshotStore
     store = SnapshotStore(tmp_path)
     store.create_snapshot(l1_snapshot={}, feature_relations=[], analyzed_files=[])
@@ -18,15 +16,13 @@ def test_snapshotentry_field_set_matches_consumer_expectation(tmp_path):
     assert len(entries) == 1
     producer_entry = entries[0]
 
-    # CONSUMER SIDE — remove skip in 02.3 commit, populate this block:
-    # from the_door.core.guidance.state import StateInspector
-    # state = StateInspector(tmp_path).inspect()
-    # consumer_entry = state.snapshots[0]
+    from the_door.core.guidance.state import StateInspector
+    state = StateInspector(tmp_path).inspect()
+    consumer_entry = state.snapshots[0]
 
-    # SEAM ASSERTIONS — what BOTH sides MUST agree on:
-    # assert type(producer_entry).__name__ == type(consumer_entry).__name__
-    # assert producer_entry.version_id == consumer_entry.version_id
-    # assert producer_entry.has_persisted_structure == consumer_entry.has_persisted_structure
-    # assert producer_entry.label == consumer_entry.label
-    # assert producer_entry.git_tags == consumer_entry.git_tags
-    # assert producer_entry.timestamp == consumer_entry.timestamp
+    assert type(producer_entry).__name__ == type(consumer_entry).__name__
+    assert producer_entry.version_id == consumer_entry.version_id
+    assert producer_entry.has_persisted_structure == consumer_entry.has_persisted_structure
+    assert producer_entry.label == consumer_entry.label
+    assert producer_entry.git_tags == consumer_entry.git_tags
+    assert producer_entry.timestamp == consumer_entry.timestamp
