@@ -306,11 +306,24 @@ class APIHandlers:
                 msg = (
                     f"Snapshot '{version_id}' not found."
                     if version_id
-                    else "No snapshot found. Run analysis first."
+                    else "尚未為這個專案產出 L1 分析"
                 )
-                return 404, self._make_error(
+                return 404, make_error_envelope(
                     code="no_l1_data",
                     message=msg,
+                    remediation=Remediation(
+                        code="no_l1_data",
+                        message=msg,
+                        next_action=NextAction(
+                            id="analyze.first_time",
+                            title="首次分析",
+                            rationale="尚未在此專案產出任何 L1 快照，先跑一次 analyze。",
+                            priority=1,
+                            cli_command=(
+                                f"the-door analyze {self._project_root.as_posix()}"
+                            ),
+                        ),
+                    ),
                     source="handle_get_l1",
                 )
             l1_snapshot_dict = {
@@ -435,9 +448,22 @@ class APIHandlers:
             body["next_actions"] = [action_to_json(a) for a in actions]
             return 200, body
         except Exception as exc:
-            return 500, self._make_error(
+            return 500, make_error_envelope(
                 code="diff_error",
-                message=str(exc),
+                message=f"diff 計算失敗: {exc}",
+                remediation=Remediation(
+                    code="diff_error",
+                    message=str(exc),
+                    next_action=NextAction(
+                        id="system_status.show",
+                        title="查看狀態",
+                        rationale="diff 計算過程拋出例外，先看一下系統狀態與已分析版本。",
+                        priority=1,
+                        cli_command=(
+                            f"the-door status {self._project_root.as_posix()}"
+                        ),
+                    ),
+                ),
                 source="handle_diff_versions",
             )
 
