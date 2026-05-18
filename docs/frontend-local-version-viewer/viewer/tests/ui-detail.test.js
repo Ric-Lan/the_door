@@ -292,14 +292,18 @@ describe('renderSingleVersionDetailPanel', () => {
     state.selectedId = 'feat-1';
     state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
     renderSingleVersionDetailPanel();
-    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+    const enterL2 = [...els.detailContent.querySelectorAll('button.action-button')]
+      .find(b => b.textContent === '進入 L2');
+    expect(enterL2).toBeUndefined();
   });
 
   it('omits Enter L2 button when callbacks.onEnterL2 is missing', () => {
     state.selectedId = 'feat-1';
     state.l1Model = { features: [{ id: 'feat-1', label: 'F', source: 'src' }] };
     renderSingleVersionDetailPanel({});
-    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+    const enterL2 = [...els.detailContent.querySelectorAll('button.action-button')]
+      .find(b => b.textContent === '進入 L2');
+    expect(enterL2).toBeUndefined();
   });
 });
 
@@ -331,7 +335,9 @@ describe('renderDetailPanel dispatcher — passes callbacks through', () => {
       },
     };
     renderDetailPanel({ onEnterL2: vi.fn() });
-    expect(els.detailContent.querySelector('button.action-button')).toBeNull();
+    const enterL2 = [...els.detailContent.querySelectorAll('button.action-button')]
+      .find(b => b.textContent === '進入 L2');
+    expect(enterL2).toBeUndefined();
   });
 });
 
@@ -742,5 +748,62 @@ describe('applyDiffSort — ?? 99 on a side with known flag', () => {
     ];
     const sorted = applyDiffSort(nodes, 'risk');
     expect(sorted[0].id).toBe('vuln'); // priority 1 < 3
+  });
+});
+
+// ── S3.3 regression: user-notes + diff-explanation wiring ─────────
+
+describe('ui-detail regression — user notes + diff explanation sections', () => {
+  it('renders .user-notes-section when renderDetailPanelDiff is called', () => {
+    const node = {
+      id: 'feat-x',
+      change_type: 'attribute_changed',
+      current_label: 'X',
+      baseline_label: 'X-old',
+      risk_flags: [],
+    };
+    renderDetailPanelDiff(node);
+    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+  });
+
+  it('renders .diff-explanation-section when renderDetailPanelDiff is called', () => {
+    const node = {
+      id: 'feat-x',
+      change_type: 'attribute_changed',
+      current_label: 'X',
+      baseline_label: 'X-old',
+      risk_flags: [],
+    };
+    renderDetailPanelDiff(node);
+    expect(els.detailContent.querySelector('.diff-explanation-section')).not.toBeNull();
+  });
+
+  it('renders .user-notes-section when renderSingleVersionDetailPanel finds a feature (baseline mode)', () => {
+    state.mode = 'baseline';
+    state.selectedId = 'feat-x';
+    state.l1Model = {
+      features: [{ id: 'feat-x', label: 'X', description: 'd', source: 'L1Output' }],
+    };
+    renderSingleVersionDetailPanel();
+    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+  });
+
+  it('renders BOTH .user-notes-section AND .diff-explanation-section when renderDiffDetailPanel runs', () => {
+    state.mode = 'diff';
+    state.selectedId = 'feat-x';
+    state.updateModel = {
+      details: {
+        'feat-x': {
+          source: 'UpdateReport',
+          before: { label: 'A' },
+          after:  { label: 'B' },
+          related_vulnerabilities: [],
+          affected_relations: [],
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+    expect(els.detailContent.querySelector('.diff-explanation-section')).not.toBeNull();
   });
 });

@@ -1,9 +1,7 @@
 import { state } from './state.js';
 import { els } from './dom.js';
-
-// No-op stubs — wired in Step 7
-function _appendDiffExplanationSection(_id, _container) {}
-function _appendUserNotesSection(_mode, _id, _vA, _vB, _container) {}
+import { appendUserNotesSection } from './ui-notes.js';
+import { appendDiffExplanationSection } from './ui-diff-explanation.js';
 
 export function renderEmpty(parent, message) {
   const div = document.createElement('div');
@@ -128,8 +126,8 @@ export function renderDiffDetailPanel() {
   content.appendChild(listDetailSection('相關漏洞',   detail.related_vulnerabilities ?? []));
   content.appendChild(listDetailSection('受影響關係', detail.affected_relations     ?? []));
   content.appendChild(attributionSection(detail.source));
-  _appendDiffExplanationSection(state.selectedId, content);
-  _appendUserNotesSection('diff', state.selectedId, state.versionA, state.versionB, content);
+  appendDiffExplanationSection(content, state.selectedId);
+  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, state.selectedId);
 }
 
 export function renderSingleVersionDetailPanel(callbacks = {}) {
@@ -158,7 +156,7 @@ export function renderSingleVersionDetailPanel(callbacks = {}) {
     content.appendChild(enterL2Btn);
   }
   content.appendChild(attributionSection(feature.source));
-  _appendUserNotesSection(state.mode, feature.id, state.versionA, state.versionB, content);
+  appendUserNotesSection(content, state.mode, state.versionA, state.versionB, feature.id);
 }
 
 export function renderDetailPanelL1(node, callbacks = {}) {
@@ -259,8 +257,8 @@ export function renderDetailPanelDiff(node) {
   content.appendChild(detailSection('原始名稱', node.baseline_label));
   content.appendChild(listDetailSection('風險標記', node.risk_flags || []));
   content.appendChild(attributionSection('UpdateReport.l1_changes[feature_id=' + node.id + ']'));
-  _appendDiffExplanationSection(node.id, content);
-  _appendUserNotesSection('diff', node.id, state.versionA, state.versionB, content);
+  appendDiffExplanationSection(content, node.id);
+  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, node.id);
 }
 
 export function toggleDiffSort(mode, renderFeatureList = () => {}) {
