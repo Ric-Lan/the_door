@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.core.guidance.actions import to_json_dict as action_to_json
+from the_door.core.guidance.state import StateInspector, to_json_dict as state_to_json
+from the_door.core.guidance.suggester import NextActionSuggester
 from the_door.core.llm.config_manager import ConfigManager, ConfigError
 from the_door.core.llm.provider import create_provider
 from the_door.core.pipeline.pipeline_orchestrator import PipelineOrchestrator
@@ -383,6 +386,19 @@ class APIHandlers:
                 message=str(exc),
                 source="handle_diff_versions",
             )
+
+    # ------------------------------------------------------------------
+    # GET /api/status  (Task 05.3 / S3.6)
+    # ------------------------------------------------------------------
+
+    def handle_get_status(self) -> tuple[int, dict]:
+        """GET /api/status — SystemState + next_actions for the project root."""
+        state = StateInspector(self._project_root).inspect()
+        actions = NextActionSuggester().suggest(state, context="viewer")
+        return 200, {
+            "state": state_to_json(state),
+            "next_actions": [action_to_json(a) for a in actions],
+        }
 
     # ------------------------------------------------------------------
     # GET /api/l2/<feature_id>  (Phase UI-3)

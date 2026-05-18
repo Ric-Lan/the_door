@@ -90,6 +90,7 @@ _API_ROUTES: dict[str, str] = {
     "/api/timeline": "GET",
     "/api/l1": "GET",
     "/api/diff": "GET",
+    "/api/status": "GET",
     "/api/structure": "GET",
     "/api/notes": "GET",
 }
@@ -144,6 +145,8 @@ def _handle_get(
                 _send_api_error(handler, 400, "missing_params", "baseline and current query params required", path)
                 return
             status, body = api_handlers.handle_diff_versions(baseline_id, current_id)
+        elif path == "/api/status":
+            status, body = api_handlers.handle_get_status()
         elif path == "/api/structure":
             status, body = api_handlers.handle_get_structure()
         elif path == "/api/notes":

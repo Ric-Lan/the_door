@@ -498,3 +498,22 @@ class TestGetTimeline:
             status, body = handlers.handle_get_timeline()
         assert status == 500
         assert body["error"]["code"] == "timeline_error"
+
+
+# ---------------------------------------------------------------------------
+# Task 05.3 — GET /api/status
+# ---------------------------------------------------------------------------
+
+
+def test_api_status_returns_state_and_next_actions(tmp_path):
+    """GET /api/status returns 200 with state + next_actions keys (S3-T9)."""
+    handlers = _make_handlers(tmp_path)
+    status, body = handlers.handle_get_status()
+    assert status == 200
+    assert "state" in body
+    assert "next_actions" in body
+    # next_actions is a list of action dicts
+    assert isinstance(body["next_actions"], list)
+    # state carries the keys the viewer onboarding card consumes
+    assert "project_path" in body["state"]
+    assert "has_dot_the_door" in body["state"]

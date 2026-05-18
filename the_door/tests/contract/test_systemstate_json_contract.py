@@ -10,8 +10,6 @@ import pytest
 
 @pytest.mark.contract
 def test_systemstate_json_keys_match_viewer_consumer():
-    pytest.skip("blocked on 05-viewer-frontend Task 05.3 (consumer)")
-
     from the_door.core.guidance.state import SystemState, to_json_dict
     from pathlib import Path
     state = SystemState(project_path=Path("/x"), has_dot_the_door=False,
@@ -21,12 +19,12 @@ def test_systemstate_json_keys_match_viewer_consumer():
     produced = to_json_dict(state)
 
     # CONSUMER SIDE — what the viewer's onboarding card reads (05.6) MUST be present:
-    # required_keys = {
-    #     "project_path", "has_dot_the_door", "has_snapshots", "latest_snapshot",
-    #     "snapshots", "warnings", "has_api_key", "api_provider",
-    # }
-    # missing = required_keys - set(produced.keys())
-    # assert missing == set(), f"viewer consumer needs {missing} but producer doesn't emit them"
+    required_keys = {
+        "project_path", "has_dot_the_door", "has_snapshots", "latest_snapshot",
+        "snapshots", "warnings", "has_api_key", "api_provider",
+    }
+    missing = required_keys - set(produced.keys())
+    assert missing == set(), f"viewer consumer needs {missing} but producer doesn't emit them"
 
     # Also: the api_provider type contract — viewer expects null OR one of three strings
-    # assert produced["api_provider"] in (None, "anthropic", "openai", "ollama")
+    assert produced["api_provider"] in (None, "anthropic", "openai", "ollama")
