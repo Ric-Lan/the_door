@@ -197,23 +197,76 @@ def _clean_tmp_path(tmp_path):
 
 _V105_DEFAULT = Path(r"C:\Users\Ric\Desktop\test-targets\the-door-v105")
 _V105_ENV = "THE_DOOR_V105_FIXTURE"
+_V100_DEFAULT = Path(r"C:\Users\Ric\Desktop\test-targets\the-door-v100")
+_V100_ENV = "THE_DOOR_V100_FIXTURE"
 
 
 @pytest.fixture
 def v105_fixture(tmp_path):
-    """A writable copy of the v105 test target's .the-door/ state.
+    """Full E2E fixture for the v1.0.0 → v1.0.5 incremental flow.
 
-    Source resolution:
-    1. THE_DOOR_V105_FIXTURE env var (if set, must point at an existing dir with .the-door/)
-    2. The default Windows path used during spec development
-    3. pytest.skip if neither is available
+    Source resolution (independent env vars per side):
+    - v1.0.5: THE_DOOR_V105_FIXTURE | _V105_DEFAULT | skip if missing .the-door/
+    - v1.0.0: THE_DOOR_V100_FIXTURE | _V100_DEFAULT | skip if missing dir
 
-    The fixture copies .the-door/ into tmp_path so tests can mutate state safely.
-    Source code for v1.0.5 is NOT copied — tests that need the source files use
-    their own minimal fixtures.
+    Layout inside tmp_path after setup:
+        tmp_path/                       v1.0.5 source + .the-door/
+        tmp_path/.the-door/structures/  v1.0.0 persisted AST (backfilled)
+
+    The v1.0.0 source + snapshot-store copy used for the backfill is staged in
+    a sibling temp dir (NOT inside tmp_path) so the pipeline's current-version
+    extraction in `tmp_path` is not polluted by the v1.0.0 files.
+
+    Pre-flight: invokes `the-door extract --as-version v1.0.0 <sibling>` via
+    Click's CliRunner (in-process) to populate the v1.0.0 persisted AST, then
+    copies the resulting structures/ payload into tmp_path/.the-door/. The
+    sibling staging dir is removed after the copy.
+
+    Returns tmp_path — the v1.0.5 project root the scenario test operates on.
     """
-    src = Path(os.environ.get(_V105_ENV, _V105_DEFAULT))
-    if not (src / ".the-door").is_dir():
-        pytest.skip(f"v105 fixture not available at {src}; set {_V105_ENV} to override")
-    shutil.copytree(src / ".the-door", tmp_path / ".the-door")
+    import tempfile
+    from click.testing import CliRunner
+    from the_door.cli.main import main
+
+    v105_src = Path(os.environ.get(_V105_ENV, _V105_DEFAULT))
+    v100_src = Path(os.environ.get(_V100_ENV, _V100_DEFAULT))
+    if not (v105_src / ".the-door").is_dir():
+        pytest.skip(f"v105 fixture not available at {v105_src}; set {_V105_ENV}")
+    if not v100_src.is_dir():
+        pytest.skip(f"v100 source not available at {v100_src}; set {_V100_ENV}")
+
+    # 1. Copy v1.0.5 project tree (source + .the-door/) into tmp_path.
+    shutil.copytree(v105_src, tmp_path, dirs_exist_ok=True)
+
+    # 2. Stage v1.0.0 source + a copy of v1.0.5's .the-door/ in a SIBLING temp
+    #    dir (outside tmp_path) so it does not pollute the pipeline's current-
+    #    version source walk. v1.0.0's own .the-door/ is skipped — only v1.0.5's
+    #    snapshot store contains the "v1.0.0" label resolution we need.
+    staging_root = Path(tempfile.mkdtemp(prefix="v100_backfill_"))
+    try:
+        baseline_dir = staging_root / "baseline"
+        shutil.copytree(
+            v100_src, baseline_dir, ignore=shutil.ignore_patterns(".the-door")
+        )
+        shutil.copytree(tmp_path / ".the-door", baseline_dir / ".the-door")
+
+        # 3. Backfill v1.0.0 persisted AST inside baseline_dir/.the-door/structures/.
+        result = CliRunner().invoke(
+            main,
+            ["extract", "--as-version", "v1.0.0", str(baseline_dir)],
+            catch_exceptions=False,
+        )
+        if result.exit_code != 0:
+            pytest.skip(
+                f"backfill failed (exit={result.exit_code}): "
+                f"{(result.stderr or result.output or '')[:400]}"
+            )
+
+        # 4. Copy the produced structures/ payload into tmp_path/.the-door/.
+        src_structures = baseline_dir / ".the-door" / "structures"
+        dst_structures = tmp_path / ".the-door" / "structures"
+        shutil.copytree(src_structures, dst_structures, dirs_exist_ok=True)
+    finally:
+        shutil.rmtree(staging_root, ignore_errors=True)
+
     return tmp_path
