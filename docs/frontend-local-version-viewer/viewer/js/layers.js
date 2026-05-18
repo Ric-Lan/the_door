@@ -4,6 +4,7 @@ import { API_BASE } from "./api.js";
 import { initGraph, renderLegend } from "./graph.js";
 import { updateLogoMark } from "./ui-topbar.js";
 import { changeSymbol } from "./ui-list.js";
+import { pickRef } from "./version-picker.js";
 import {
   renderError,
   renderDetailPanelL1,
@@ -80,7 +81,17 @@ export async function loadL1Graph(versionId = null) {
 export async function loadDiffOverlay(baselineId, currentId) {
   if (!baselineId || !currentId || baselineId === currentId) return;
   try {
-    const url = `${API_BASE}/api/diff?baseline=${encodeURIComponent(baselineId)}&current=${encodeURIComponent(currentId)}`;
+    // Picker emit point for /api/diff: prefer git_tags[0] / label over raw
+    // UUID so the URL is human-readable and survives snapshot re-derivation
+    // (the backend resolves any of {tag, label, version_id} via
+    // _resolve_snapshot_id, see task 05.4). version_id stays as the internal
+    // state key; we only translate it at the URL boundary.
+    const snaps = state.snapshots || [];
+    const baselineSnap = snaps.find((s) => s.version_id === baselineId);
+    const currentSnap = snaps.find((s) => s.version_id === currentId);
+    const baselineRef = baselineSnap ? pickRef(baselineSnap) : baselineId;
+    const currentRef = currentSnap ? pickRef(currentSnap) : currentId;
+    const url = `${API_BASE}/api/diff?baseline=${encodeURIComponent(baselineRef)}&current=${encodeURIComponent(currentRef)}`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
