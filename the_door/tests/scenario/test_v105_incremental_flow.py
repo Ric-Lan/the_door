@@ -102,7 +102,7 @@ def _step_5_snapshot_write_inherits_unchanged_features(project, diff):
     # contract assertion (that inheritance preserves baseline features).
     target_id = next(iter(baseline_feature_ids))
 
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         snapshot_write_tool.execute({
             "codebase_path": str(project),
             "inherit_from": "v1.0.0",
