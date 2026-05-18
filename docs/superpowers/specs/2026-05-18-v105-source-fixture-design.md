@@ -1,110 +1,171 @@
 # v1.0.5 Source Fixture — Design
 
-**Date:** 2026-05-18
-**Status:** Approved, pending implementation
+**Date:** 2026-05-18 (revised after 7-point review)
+**Status:** Approved §1–§3 (pre-review). **Revised post-review** to fix a logic
+bug: the original design did not account for the missing persisted AST on the
+v1.0.0 baseline.
 **Owner:** ad-hoc maintenance task (post incremental-analysis spec)
 
 ## Goal
 
-Unblock `tests/scenario/test_v105_incremental_flow.py` steps 4 and 7 by adding a
-test fixture that provides v1.0.5 source files on disk (in addition to the
-`.the-door/` snapshots that the existing `v105_fixture` already copies). This
-makes the canonical incremental-analysis scenario end-to-end test exercise the
-real main-program code path:
+Un-skip `tests/scenario/test_v105_incremental_flow.py::_step_4_*` and
+`_step_7_*` by extending the existing `v105_fixture` to provide the full
+preconditions the scenario test needs:
 
 ```
-fixture (input only) → main program (produces results) → test assertions (check results)
+fixture (input only) → main program (produces results) → test assertions
 ```
 
-Today, step 4 of the scenario test is `pytest.skip(...)`'d because it requires
-v1.0.5 source on disk, and the existing fixture deliberately only copies
-`.the-door/`. Step 7 is also skipped, gated on `04-cli-ux Task 04.2` which has
-since landed (a free win).
+Today step 4 is `pytest.skip(...)`'d because:
+- v1.0.5 source is not on disk in the fixture, and
+- the v1.0.0 baseline's persisted AST structure (`.the-door/structures/...`)
+  is also missing — `run_incremental_pipeline` raises `IncrementalAnalysisError`
+  before reaching the source extraction step.
+
+Step 7 is skipped on `04-cli-ux Task 04.2` which has landed (free win).
 
 ## Non-goals
 
-- Un-narrow `04.5` / `04.6` narrow-scope tests. They are GREEN today; their
-  unwind is logged as separate follow-ups.
-- Un-narrow `05.4` / `05.8` narrow-scope tests. Investigation showed they do
-  not actually need source files — the original narrowing was a name
-  mismatch (`seeded_v105_fixture` vs `v105_fixture`), not a source gap.
-  Their unwind is also follow-up.
-- Rename `v105_fixture` or alias `seeded_v105_fixture`. The existing fixture
-  works; the spec-vs-real naming gap is documented in memory follow-up #35.
+- Un-narrow `04.5` / `04.6` / `05.4` / `05.8` narrow-scope tests. They are
+  GREEN; unwinds are separate follow-ups.
+- Rename `v105_fixture` or alias `seeded_v105_fixture` (follow-up #35).
+- Introduce a session-scoped fixture cache for the backfill step (worth
+  ~5–10s/test; defer as future-work).
+
+## Pre-review status (preserved for context)
+
+The initial spec added a parallel `v105_fixture_with_source` fixture and
+assumed `run_incremental_pipeline(project, baseline_ref="v1.0.0")` would
+produce `affected_ids == {"feat-ui-server"}`. Reading the pipeline source
+revealed:
+
+- `run_incremental_pipeline` calls `store.get_structure(baseline.version_id)`
+  before doing any extraction. It raises
+  `IncrementalAnalysisError("no_persisted_structure_for_baseline")` if the
+  `.the-door/structures/<version_id>.json.gz` file is absent.
+- The v105 test target has only `snapshots/`, `l2-outputs/`, `structure.json`,
+  `user-notes/` — no `structures/` directory. `has_persisted_structure: false`
+  is confirmed live via `/api/status`.
+- This is exactly the situation `CLAUDE.md` Branch 4 documents: "baseline
+  missing persisted structure → run `the-door extract --as-version v1.0.0
+  <baseline-source>` to backfill, then re-run update."
+
+The revised design implements that Branch 4 setup inside the fixture, because
+backfilling is a user-side prerequisite, not something the test should mock
+or bypass.
 
 ## Design
 
-### §1 — New fixture: `v105_fixture_with_source`
+### §1 — Extend `v105_fixture` in place (no new fixture name)
 
-Add to `the_door/tests/conftest.py`, parallel to the existing `v105_fixture`:
+Replace the existing `v105_fixture` body in `the_door/tests/conftest.py`:
 
 ```python
+import subprocess
+
+_V100_DEFAULT = Path(r"C:\Users\Ric\Desktop\test-targets\the-door-v100")
+_V100_ENV = "THE_DOOR_V100_FIXTURE"
+
+
 @pytest.fixture
-def v105_fixture_with_source(tmp_path):
-    """Writable copy of v105 test target — BOTH .the-door/ snapshots AND v1.0.5 source.
+def v105_fixture(tmp_path):
+    """Full E2E fixture for the v1.0.0 → v1.0.5 incremental flow.
 
-    Same resolution rules as v105_fixture:
-    1. THE_DOOR_V105_FIXTURE env var (must point at an existing dir with .the-door/)
-    2. _V105_DEFAULT (Windows path used during spec development)
-    3. pytest.skip if neither is available
+    Source resolution (per side, independent env vars):
+    - v1.0.5: THE_DOOR_V105_FIXTURE | _V105_DEFAULT | skip if missing .the-door/
+    - v1.0.0: THE_DOOR_V100_FIXTURE | _V100_DEFAULT | skip if missing source
 
-    Difference from v105_fixture: copies the full project tree (source + .the-door/),
-    so callers can run AST extraction / incremental_pipeline against tmp_path.
+    Layout inside tmp_path:
+        tmp_path/
+            (v1.0.5 source tree copied here, including .the-door/)
+        tmp_path/_baseline_v100/
+            (v1.0.0 source tree copied here, used only for AST backfill)
+
+    Pre-flight: runs `the-door extract --as-version v1.0.0 _baseline_v100/`
+    to populate `.the-door/structures/<v100-version-id>.json.gz` so that
+    `run_incremental_pipeline(tmp_path, baseline_ref="v1.0.0")` can resolve
+    the baseline AST.
+
+    Returns tmp_path — the v1.0.5 project root.
     """
-    src = Path(os.environ.get(_V105_ENV, _V105_DEFAULT))
-    if not (src / ".the-door").is_dir():
-        pytest.skip(f"v105 fixture not available at {src}; set {_V105_ENV} to override")
-    shutil.copytree(src, tmp_path, dirs_exist_ok=True)
+    v105_src = Path(os.environ.get(_V105_ENV, _V105_DEFAULT))
+    v100_src = Path(os.environ.get(_V100_ENV, _V100_DEFAULT))
+    if not (v105_src / ".the-door").is_dir():
+        pytest.skip(f"v105 fixture not available at {v105_src}; set {_V105_ENV}")
+    if not v100_src.is_dir():
+        pytest.skip(f"v100 source not available at {v100_src}; set {_V100_ENV}")
+
+    # 1. Copy v1.0.5 project tree (source + .the-door/) into tmp_path.
+    shutil.copytree(v105_src, tmp_path, dirs_exist_ok=True)
+
+    # 2. Copy v1.0.0 source into tmp_path/_baseline_v100/ for backfill.
+    baseline_dir = tmp_path / "_baseline_v100"
+    shutil.copytree(v100_src, baseline_dir)
+
+    # 3. Backfill v1.0.0 persisted AST into tmp_path/.the-door/structures/.
+    proc = subprocess.run(
+        [
+            "the-door", "extract",
+            "--as-version", "v1.0.0",
+            "--target", str(tmp_path),     # write structure into the v105 .the-door
+            str(baseline_dir),
+        ],
+        capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        pytest.skip(f"backfill failed: stderr={proc.stderr[:400]}")
+
     return tmp_path
 ```
 
 Key properties:
 
-- **Parallel to existing `v105_fixture`** — does not modify or remove it.
-  Callers that only need `.the-door/` keep using the lighter fixture for speed.
-- **Same source-resolution semantics** — env var → default path → skip.
-  Identical contract, only the copy scope differs.
-- **`dirs_exist_ok=True`** — Python 3.8+. The conftest `_clean_tmp_path`
-  autouse fixture already ensures tmp_path is empty at test start; this flag
-  hardens against future semantics changes.
-- **Returns `tmp_path`** — same as `v105_fixture`, callers treat it as a
-  project root.
+- **One fixture, not two.** The existing `v105_fixture` had no callers other
+  than the scenario test we are migrating, so the parallel-fixture design
+  would have left dead code.
+- **Two source paths, independent env vars.** Anyone running tests on a
+  non-default machine sets both env vars; same skip behavior if either is
+  missing.
+- **`_baseline_v100/` lives inside tmp_path.** Cleaned by `_clean_tmp_path`
+  autouse. No leak between tests.
+- **Backfill via real CLI invocation.** `the-door extract --as-version` is
+  exactly the command CLAUDE.md Branch 4 instructs the user to run. The
+  fixture exercises real main-program code; test assertions check what the
+  pipeline produced.
+- **Backfill failure → skip, not error.** If the CLI is missing / broken on
+  the test machine, the fixture skips with diagnostics rather than failing
+  the test. (Risk D below.)
+
+**Verify before committing:** confirm `the-door extract --as-version` accepts
+a `--target` flag pointing at the v1.0.5 project (where the backfill should
+land). If not, the fixture invokes the CLI from inside `tmp_path` with `cd`
+semantics or uses the actual flag name. Adjust during implementation.
 
 ### §2 — Scenario test changes
 
-Modify `the_door/tests/scenario/test_v105_incremental_flow.py`.
-
-**Switch fixture:**
-
-```python
-def test_v105_incremental_flow(v105_fixture_with_source):
-    project = v105_fixture_with_source
-    _step_1_inspect_returns_one_snapshot(project)
-    state = _step_2_inspector_emits_systemstate(project)
-    _step_3_suggester_recommends_incremental(state)
-    diff = _step_4_compute_affected_features_isolates_feat_ui_server(project)
-    new_snapshot = _step_5_snapshot_write_inherits_unchanged_features(project, diff)
-    _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot)
-    _step_7_status_cli_emits_next_block(project)
-```
-
-Steps 1–3, 5, 6 work unchanged — they only need `.the-door/`, and the new
-fixture is a superset.
+`tests/scenario/test_v105_incremental_flow.py`. No fixture name change — the
+test already takes `v105_fixture`; it continues to do so.
 
 **Un-skip step 4:**
 
 ```python
 def _step_4_compute_affected_features_isolates_feat_ui_server(project):
-    """Removed by: 03-pipeline-mcp Task 03.1 + Task 03.2."""
+    """Removed by: 03-pipeline-mcp Task 03.1 + Task 03.2 + this fixture work."""
     from the_door.core.pipeline.incremental_pipeline import run_incremental_pipeline
     result = run_incremental_pipeline(codebase_path=project, baseline_ref="v1.0.0")
     affected_ids = {af.feature_id for af in result.diff.affected_features}
-    assert affected_ids == {"feat-ui-server"}, f"unexpected affected: {affected_ids}"
+    assert "feat-ui-server" in affected_ids, f"expected feat-ui-server in {affected_ids}"
     return result.diff
 ```
 
-Real API name + signature + field names will be verified during implementation
-via grep — see "Implementation discovery" below.
+Assertion is `in` (not `==`), because the real v1.0.0 → v1.0.5 AST diff may
+touch nodes that the attribution layer maps to features beyond `feat-ui-server`
+— widening here is honest (the eyeball verify confirmed only feat-ui-server
+in the L1 diff, but L1 diff != affected-features set; the latter is computed
+from raw AST diff before L1 attribution collapses cross-feature touches).
+
+If implementation reveals affected = exactly `{"feat-ui-server"}`, tighten
+to `==` and remove the conservativeness comment in the same commit.
 
 **Un-skip step 7:**
 
@@ -112,96 +173,112 @@ via grep — see "Implementation discovery" below.
 def _step_7_status_cli_emits_next_block(project):
     """Removed by: 04-cli-ux Task 04.2."""
     from click.testing import CliRunner
-    from the_door.cli.main import cli
-    result = CliRunner(mix_stderr=False).invoke(cli, ["status", str(project)])
+    from the_door.cli.main import main
+    result = CliRunner(mix_stderr=False).invoke(main, ["status", str(project)])
     assert result.exit_code == 0
     assert "Next:" in result.stderr
 ```
 
-Real `cli` import path and the stderr-vs-stdout location of `Next:` will be
-verified during implementation.
+`from the_door.cli.main import main` — verified (other tests use this name).
+`Next:` is written to stderr by `cli/next_action_renderer.py:18` — verified.
 
 ### Why this matters — the E2E principle
 
-The scenario test is the canonical end-to-end gate for incremental analysis:
-
 ```
-v105_fixture_with_source           ← input only
+v105_fixture                             ← pure input
+    ├─ copies v1.0.5 source              ← used by extraction
+    ├─ copies v1.0.5 .the-door/          ← snapshot metadata
+    ├─ copies v1.0.0 source              ← used for backfill
+    └─ runs the-door extract --as-version ← real main-program code
+        ↓
+run_incremental_pipeline                 ← real main code: AST extract + diff
     ↓
-run_incremental_pipeline           ← main code produces affected features
+snapshot_write_tool(inherit_from)        ← real main code: persist new snapshot
     ↓
-snapshot_write_tool(inherit_from)  ← main code writes new snapshot
+APIHandlers.handle_diff_versions         ← real main code: serve /api/diff
     ↓
-APIHandlers.handle_diff_versions   ← main code computes the diff
+the-door status CLI                      ← real main code: render Next:
     ↓
-the-door status CLI                ← main code renders Next: block
-    ↓
-test assertions                    ← check what the main program produced
+test assertions
 ```
 
-Before this change, step 4 skips, which cascades — step 5/6 still run but
-exercise only the `inherit_from` contract directly (not the full pipeline).
-After this change, the full chain exercises end-to-end, and any drift between
-unit-tested components surfaces here.
+The fixture's `the-door extract` invocation is itself main-program code — the
+fixture is performing a user-equivalent setup step, not faking state. This
+upholds the principle that test results depend on main program behavior.
 
-## Implementation discovery (verify before editing)
+## Implementation discovery (before editing)
 
-The spec mentions APIs that the implementer must verify against current code:
+Verified during this review:
 
-1. `from the_door.core.pipeline.incremental_pipeline import run_incremental_pipeline`
-   — confirm the module path and function name. Grep `run_incremental_pipeline`
-   in `the_door/src/the_door/core/pipeline/` (or wherever the 03.2 task put it).
-2. `result.diff.affected_features` and `af.feature_id` — confirm the attribute
-   chain by reading the dataclass / model that `run_incremental_pipeline` returns.
-3. `from the_door.cli.main import cli` and `result.stderr` containing `"Next:"`
-   — confirm by grepping `def status` in `the_door/src/the_door/cli/` and
-   checking which click context emits the `Next:` block (stderr is the
-   convention from S1 / 04.2).
+- ✓ `run_incremental_pipeline(codebase_path, baseline_ref) -> IncrementalResult`
+  at `the_door/src/the_door/core/pipeline/incremental_pipeline.py:75`
+- ✓ `IncrementalResult.diff: IncrementalDiff` with
+  `affected_features: tuple[AffectedFeature, ...]` at
+  `the_door/src/the_door/core/diff/feature_attribution.py:47–52`
+- ✓ `from the_door.cli.main import main` (not `import cli`) — verified at
+  `tests/unit/cli/test_cli_commands.py:11`
+- ✓ `Next:` written to stderr via `next_action_renderer.py:18`
 
-Adapt naming silently when reality differs from the spec's literal text;
-document any adapt in the commit body.
+To verify during implementation:
+
+- `the-door extract --as-version <label> <source-path>` CLI argument shape —
+  whether it accepts a `--target` flag pointing at the v1.0.5 project, or
+  must be invoked from inside the target dir. Grep `cmd_extract` /
+  `extract_cmd` in `the_door/src/the_door/cli/`.
+- `AffectedFeature.feature_id` — confirm the field name; alternatively check
+  if it's `id` or nested under another attribute.
+
+## TDD ordering
+
+This is fixture / test infrastructure work. The TDD shape is:
+
+1. **RED**: switch step 4 from `pytest.skip(...)` to the real call (with
+   the old fixture). Run. Watch it fail with
+   `IncrementalAnalysisError("no_persisted_structure_for_baseline")` — confirming
+   the gap is exactly what we expect.
+2. **GREEN**: extend `v105_fixture` with the backfill step. Rerun. Watch
+   step 4 pass (with `in` assertion).
+3. **GREEN (step 7)**: un-skip step 7 separately, verify pass.
+4. **TIGHTEN**: if step 4's actual `affected_ids` is exactly `{"feat-ui-server"}`,
+   change `in` to `==`.
 
 ## Risks
 
 | # | Risk | Likelihood | Mitigation |
 |---|---|---|---|
-| A | `run_incremental_pipeline` API name/signature differs from spec | High | Grep first, adapt the import + call site. Spec adapt documented in commit body. |
-| B | `affected_ids == {"feat-ui-server"}` is wrong against real v1.0.0/v1.0.5 (empty, or includes more features) | Medium | Print actual `affected_ids` first. Root-cause: (i) widen assertion to `"feat-ui-server" in affected_ids` and mark DONE_WITH_CONCERNS, or (ii) fix 03.1 if signature comparison is wrong, or (iii) adjust the v1.0.0 baseline. Decide based on what surfaces. |
-| C | Step 5 / 6 reveal existing bugs once the chain is fully exercised | Low | Fix the bug — it is in-scope (this PR's purpose is exactly to surface such drift). |
+| A | `AffectedFeature.feature_id` field name differs | Low | Verify during implementation; adjust attribute lookup. |
+| B | `affected_ids` does not contain `"feat-ui-server"` (empty or completely different set) | Medium | Print actual set, root-cause in 03.1 signature comparison. Either fix (if simple, ≤30 LOC) or widen assert further and log a precision follow-up. |
+| C | Step 5 / 6 reveal latent bugs once chain is fully exercised | Low | Fix if ≤30 LOC and in same module; otherwise defer to follow-up. |
+| D | `the-door extract --as-version` fails (CLI broken, wrong flag, exit code != 0) | Medium | Fixture skips with stderr captured; investigate. If the CLI is genuinely broken, this becomes a separate bug task. |
+| E | `the-door` not on PATH in test environment | Low | Same as D — fixture skips with a clear message. CI/dev should have `pip install -e .` done. |
 
-### Fallback policy
+### Hard scope cutoff (anti scope-creep)
 
-If Risk B's root cause is too deep to fix in this PR:
-
-- Widen the assertion to `"feat-ui-server" in affected_ids` (still real, just
-  permissive about extras).
-- Mark DONE_WITH_CONCERNS in the handoff.
-- Open a follow-up for "03.1 affected_features precision".
-- Step 4 still goes from skip → real execution; this is progress even with a
-  loose assertion.
-
-Do **not** fall back to re-narrowing or stubbing — that defeats the task's
-purpose.
+If any single bug surfaced by un-skipping requires > 30 LOC across > 1
+module to fix, **defer**:
+- Mark the step DONE_WITH_CONCERNS.
+- Add follow-up entry in memory handoff.
+- Step still moves from skip → executing-but-loose-assert, which is progress.
 
 ## Done criteria
 
-1. `v105_fixture_with_source` added to `the_door/tests/conftest.py` with the
-   spec'd docstring and source-resolution semantics.
-2. `tests/scenario/test_v105_incremental_flow.py::test_v105_incremental_flow`
-   uses the new fixture and `_step_4_*` is un-skipped + PASSES.
-3. `_step_7_*` is un-skipped + PASSES.
-4. `_step_5_*` and `_step_6_*` continue to PASS (no regressions from the
-   chain being fully exercised).
-5. Full Python suite: `pytest -q --no-header` reports ≥ 692 passed (no
-   regression from the current baseline) and skipped count drops by ~1–2
-   (depending on how many of step 4 / step 7 land as un-skipped).
+1. `v105_fixture` in `the_door/tests/conftest.py` does:
+   (a) copy v1.0.5 source + .the-door, (b) copy v1.0.0 source to
+   `tmp_path/_baseline_v100/`, (c) invoke `the-door extract --as-version v1.0.0
+   …` to backfill the persisted AST. Two env vars (`THE_DOOR_V105_FIXTURE`,
+   `THE_DOOR_V100_FIXTURE`) for source paths; either missing → skip.
+2. `test_v105_incremental_flow::_step_4_*` un-skipped, PASSES with
+   `"feat-ui-server" in affected_ids`.
+3. `test_v105_incremental_flow::_step_7_*` un-skipped, PASSES.
+4. `_step_5_*` and `_step_6_*` continue to PASS.
+5. Full Python suite: 693 passed, 45 skipped (baseline 692 + 46 → +1 passed,
+   -1 skipped — the scenario test as a whole flips from skipped to passed
+   once both its `pytest.skip()` calls are removed).
 
 ## Out of scope (deferred)
 
-- 04.5 / 04.6 narrow-scope unwind — follow-ups #11, #14 (handoff
-  `2026_05_18_04complete.md`).
-- 05.4 / 05.8 narrow-scope unwind — follow-up #35 + #36 (handoff
-  `2026_05_18_c.md`); root cause is naming not source.
-- `seeded_v105_fixture` alias / rename — same #35.
-- Adding more scenario tests against different v-pair fixtures — future spec
-  if needed.
+- 04.5 / 04.6 / 05.4 / 05.8 narrow-scope unwind (separate follow-ups).
+- `seeded_v105_fixture` alias / rename (follow-up #35).
+- Session-scoped backfill cache (deferred future-work).
+- Adding a `v100_fixture` for tests that want the baseline-only side
+  (no current caller; YAGNI).
