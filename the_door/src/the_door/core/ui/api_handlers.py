@@ -16,9 +16,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from the_door.core.diff.snapshot_store import SnapshotStore
-from the_door.core.guidance.actions import to_json_dict as action_to_json
+from the_door.core.guidance.actions import NextAction, to_json_dict as action_to_json
+from the_door.core.guidance.remediation import Remediation, make_error_envelope
 from the_door.core.guidance.state import StateInspector, to_json_dict as state_to_json
 from the_door.core.guidance.suggester import NextActionSuggester
+from the_door.models import SnapshotNotFoundError
 from the_door.core.llm.config_manager import ConfigManager, ConfigError
 from the_door.core.llm.provider import create_provider
 from the_door.core.pipeline.pipeline_orchestrator import PipelineOrchestrator
@@ -343,34 +345,82 @@ class APIHandlers:
     # GET /api/diff?baseline=<version_id>&current=<version_id>
     # ------------------------------------------------------------------
 
+    def _resolve_snapshot(self, store: SnapshotStore, ref: str):
+        """Resolve a snapshot reference (label / tag / SHA / date / version_id).
+
+        Tries ``store.resolve_baseline`` first (which supports the full O2
+        reference grammar). On miss (``None`` or ``SnapshotNotFoundError``),
+        falls back to a raw ``get_snapshot`` lookup so callers passing a
+        version_id still work. Returns ``None`` when nothing matches.
+        """
+        try:
+            result = store.resolve_baseline(ref)
+            if result is not None:
+                return result
+        except SnapshotNotFoundError:
+            pass
+        return store.get_snapshot(ref)
+
     def handle_diff_versions(self, baseline_id: str, current_id: str) -> tuple[int, dict]:
-        """GET /api/diff — compute L1 diff between two snapshots by version_id."""
+        """GET /api/diff — compute L1 diff between two snapshots.
+
+        Accepts label / git tag / commit SHA / ISO date / version_id for both
+        sides (O2). Unresolvable references return a 404 F3 envelope with a
+        ``system_status.show`` next_action.
+        """
         from the_door.core.diff.diff_engine import DiffEngine
         try:
             store = SnapshotStore(self._project_root)
-            baseline = store.get_snapshot(baseline_id)
-            current = store.get_snapshot(current_id)
+            baseline = self._resolve_snapshot(store, baseline_id)
             if baseline is None:
-                return 404, self._make_error(
+                rem = Remediation(
                     code="snapshot_not_found",
-                    message=f"Baseline snapshot '{baseline_id}' not found.",
+                    message=f"baseline {baseline_id!r} 無法解析",
+                    next_action=NextAction(
+                        id="system_status.show",
+                        title="查看可用 snapshots",
+                        rationale="列出目前已分析的版本，協助挑出有效的 baseline。",
+                        priority=1,
+                        cli_command=f"the-door status {self._project_root.as_posix()}",
+                    ),
+                )
+                return 404, make_error_envelope(
+                    code="snapshot_not_found",
+                    message=rem.message,
+                    remediation=rem,
                     source="handle_diff_versions",
                 )
+            current = self._resolve_snapshot(store, current_id)
             if current is None:
-                return 404, self._make_error(
+                rem = Remediation(
                     code="snapshot_not_found",
-                    message=f"Current snapshot '{current_id}' not found.",
+                    message=f"current {current_id!r} 無法解析",
+                    next_action=NextAction(
+                        id="system_status.show",
+                        title="查看可用 snapshots",
+                        rationale="列出目前已分析的版本，協助挑出有效的 current。",
+                        priority=1,
+                        cli_command=f"the-door status {self._project_root.as_posix()}",
+                    ),
+                )
+                return 404, make_error_envelope(
+                    code="snapshot_not_found",
+                    message=rem.message,
+                    remediation=rem,
                     source="handle_diff_versions",
                 )
+
             engine = DiffEngine()
             diff_result = engine.compute_l1_diff(baseline, current)
             node_states = {
                 nd.node_id: nd.diff_state
                 for nd in diff_result.node_diffs
             }
-            return 200, {
-                "baseline_id": baseline_id,
-                "current_id": current_id,
+            body = {
+                "baseline_id": baseline.version_id,
+                "baseline_label": baseline.label,
+                "current_id": current.version_id,
+                "current_label": current.label,
                 "summary": {
                     "added": diff_result.summary.added_count,
                     "removed": diff_result.summary.removed_count,
@@ -380,6 +430,10 @@ class APIHandlers:
                 },
                 "node_states": node_states,
             }
+            state = StateInspector(self._project_root).inspect()
+            actions = NextActionSuggester().suggest(state, context="viewer")
+            body["next_actions"] = [action_to_json(a) for a in actions]
+            return 200, body
         except Exception as exc:
             return 500, self._make_error(
                 code="diff_error",

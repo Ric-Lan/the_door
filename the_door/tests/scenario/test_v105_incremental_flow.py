@@ -113,13 +113,22 @@ def _step_5_snapshot_write_inherits_unchanged_features(project, diff):
 
 
 def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot):
-    """Removed by: 05-viewer-frontend Task 05.4 (api_handlers.py /api/diff with O2)."""
-    pytest.skip("blocked on 05-viewer-frontend Task 05.4")
-    # from the_door.core.ui.api_handlers import ApiHandlers
-    # handlers = ApiHandlers(project_root=project)
-    # status, body = handlers.handle_diff_versions(baseline_id="v1.0.0", current_id=new_snapshot.label)
-    # assert status == 200
-    # assert body["summary"]["attribute_changed"] == 1
+    """Removed by: 05-viewer-frontend Task 05.4 (api_handlers.py /api/diff with O2).
+
+    Step 5 creates the new snapshot without an explicit label, so we drive the
+    /api/diff resolver via raw version_id for the current side (still exercises
+    the O2 resolve_baseline → get_snapshot fallback). Baseline uses the
+    label "v1.0.0" to prove label resolution works end-to-end.
+    """
+    from the_door.core.ui.api_handlers import APIHandlers
+    from the_door.core.ui.job_store import JobStore
+    handlers = APIHandlers(project_root=project, job_store=JobStore())
+    status, body = handlers.handle_diff_versions(
+        baseline_id="v1.0.0", current_id=new_snapshot.version_id
+    )
+    assert status == 200, body
+    assert body["baseline_label"] == "v1.0.0"
+    assert body["summary"]["attribute_changed"] == 1
 
 
 def _step_7_status_cli_emits_next_block(project):

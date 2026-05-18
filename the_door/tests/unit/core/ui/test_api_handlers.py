@@ -15,8 +15,10 @@ import pytest
 
 from the_door.core.ui.api_handlers import APIHandlers
 from the_door.core.ui.job_store import JobStore, UpdateJob
+from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.models import (
     DoubtRecord,
+    FeatureSummary,
     FeatureTimeline,
     TimelineResult,
     TimelineSummary,
@@ -517,3 +519,104 @@ def test_api_status_returns_state_and_next_actions(tmp_path):
     # state carries the keys the viewer onboarding card consumes
     assert "project_path" in body["state"]
     assert "has_dot_the_door" in body["state"]
+
+
+# ---------------------------------------------------------------------------
+# Task 05.4 — GET /api/diff (O2 snapshot reference resolution + F3 envelope)
+#
+# Scope-narrow: the spec's `seeded_v105_fixture` is not a global fixture
+# (it lives inside two MCP test files). We hand-seed two minimal snapshots
+# under tmp_path via SnapshotStore.create_snapshot to exercise the resolver
+# and DiffEngine integration without needing a v1.0.5 source tree.
+# ---------------------------------------------------------------------------
+
+
+def _seed_two_snapshots(tmp_path):
+    """Seed v1.0.0 + v1.0.5 snapshots in tmp_path and return their (label, vid)
+    pairs. Both snapshots share an empty L1 so the DiffEngine path remains
+    valid for both label resolution and self-diff (no-changes) success paths.
+    """
+    store = SnapshotStore(tmp_path)
+    # v1.0.0 — one baseline feature so the snapshot is non-degenerate.
+    l1: dict[str, FeatureSummary] = {
+        "feat-baseline": FeatureSummary(
+            feature_id="feat-baseline",
+            label="Baseline feature",
+            description="baseline",
+            source_node_count=1,
+            confidence="high",
+            source_nodes=("node-a",),
+        )
+    }
+    v1 = store.create_snapshot(
+        l1_snapshot=l1,
+        feature_relations=[],
+        analyzed_files=[],
+        trigger="manual",
+        label="v1.0.0",
+    )
+    # v1.0.5 — identical L1 so the diff is empty (success path).
+    v5 = store.create_snapshot(
+        l1_snapshot=dict(l1),
+        feature_relations=[],
+        analyzed_files=[],
+        trigger="manual",
+        label="v1.0.5",
+    )
+    return v1, v5
+
+
+class TestDiffVersionsO2:
+    """O2-T1..T4 — /api/diff accepts label/tag/SHA and emits F3 envelope on
+    unresolvable references (Task 05.4)."""
+
+    def test_diff_api_resolves_label(self, tmp_path):
+        """O2-T1: label inputs (v1.0.0 / v1.0.5) resolve to snapshots."""
+        v1, v5 = _seed_two_snapshots(tmp_path)
+        handlers = _make_handlers(tmp_path)
+        status, body = handlers.handle_diff_versions(
+            baseline_id="v1.0.0", current_id="v1.0.5"
+        )
+        assert status == 200, body
+        assert body["baseline_label"] == "v1.0.0"
+        assert body["current_label"] == "v1.0.5"
+        assert body["baseline_id"] == v1.version_id
+        assert body["current_id"] == v5.version_id
+
+    def test_diff_api_resolves_raw_uuid(self, tmp_path):
+        """O2-T2: raw version_id UUIDs also resolve."""
+        v1, v5 = _seed_two_snapshots(tmp_path)
+        handlers = _make_handlers(tmp_path)
+        status, body = handlers.handle_diff_versions(
+            baseline_id=v1.version_id, current_id=v5.version_id
+        )
+        assert status == 200, body
+        # Labels still surfaced from the resolved snapshots.
+        assert body["baseline_label"] == "v1.0.0"
+        assert body["current_label"] == "v1.0.5"
+
+    def test_diff_api_unresolvable_returns_remediation_envelope(self, tmp_path):
+        """O2-T3: unresolvable reference returns 404 with F3 envelope +
+        a system_status.show next_action."""
+        _seed_two_snapshots(tmp_path)
+        handlers = _make_handlers(tmp_path)
+        status, body = handlers.handle_diff_versions(
+            baseline_id="nonexistent", current_id="v1.0.5"
+        )
+        assert status == 404
+        assert body["error"]["code"] == "snapshot_not_found"
+        assert body["error"]["remediation"]["code"] == "snapshot_not_found"
+        assert (
+            body["error"]["remediation"]["next_action"]["id"] == "system_status.show"
+        )
+
+    def test_diff_api_with_no_changes_still_returns_next_actions(self, tmp_path):
+        """O2-T4: self-diff (no changes) still emits next_actions."""
+        v1, _ = _seed_two_snapshots(tmp_path)
+        handlers = _make_handlers(tmp_path)
+        status, body = handlers.handle_diff_versions(
+            baseline_id=v1.version_id, current_id=v1.version_id
+        )
+        assert status == 200, body
+        assert "next_actions" in body
+        assert isinstance(body["next_actions"], list)
