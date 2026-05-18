@@ -148,9 +148,8 @@ def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot
 
 def _step_7_status_cli_emits_next_block(project):
     """Removed by: 04-cli-ux Task 04.2 (the-door status command)."""
-    pytest.skip("blocked on 04-cli-ux Task 04.2")
-    # from click.testing import CliRunner
-    # from the_door.cli.main import cli
-    # result = CliRunner(mix_stderr=False).invoke(cli, ["status", str(project)])
-    # assert result.exit_code == 0
-    # assert "Next:" in result.stderr
+    from click.testing import CliRunner
+    from the_door.cli.main import main
+    result = CliRunner().invoke(main, ["status", str(project)])
+    assert result.exit_code == 0, (result.output, result.stderr)
+    assert "Next:" in result.stderr
