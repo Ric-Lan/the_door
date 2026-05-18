@@ -23,6 +23,7 @@ import {
   openGraphDrawer,
   closeGraphDrawer,
 } from "./graph.js";
+import { renderOnboardingCard } from "./onboarding.js";
 
 export function render() {
   renderTopBar();
@@ -96,6 +97,23 @@ export async function setMode(mode) {
 function handleApiError(status, body) {
   const msg = body?.error?.message || "HTTP " + status;
   renderError("API 錯誤：" + msg);
+}
+
+async function loadOnboardingIfEmpty() {
+  // S3.1: fetch /api/status and render the onboarding card when the project
+  // has no snapshots. Wrapped in try/catch so a failing /api/status (e.g.
+  // older backend, network blip) never breaks the rest of app startup.
+  try {
+    const res = await fetch(`${API_BASE}/api/status`, { cache: "no-store" });
+    if (!res.ok) return;
+    const payload = await res.json();
+    const container =
+      document.querySelector(".canvas-area") ||
+      document.querySelector(".workspace");
+    if (container) renderOnboardingCard(container, payload);
+  } catch (_) {
+    // non-fatal — onboarding is purely additive
+  }
 }
 
 async function loadProjectStatus() {
@@ -300,4 +318,5 @@ export function init() {
   els.btnMindmap?.addEventListener("click", switchToMindmap);
   els.btnBackL1?.addEventListener("click", switchToL1);
   loadProjectStatus();
+  loadOnboardingIfEmpty();
 }
