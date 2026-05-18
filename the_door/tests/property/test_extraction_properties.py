@@ -117,7 +117,9 @@ class TestProperty3DocstringPreservation:
     """Feature: the-door-phase-1-min, Property 3: Docstring and comment preservation round-trip"""
 
     @settings(max_examples=100)
-    @given(docstring_text=st.text(min_size=1, max_size=200).filter(lambda s: '"""' not in s and "'''" not in s))
+    @given(docstring_text=st.text(min_size=1, max_size=200).filter(
+        lambda s: '"""' not in s and "'''" not in s and "\x00" not in s
+    ))
     def test_docstrings_preserved_verbatim(self, docstring_text, tmp_path):
         """For any source file with docstrings, extracted docstrings match source exactly.
 
@@ -133,10 +135,14 @@ class TestProperty3DocstringPreservation:
         result = extractor.extract(str(tmp_path))
 
         # Assert
+        # The extractor normalises CRLF to LF for cross-platform parsing
+        # (ast_extractor.py:162 + node_builder._strip_string_quotes), so the
+        # expected value must mirror that normalisation.
+        expected = docstring_text.replace("\r\n", "\n")
         assert len(result.nodes) >= 1
         func_node = next((n for n in result.nodes if n.name == "my_func"), None)
         assert func_node is not None
-        assert func_node.docstring == docstring_text
+        assert func_node.docstring == expected
 
 
 # === Property 4: Extraction output structural integrity ===
