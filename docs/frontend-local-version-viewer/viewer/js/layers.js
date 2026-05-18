@@ -538,13 +538,32 @@ export function renderL2NotAnalyzed(featureId) {
   }
 }
 
+export function buildMindmapData(state) {
+  const projectName =
+    (state.projectStatus?.project_path ?? "")
+      .split(/[\/\\]/)
+      .filter(Boolean)
+      .pop() || "專案";
+  const nodes = state.l1GraphViewModel?.nodes ?? [];
+
+  let diffNodes = [];
+  let diffAvailable = false;
+
+  if (state.updateModel?.diff_available === true) {
+    diffNodes = state.updateModel.changes ?? [];
+    diffAvailable = true;
+  } else if (state.versionDiff?.node_states) {
+    diffNodes = Object.entries(state.versionDiff.node_states)
+      .filter(([, st]) => st !== "unchanged")
+      .map(([id, change_type]) => ({ id, change_type }));
+    diffAvailable = diffNodes.length > 0;
+  }
+
+  return { project: projectName, nodes, diffNodes, diffAvailable };
+}
+
 export function switchToMindmap() {
-  const data = {
-    project: state.projectStatus?.project_path ?? "專案",
-    nodes: state.l1GraphViewModel?.nodes ?? [],
-    diffNodes: state.updateModel?.changes ?? [],
-    diffAvailable: state.updateModel?.diff_available ?? false,
-  };
+  const data = buildMindmapData(state);
   sessionStorage.setItem("mindmap-data", JSON.stringify(data));
   window.open(
     "./mindmap-popup.html",

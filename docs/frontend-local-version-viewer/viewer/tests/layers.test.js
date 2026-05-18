@@ -44,6 +44,7 @@ import {
   renderFeatureList,
   renderL2NotAnalyzed,
   switchToMindmap,
+  buildMindmapData,
 } from '../js/layers.js';
 import { state } from '../js/state.js';
 import { els } from '../js/dom.js';
@@ -1419,7 +1420,7 @@ describe('switchToMindmap', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue({});
     switchToMindmap();
     const stored = JSON.parse(sessionStorage.getItem('mindmap-data'));
-    expect(stored.project).toBe('/my/proj');
+    expect(stored.project).toBe('proj');
     expect(stored.nodes).toHaveLength(1);
     expect(stored.diffNodes).toHaveLength(1);
     expect(stored.diffAvailable).toBe(true);
@@ -1438,5 +1439,50 @@ describe('switchToMindmap', () => {
     expect(stored.nodes).toEqual([]);
     expect(stored.diffNodes).toEqual([]);
     expect(stored.diffAvailable).toBe(false);
+  });
+});
+
+// ── buildMindmapData ──────────────────────────────────────────────
+
+describe("buildMindmapData", () => {
+  it("returns empty diff when neither updateModel nor versionDiff is present", () => {
+    const state = { projectStatus: { project_path: "/x" }, l1GraphViewModel: { nodes: [] } };
+    const data = buildMindmapData(state);
+    expect(data.diffNodes).toEqual([]);
+    expect(data.diffAvailable).toBe(false);
+  });
+
+  it("prefers updateModel when diff_available=true", () => {
+    const state = {
+      projectStatus: { project_path: "/x" },
+      l1GraphViewModel: { nodes: [] },
+      updateModel: { diff_available: true, changes: [{ id: "a", change_type: "attribute_changed" }] },
+      versionDiff: { node_states: { b: "modified" } },
+    };
+    const data = buildMindmapData(state);
+    expect(data.diffNodes).toEqual([{ id: "a", change_type: "attribute_changed" }]);
+    expect(data.diffAvailable).toBe(true);
+  });
+
+  it("falls back to versionDiff when updateModel is absent", () => {
+    const state = {
+      projectStatus: { project_path: "/x" },
+      l1GraphViewModel: { nodes: [] },
+      versionDiff: { node_states: { "feat-a": "attribute_changed", "feat-b": "unchanged" } },
+    };
+    const data = buildMindmapData(state);
+    expect(data.diffNodes).toEqual([{ id: "feat-a", change_type: "attribute_changed" }]);
+    expect(data.diffAvailable).toBe(true);
+  });
+
+  it("falls back to versionDiff when updateModel.diff_available=false", () => {
+    const state = {
+      projectStatus: { project_path: "/x" },
+      l1GraphViewModel: { nodes: [] },
+      updateModel: { diff_available: false },
+      versionDiff: { node_states: { "feat-c": "modified" } },
+    };
+    const data = buildMindmapData(state);
+    expect(data.diffNodes).toEqual([{ id: "feat-c", change_type: "modified" }]);
   });
 });
