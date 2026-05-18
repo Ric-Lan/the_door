@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { els } from './dom.js';
 import { appendUserNotesSection } from './ui-notes.js';
 import { appendDiffExplanationSection } from './ui-diff-explanation.js';
+import { appendNextActionsSection } from './ui-next-actions.js';
 
 export function renderEmpty(parent, message) {
   const div = document.createElement('div');
@@ -128,6 +129,7 @@ export function renderDiffDetailPanel() {
   content.appendChild(attributionSection(detail.source));
   appendDiffExplanationSection(content, state.selectedId);
   appendUserNotesSection(content, 'diff', state.versionA, state.versionB, state.selectedId);
+  appendNextActionsSection(content, detail);
 }
 
 export function renderSingleVersionDetailPanel(callbacks = {}) {
@@ -157,6 +159,7 @@ export function renderSingleVersionDetailPanel(callbacks = {}) {
   }
   content.appendChild(attributionSection(feature.source));
   appendUserNotesSection(content, state.mode, state.versionA, state.versionB, feature.id);
+  appendNextActionsSection(content, feature);
 }
 
 export function renderDetailPanelL1(node, callbacks = {}) {
@@ -259,6 +262,7 @@ export function renderDetailPanelDiff(node) {
   content.appendChild(attributionSection('UpdateReport.l1_changes[feature_id=' + node.id + ']'));
   appendDiffExplanationSection(content, node.id);
   appendUserNotesSection(content, 'diff', state.versionA, state.versionB, node.id);
+  appendNextActionsSection(content, node);
 }
 
 export function toggleDiffSort(mode, renderFeatureList = () => {}) {
