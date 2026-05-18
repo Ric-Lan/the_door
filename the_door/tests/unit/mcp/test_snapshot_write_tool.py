@@ -7,6 +7,7 @@ from pathlib import Path
 
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.models import FeatureSummary
+from tests._seed_helpers import seed_baseline_snapshot
 
 
 @pytest.fixture
@@ -28,24 +29,20 @@ def seeded_v105_fixture(tmp_path):
     inheritance test merges in an ``updated_features`` entry for it, yielding
     11 inherited + 1 new = 12 features.
     """
-    store = SnapshotStore(tmp_path)
-    l1_snapshot: dict[str, FeatureSummary] = {
-        f"feat-baseline-{i}": FeatureSummary(
-            feature_id=f"feat-baseline-{i}",
-            label=f"Baseline feature {i}",
-            description=f"baseline feature {i}",
-            source_node_count=1,
-            confidence="high",
-            source_nodes=(f"node-{i}",),
-        )
-        for i in range(11)
-    }
-    store.create_snapshot(
-        l1_snapshot=l1_snapshot,
-        feature_relations=[],
-        analyzed_files=[],
-        trigger="manual",
+    seed_baseline_snapshot(
+        tmp_path,
         label="v1.0.0",
+        features={
+            f"feat-baseline-{i}": FeatureSummary(
+                feature_id=f"feat-baseline-{i}",
+                label=f"Baseline feature {i}",
+                description=f"baseline feature {i}",
+                source_node_count=1,
+                confidence="high",
+                source_nodes=(f"node-{i}",),
+            )
+            for i in range(11)
+        },
     )
     return tmp_path
 

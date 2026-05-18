@@ -17,17 +17,9 @@ from click.testing import CliRunner
 
 def _seed_snapshot(project_root: Path, label: str = "v1.0.0") -> str:
     """Persist a minimal VersionSnapshot and return its version_id."""
-    from the_door.core.diff.snapshot_store import SnapshotStore
+    from tests._seed_helpers import seed_baseline_snapshot
 
-    store = SnapshotStore(project_root)
-    snap = store.create_snapshot(
-        l1_snapshot={},
-        feature_relations=[],
-        analyzed_files=[],
-        trigger="manual",
-        label=label,
-    )
-    return snap.version_id
+    return seed_baseline_snapshot(project_root, label=label).version_id
 
 
 @pytest.fixture

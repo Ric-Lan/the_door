@@ -5,11 +5,8 @@ envelope shape:
 
     {"error": {"code", "message", "source", "remediation": {...}}}
 
-Scope-narrow adapt: the spec references `seeded_v105_fixture` which is local
-to two MCP test files and not globally available. We hand-seed minimal
-snapshots via `SnapshotStore.create_snapshot(...)` directly (same pattern as
-`_seed_two_snapshots` in `test_api_handlers.py`), so the meta-test stays
-hermetic and does not require a v1.0.5 source tree.
+Hand-seeds a minimal v1.0.0 snapshot via the shared ``seed_baseline_snapshot``
+helper so the meta-test stays hermetic — no v1.0.5 source tree required.
 """
 from __future__ import annotations
 
@@ -21,11 +18,7 @@ from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.ui.api_handlers import APIHandlers
 from the_door.core.ui.job_store import JobStore
 from the_door.models import FeatureSummary
-
-
-# ---------------------------------------------------------------------------
-# Local fixtures / helpers (narrow-scope: no seeded_v105_fixture available)
-# ---------------------------------------------------------------------------
+from tests._seed_helpers import seed_baseline_snapshot
 
 
 def _make_handlers(project_root: Path) -> APIHandlers:
@@ -34,23 +27,19 @@ def _make_handlers(project_root: Path) -> APIHandlers:
 
 def _seed_v100_snapshot(project_root: Path):
     """Hand-seed a single v1.0.0 snapshot with one feature, return it."""
-    store = SnapshotStore(project_root)
-    l1 = {
-        "feat-baseline": FeatureSummary(
-            feature_id="feat-baseline",
-            label="Baseline feature",
-            description="baseline",
-            source_node_count=1,
-            confidence="high",
-            source_nodes=("node-a",),
-        )
-    }
-    return store.create_snapshot(
-        l1_snapshot=l1,
-        feature_relations=[],
-        analyzed_files=[],
-        trigger="manual",
+    return seed_baseline_snapshot(
+        project_root,
         label="v1.0.0",
+        features={
+            "feat-baseline": FeatureSummary(
+                feature_id="feat-baseline",
+                label="Baseline feature",
+                description="baseline",
+                source_node_count=1,
+                confidence="high",
+                source_nodes=("node-a",),
+            )
+        },
     )
 
 
@@ -69,8 +58,7 @@ def _known_vid(project_root: Path) -> str | None:
 
 @pytest.fixture
 def seeded_root(tmp_path):
-    """Hand-seeded project_root with one v1.0.0 snapshot. Local fixture —
-    avoids dependency on the MCP-only `seeded_v105_fixture`."""
+    """Hand-seeded project_root with one v1.0.0 snapshot."""
     _seed_v100_snapshot(tmp_path)
     return tmp_path
 

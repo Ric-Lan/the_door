@@ -11,13 +11,13 @@ from pathlib import Path
 
 import pytest
 
-from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.models import (
     ASTNode,
     ExtractionResult,
     FeatureSummary,
     VersionSnapshot,
 )
+from tests._seed_helpers import seed_baseline_snapshot
 
 
 def _seed_project(
@@ -26,32 +26,23 @@ def _seed_project(
     baseline_label: str,
     persist_structure: bool = True,
 ) -> VersionSnapshot:
-    """Seed ``tmp_path`` with a baseline snapshot (and optional persisted structure).
-
-    Mirrors the helper used in tests/unit/core/pipeline/test_incremental_pipeline.py
-    but kept local per spec convention (tests self-contained).
-    """
-    store = SnapshotStore(tmp_path)
-
+    """Seed ``tmp_path`` with a baseline snapshot (and optional persisted structure)."""
     nodes = [("file.py::a", 1), ("file.py::b", 2)]
     source_nodes = tuple(node_id for node_id, _ in nodes)
-    l1_snapshot: dict[str, FeatureSummary] = {
-        "feat-seeded": FeatureSummary(
-            feature_id="feat-seeded",
-            label="seeded feature",
-            description="baseline feature owning the seeded nodes",
-            source_node_count=len(source_nodes),
-            confidence="high",
-            source_nodes=source_nodes,
-        )
-    }
-
-    snapshot = store.create_snapshot(
-        l1_snapshot=l1_snapshot,
-        feature_relations=[],
-        analyzed_files=["file.py"],
-        trigger="manual",
+    snapshot = seed_baseline_snapshot(
+        tmp_path,
         label=baseline_label,
+        features={
+            "feat-seeded": FeatureSummary(
+                feature_id="feat-seeded",
+                label="seeded feature",
+                description="baseline feature owning the seeded nodes",
+                source_node_count=len(source_nodes),
+                confidence="high",
+                source_nodes=source_nodes,
+            )
+        },
+        analyzed_files=["file.py"],
     )
 
     if persist_structure:

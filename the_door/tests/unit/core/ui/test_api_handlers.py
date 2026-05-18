@@ -524,20 +524,18 @@ def test_api_status_returns_state_and_next_actions(tmp_path):
 # ---------------------------------------------------------------------------
 # Task 05.4 — GET /api/diff (O2 snapshot reference resolution + F3 envelope)
 #
-# Scope-narrow: the spec's `seeded_v105_fixture` is not a global fixture
-# (it lives inside two MCP test files). We hand-seed two minimal snapshots
-# under tmp_path via SnapshotStore.create_snapshot to exercise the resolver
-# and DiffEngine integration without needing a v1.0.5 source tree.
+# Hand-seeds two minimal snapshots via the shared `seed_baseline_snapshot`
+# helper. Both snapshots share an identical single-feature L1 so the
+# DiffEngine returns an empty (no-changes) diff — exactly the success-path
+# shape these resolver tests need.
 # ---------------------------------------------------------------------------
 
 
 def _seed_two_snapshots(tmp_path):
-    """Seed v1.0.0 + v1.0.5 snapshots in tmp_path and return their (label, vid)
-    pairs. Both snapshots share an empty L1 so the DiffEngine path remains
-    valid for both label resolution and self-diff (no-changes) success paths.
-    """
-    store = SnapshotStore(tmp_path)
-    # v1.0.0 — one baseline feature so the snapshot is non-degenerate.
+    """Seed v1.0.0 + v1.0.5 snapshots in tmp_path and return their snapshot
+    objects. Both share an identical single-feature L1 (empty-diff path)."""
+    from tests._seed_helpers import seed_baseline_snapshot
+
     l1: dict[str, FeatureSummary] = {
         "feat-baseline": FeatureSummary(
             feature_id="feat-baseline",
@@ -548,21 +546,8 @@ def _seed_two_snapshots(tmp_path):
             source_nodes=("node-a",),
         )
     }
-    v1 = store.create_snapshot(
-        l1_snapshot=l1,
-        feature_relations=[],
-        analyzed_files=[],
-        trigger="manual",
-        label="v1.0.0",
-    )
-    # v1.0.5 — identical L1 so the diff is empty (success path).
-    v5 = store.create_snapshot(
-        l1_snapshot=dict(l1),
-        feature_relations=[],
-        analyzed_files=[],
-        trigger="manual",
-        label="v1.0.5",
-    )
+    v1 = seed_baseline_snapshot(tmp_path, label="v1.0.0", features=l1)
+    v5 = seed_baseline_snapshot(tmp_path, label="v1.0.5", features=l1)
     return v1, v5
 
 

@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.models import (
     ASTNode,
     ExtractionResult,
     FeatureSummary,
     VersionSnapshot,
 )
+from tests._seed_helpers import seed_baseline_snapshot
 
 
 def _seed_project(
@@ -40,8 +40,6 @@ def _seed_project(
     Setting ``persist_structure=False`` skips writing the gzipped structure
     file — this triggers the ``no_persisted_structure_for_baseline`` branch.
     """
-    store = SnapshotStore(tmp_path)
-
     source_nodes = tuple(node_id for node_id, _ in nodes)
     l1_snapshot: dict[str, FeatureSummary] = {}
     if source_nodes:
@@ -54,12 +52,11 @@ def _seed_project(
             source_nodes=source_nodes,
         )
 
-    snapshot = store.create_snapshot(
-        l1_snapshot=l1_snapshot,
-        feature_relations=[],
-        analyzed_files=[node_id.split("::", 1)[0] for node_id, _ in nodes] or [],
-        trigger="manual",
+    snapshot = seed_baseline_snapshot(
+        tmp_path,
         label=baseline_label,
+        features=l1_snapshot,
+        analyzed_files=[node_id.split("::", 1)[0] for node_id, _ in nodes] or [],
     )
 
     if persist_structure:
