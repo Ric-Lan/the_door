@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from the_door.core.llm.prompts import L1_SYSTEM_PROMPT
 from the_door.core.llm.response_parser import ResponseParser
 from the_door.core.reading.pruning_engine import PruningEngine
 from the_door.models import (
@@ -148,7 +149,7 @@ class BatchReader:
             "source_nodes": source_nodes,
         })
 
-        response = await self._provider.complete(prompt)
+        response = await self._provider.complete(prompt, system_prompt=L1_SYSTEM_PROMPT)
         parse_result = self._parser.parse(response)
 
         if not parse_result.success or not parse_result.data:
@@ -257,7 +258,7 @@ class BatchReader:
             "nodes": node_ids,
         })
 
-        response = await self._provider.complete(prompt)
+        response = await self._provider.complete(prompt, system_prompt=L1_SYSTEM_PROMPT)
         parse_result = self._parser.parse(response)
 
         if not parse_result.success or not parse_result.data:

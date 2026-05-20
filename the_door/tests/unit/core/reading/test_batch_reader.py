@@ -259,3 +259,63 @@ class TestBatchReaderRegenerate:
         result = asyncio.run(reader.regenerate("feat-1", previous_result=previous))
 
         assert result.differs is False
+
+
+# === L1_SYSTEM_PROMPT wire-through tests ===
+
+import json
+from unittest.mock import AsyncMock
+
+from the_door.core.llm.prompts import L1_SYSTEM_PROMPT
+from the_door.models import Feature, StructureJSON
+
+
+def _l1_minimal_structure() -> StructureJSON:
+    return StructureJSON()
+
+
+def _l1_stub_feature() -> Feature:
+    return Feature(
+        feature_id="feat-x",
+        label="x",
+        description="",
+        trigger="user_action",
+        trigger_description="",
+        confidence="medium",
+        confidence_reason="",
+        source_nodes=[],
+    )
+
+
+def _extract_system_prompt(call) -> str | None:
+    system_prompt = call.kwargs.get("system_prompt")
+    if system_prompt is None and len(call.args) >= 2:
+        system_prompt = call.args[1]
+    return system_prompt
+
+
+def test_process_batch_passes_l1_system_prompt():
+    """_process_batch must pass L1_SYSTEM_PROMPT as the system_prompt argument."""
+    provider = AsyncMock()
+    provider.complete = AsyncMock(
+        return_value=json.dumps({"features": [], "feature_relations": []})
+    )
+
+    reader = BatchReader(provider, _l1_minimal_structure())
+    asyncio.run(reader._process_batch(["n1"], 0))
+
+    assert provider.complete.await_count == 1
+    assert _extract_system_prompt(provider.complete.await_args) == L1_SYSTEM_PROMPT
+
+
+def test_regenerate_passes_l1_system_prompt():
+    """regenerate() must pass L1_SYSTEM_PROMPT as system_prompt."""
+    provider = AsyncMock()
+    provider.complete = AsyncMock(
+        return_value=json.dumps({"features": [{"feature_id": "feat-x", "label": "x"}]})
+    )
+
+    reader = BatchReader(provider, _l1_minimal_structure())
+    asyncio.run(reader.regenerate("feat-x", _l1_stub_feature()))
+
+    assert _extract_system_prompt(provider.complete.await_args) == L1_SYSTEM_PROMPT
