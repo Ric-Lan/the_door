@@ -187,3 +187,45 @@ class TestPostDiffExplanationGenerate:
             )
         assert status == 503
         assert body["error"]["code"] == "provider_not_configured"
+
+
+# === diff_explanation prompt content tests ===
+
+
+def test_diff_explanation_prompt_lists_forbidden_jargon_categories():
+    """Prompt must enumerate forbidden categories by name."""
+    prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "zh-Hant")
+    for token in ("函式名", "API endpoint", "檔名", "縮寫"):
+        assert token in prompt, f"diff_explanation prompt missing forbidden token: {token}"
+
+
+def test_diff_explanation_prompt_has_good_and_bad_examples():
+    prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "zh-Hant")
+    assert "✅" in prompt, "missing good example marker"
+    assert "❌" in prompt, "missing bad example marker"
+
+
+def test_diff_explanation_prompt_carries_through_output_language():
+    """Existing contract — language parameter must reach the prompt.
+    Assert the full interpolated phrase, not the bare substring "en":
+    "en" also occurs inside the forbidden-jargon word "endpoint"."""
+    prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "en")
+    assert "必須使用 en 語言" in prompt
+
+
+def test_diff_explanation_prompt_preserves_existing_schema():
+    """Regression: don't break existing 5-field output schema."""
+    prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "zh-Hant")
+    for field in ("impact_summary", "possible_purpose", "linked_resources",
+                  "caution", "confidence"):
+        assert field in prompt
+
+
+def test_diff_explanation_prompt_good_example_avoids_forbidden_tokens():
+    """The prompt's own ✅ example must not violate its own rules."""
+    prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "zh-Hant")
+    good_block = prompt.split("✅", 1)[1].split("❌", 1)[0]
+    for forbidden in ("/api/", ".py", ".js", "JSON-RPC", "AST"):
+        assert forbidden not in good_block, (
+            f"diff_explanation good example contains forbidden substring: {forbidden}"
+        )

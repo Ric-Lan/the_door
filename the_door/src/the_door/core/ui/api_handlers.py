@@ -881,27 +881,54 @@ class APIHandlers:
     def _build_diff_explanation_prompt(
         feature_id: str, context: dict, output_language: str
     ) -> str:
-        """Build a structured prompt for diff explanation generation."""
-        ctx_text = json.dumps(context, ensure_ascii=False, indent=2) if context else "（無差異資料）"
+        """Build a structured prompt for diff explanation generation.
+
+        Enforces non-technical-reader-friendly output via an explicit
+        forbidden-jargon list and worked good/bad examples. Tests in
+        test_api_handlers_diff_explanation.py assert these elements remain
+        present.
+        """
+        ctx_text = (
+            json.dumps(context, ensure_ascii=False, indent=2)
+            if context else "（無差異資料）"
+        )
         return f"""你是版本差異分析助理。根據以下差異資料，以 {output_language} 回答四個問題。
+目標讀者是**非技術讀者**（產品經理、客服、營運），不是工程師。
 
 差異資料（feature_id: {feature_id}）：
 {ctx_text}
 
+## 風格規則（硬性）
+
+四個欄位的文字內容必須符合：
+
+- **禁止實作細節**：函式名、API endpoint（如以 `/api/` 開頭的字串）、檔名
+  （`.py` / `.js` / `.ts` 等副檔名）、縮寫（AST / JSON-RPC / API / DOM 等）、
+  camelCase 識別字
+- 用「影響什麼／為了什麼」描述，不用「怎麼改的程式」
+- 必須使用 {output_language} 語言回答
+- 只根據提供的資料推論，不要編造需求、commit message 或不存在的資源
+- 若資料不足，confidence 填 low，caution 說明推論依據有限
+
+## 範例
+
+✅ 好範例：
+- impact_summary：使用者打開頁面時看到的不再是滿屏的圖譜，而是一份可閱讀的功能清單。
+
+❌ 壞範例：
+- impact_summary：移除 renderGraphCanvas，改用 featureCard 組件，並透過 /api/l1 載入。
+
+## 輸出格式
+
 請以 JSON 格式回答，不要包含其他文字：
+
 {{
-  "impact_summary": "此差異輸出影響什麼（一句話，面向非工程師）",
+  "impact_summary": "此差異對使用者體驗影響什麼（一句話，面向非技術讀者）",
   "possible_purpose": "此變更可以達成什麼目的（一句話，用「可能」語氣）",
-  "linked_resources": ["相關功能或模組名稱列表，最多 5 個"],
+  "linked_resources": ["相關功能名稱列表，最多 5 個；不要列函式名或檔名"],
   "caution": "需要注意的地方；資料不足時說明推論依據有限",
   "confidence": "high 或 medium 或 low"
-}}
-
-規則：
-- 只根據提供的資料推論，不要編造需求、commit message 或不存在的資源。
-- 若資料不足，confidence 填 low，caution 說明推論依據有限。
-- 文字面向非工程師，避免不必要的技術術語。
-- 必須使用 {output_language} 語言回答。"""
+}}"""
 
     # ------------------------------------------------------------------
     # Internal helpers
