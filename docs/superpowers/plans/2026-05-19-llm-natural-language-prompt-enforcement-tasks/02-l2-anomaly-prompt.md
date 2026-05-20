@@ -52,8 +52,18 @@ Append to `the_door/tests/unit/core/ui/test_l2_generator.py`:
 ```python
 # Append to the_door/tests/unit/core/ui/test_l2_generator.py
 
+import re
+
 from the_door.core.ui.l2_generator import L2Generator
 from the_door.models import StructureJSON
+
+
+def _normalize(text: str) -> str:
+    """Collapse whitespace runs and lowercase — prompt-content assertions
+    must be robust to line-wrapping and casing inside the prompt literal.
+    The L2 prompt is built from concatenated string literals, so multi-word
+    phrases get newlines + indentation spliced into them."""
+    return re.sub(r"\s+", " ", text).lower()
 
 
 def _structure_with_one_node() -> StructureJSON:
@@ -79,9 +89,11 @@ def test_l2_prompt_notes_vuln_types_unavailable(tmp_path):
     gen = L2Generator(tmp_path, llm_provider=None)
     prompt = gen._build_prompt("feat-x", _structure_with_one_node())
     assert "vuln_high" in prompt and "vuln_medium" in prompt
-    # Some explicit "not currently injected / not available / do not fabricate" wording:
+    # Some explicit "not currently injected / do not fabricate" wording.
+    # Normalized: the prompt wraps this phrase across lines and uses "Do NOT".
+    norm = _normalize(prompt)
     assert any(
-        token in prompt
+        token in norm
         for token in ("not currently injected", "尚未注入", "do not fabricate", "不要編造")
     ), "L2 prompt must explicitly forbid fabricating vulnerability anomalies"
 
@@ -92,12 +104,14 @@ def test_l2_prompt_enforces_per_module_checklist(tmp_path):
     gen = L2Generator(tmp_path, llm_provider=None)
     prompt = gen._build_prompt("feat-x", _structure_with_one_node())
     # Look for both per-module enforcement and explicit-no-finding requirement.
+    # Normalized: the prompt uses "For each module" and hyphenated "per-module".
+    norm = _normalize(prompt)
     assert any(
-        token in prompt
-        for token in ("for each module", "逐 module", "per module", "every module")
+        token in norm
+        for token in ("for each module", "per-module", "every module")
     ), "L2 prompt lacks per-module enforcement language"
     assert any(
-        token in prompt
+        token in norm
         for token in (
             'explicitly state "none found"',
             "明示「無發現」",

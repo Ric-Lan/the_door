@@ -14,7 +14,9 @@
 
 Source investigation (2026-05-19 session):
 
-**L1 prompt does not exist.** [`batch_reader.py:255`](the_door/src/the_door/core/reading/batch_reader.py:255) builds `prompt = json.dumps({"batch": batch_num, "nodes": node_ids})` and [`batch_reader.py:260`](the_door/src/the_door/core/reading/batch_reader.py:260) calls `await self._provider.complete(prompt)` positionally — no `system_prompt`. Provider classes accept `system_prompt: str | None = None` but it defaults to `None`. The LLM has no stylistic instruction. Snapshot quality currently depends on whichever agent-as-LLM context happened to be present when the snapshot was written; nothing survives across sessions.
+**L1 prompt does not exist.** [`batch_reader.py:255`](the_door/src/the_door/core/reading/batch_reader.py:255) builds `prompt = json.dumps({"batch": batch_num, "nodes": node_ids})` and [`batch_reader.py:260`](the_door/src/the_door/core/reading/batch_reader.py:260) calls `await self._provider.complete(prompt)` positionally — no `system_prompt`. Provider classes accept `system_prompt: str | None = None` (confirmed at [`provider.py:20`](the_door/src/the_door/core/llm/provider.py:20)) but it defaults to `None`. The LLM has no stylistic instruction. Snapshot quality currently depends on whichever agent-as-LLM context happened to be present when the snapshot was written; nothing survives across sessions.
+
+**Two call sites share one prompt.** `batch_reader` calls `provider.complete` from two places — `_process_batch` (batch grouping, [line 260](the_door/src/the_door/core/reading/batch_reader.py:260)) and `regenerate` (single-feature re-analysis, [line 151](the_door/src/the_door/core/reading/batch_reader.py:151)). Both build a JSON user-prompt and both parse the response into `Feature` objects via the same `ResponseParser`; `regenerate` consumes only `features[0]` and ignores the `feature_relations` key. `L1_SYSTEM_PROMPT` is wired into both because the non-technical-reader style rules apply identically. To avoid contradicting the `regenerate` task, the prompt's task wording is kept general enough to cover both batch grouping and single-feature re-analysis (see Task 1, "## 任務").
 
 **Design principle:** L1 = non-technical reader critical-need; natural language is thickest at this layer. See [README.md](README.md) for the full layer principle and shared out-of-scope list.
 
@@ -22,7 +24,7 @@ Source investigation (2026-05-19 session):
 
 | Action | Path | Responsibility |
 |---|---|---|
-| Create | `the_door/src/the_door/core/llm/prompts.py` | Central prompt strings — `L1_SYSTEM_PROMPT` constant |
+| Create | `the_door/src/the_door/core/llm/prompts.py` | `L1_SYSTEM_PROMPT` constant (L2/diff prompts deliberately stay inline in their own modules) |
 | Create | `the_door/tests/unit/core/llm/test_prompts.py` | Prompt content assertions |
 | Modify | [`the_door/src/the_door/core/reading/batch_reader.py`](the_door/src/the_door/core/reading/batch_reader.py:151) (lines 151, 260) | Pass `system_prompt=L1_SYSTEM_PROMPT` to `provider.complete` |
 | Modify | `the_door/tests/unit/core/reading/test_batch_reader.py` | Assert system_prompt is wired through |
@@ -77,8 +79,10 @@ def test_l1_system_prompt_good_example_avoids_forbidden_tokens():
     # Find the good example block — everything between ✅ and ❌
     assert "✅" in L1_SYSTEM_PROMPT, "missing good example"
     good_block = L1_SYSTEM_PROMPT.split("✅", 1)[1].split("❌", 1)[0]
-    # Spot-check: example description must not contain obvious jargon
-    forbidden_substrings = ("/api/", ".py", ".js", "JSON-RPC", "AST")
+    # Spot-check: example must not contain obvious jargon, including the
+    # abbreviation category the prompt's own rule 2 forbids.
+    forbidden_substrings = ("/api/", ".py", ".js", "JSON-RPC", "AST",
+                            "UI", "API", "HTTP", "URL", "DOM")
     for forbidden in forbidden_substrings:
         assert forbidden not in good_block, (
             f"L1 prompt good example contains forbidden substring: {forbidden}"
@@ -99,9 +103,13 @@ Expected: `ModuleNotFoundError: No module named 'the_door.core.llm.prompts'`
 
 ```python
 # the_door/src/the_door/core/llm/prompts.py
-"""Central LLM prompt strings for The Door.
+"""L1 system prompt for The Door.
 
-Each prompt is paired with prompt-content tests in
+Holds ``L1_SYSTEM_PROMPT`` only. The L2 anomaly prompt and the
+diff-explanation prompt deliberately stay inline in their own modules
+(``core/ui/l2_generator.py`` and ``core/ui/api_handlers.py``).
+
+The prompt is paired with prompt-content tests in
 ``the_door/tests/unit/core/llm/test_prompts.py`` that assert audience,
 schema, and forbidden-jargon contracts. No regex validator —
 inline tests check what matters at the lowest cost (see README's
@@ -116,8 +124,8 @@ L1_SYSTEM_PROMPT = """\
 
 ## 任務
 
-收到一組 AST 節點清單後，將它們分群成數個 L1 功能（feature），每個 feature
-回傳以下欄位：
+你會收到一組 AST 節點清單——可能來自一次批次分析，也可能是單一功能的重新分析。
+將它們整理成一或多個 L1 功能（feature），每個 feature 回傳以下欄位：
 
 - feature_id：以 `feat-` 開頭的 kebab-case 識別字串
 - label：4–10 字中文短名
@@ -147,7 +155,7 @@ description 與 trigger_description 必須符合以下全部規則：
 ✅ 好範例：
 - description：讓你用瀏覽器看分析結果，畫面以可互動的功能圖譜為核心，
   搭配右側的詳情面板與版本選擇器。
-- trigger_description：執行啟動 UI 指令；瀏覽器開啟頁面後會自動載入分析資料。
+- trigger_description：執行開啟介面的指令；瀏覽器開啟頁面後會自動載入分析資料。
 
 ❌ 壞範例：
 - description：啟動 HTTP server 對外暴露 /api/* 端點，由 renderGraphCanvas
