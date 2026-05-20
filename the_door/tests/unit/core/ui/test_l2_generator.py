@@ -222,3 +222,78 @@ def test_load_returns_none_when_file_is_corrupt(tmp_path: Path) -> None:
 
     result = L2Generator.load(project_root=tmp_path, feature_id="feat_corrupt")
     assert result is None
+
+
+# === L2 anomaly-prompt content tests ===
+
+import re
+
+
+def _normalize(text: str) -> str:
+    """Collapse whitespace runs and lowercase — prompt-content assertions
+    must be robust to line-wrapping and casing inside the prompt literal.
+    The L2 prompt is built from concatenated string literals, so multi-word
+    phrases get newlines + indentation spliced into them."""
+    return re.sub(r"\s+", " ", text).lower()
+
+
+def _structure_with_one_node() -> StructureJSON:
+    return StructureJSON()
+
+
+def test_l2_prompt_lists_three_ast_judgeable_anomaly_types(tmp_path):
+    """Prompt must enumerate the 3 anomaly types LLM can judge from AST alone:
+    dead_code, logic_dead_end, uncertain_boundary."""
+    gen = L2Generator(tmp_path, llm_provider=None)
+    prompt = gen._build_prompt("feat-x", _structure_with_one_node())
+    for atype in ("dead_code", "logic_dead_end", "uncertain_boundary"):
+        assert atype in prompt, f"L2 prompt missing anomaly_type: {atype}"
+
+
+def test_l2_prompt_notes_vuln_types_unavailable(tmp_path):
+    """vuln_high / vuln_medium are mentioned as known types but the prompt
+    must explicitly state vulnerability data is not currently injected,
+    so the LLM does not fabricate vulnerabilities."""
+    gen = L2Generator(tmp_path, llm_provider=None)
+    prompt = gen._build_prompt("feat-x", _structure_with_one_node())
+    assert "vuln_high" in prompt and "vuln_medium" in prompt
+    # Some explicit "not currently injected / do not fabricate" wording.
+    # Normalized: the prompt wraps this phrase across lines and uses "Do NOT".
+    norm = _normalize(prompt)
+    assert any(
+        token in norm
+        for token in ("not currently injected", "尚未注入", "do not fabricate", "不要編造")
+    ), "L2 prompt must explicitly forbid fabricating vulnerability anomalies"
+
+
+def test_l2_prompt_enforces_per_module_checklist(tmp_path):
+    """Prompt must instruct LLM to report findings per module, including
+    'no anomaly found' for clean modules — silently omitting is forbidden."""
+    gen = L2Generator(tmp_path, llm_provider=None)
+    prompt = gen._build_prompt("feat-x", _structure_with_one_node())
+    # Look for both per-module enforcement and explicit-no-finding requirement.
+    # Normalized: the prompt uses "For each module" and hyphenated "per-module".
+    norm = _normalize(prompt)
+    assert any(
+        token in norm
+        for token in ("for each module", "per-module", "every module")
+    ), "L2 prompt lacks per-module enforcement language"
+    assert any(
+        token in norm
+        for token in (
+            'explicitly state "none found"',
+            "明示「無發現」",
+            "no anomaly found",
+        )
+    ), "L2 prompt does not require explicit no-finding statement"
+
+
+def test_l2_prompt_preserves_existing_schema(tmp_path):
+    """Regression: existing module / module_interactions / anomalies schema
+    must remain so _parse_response keeps working."""
+    gen = L2Generator(tmp_path, llm_provider=None)
+    prompt = gen._build_prompt("feat-x", _structure_with_one_node())
+    for key in ("modules", "module_interactions", "anomalies"):
+        assert key in prompt
+    for field in ("anomaly_type", "affected_node_ids", "explanation", "confidence"):
+        assert field in prompt

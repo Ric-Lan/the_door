@@ -77,9 +77,13 @@ class L2Generator:
     ) -> str:
         """Build LLM prompt for L2 generation.
 
-        Prompt includes feature_id and full StructureJSON (nodes + edges + topology).
-        Instructs LLM to identify modules, interactions, and anomalies for the feature.
-        Returns prompt string.
+        Enforces:
+        - per-module anomaly checklist (LLM must explicitly report "none found"
+          for clean modules rather than silently omit anomaly entries)
+        - all 3 AST-judgeable anomaly types listed by name with definitions:
+          dead_code, logic_dead_end, uncertain_boundary
+        - vuln_high / vuln_medium mentioned but explicitly flagged as
+          "data not currently injected — do not fabricate"
         """
         nodes_summary = [
             {"node_id": n.node_id, "name": n.name, "type": n.type, "file": n.file}
@@ -98,15 +102,33 @@ class L2Generator:
 
         return (
             f"You are analysing the codebase structure for feature '{feature_id}'.\n\n"
-            "Given the following AST structure JSON, identify the logical modules "
-            "that implement this feature, the interactions between those modules, "
-            "and any anomalies (dead code, uncertain boundaries, etc.).\n\n"
-            "Structure JSON:\n"
-            f"{structure_data}\n\n"
+            "Given the AST structure JSON below, identify the logical modules that "
+            "implement this feature, the interactions between those modules, and "
+            "any anomalies.\n\n"
+            f"Structure JSON:\n{structure_data}\n\n"
+            "## Anomaly inspection (MANDATORY per-module checklist)\n\n"
+            "For each module you identify, you MUST consider all 3 anomaly types "
+            'below and either (a) emit an anomaly entry if found, or (b) explicitly '
+            'state "none found" for that type in your reasoning. Silently omitting '
+            "a type is a protocol violation.\n\n"
+            "Anomaly types you SHOULD evaluate (use these exact strings in anomaly_type):\n"
+            "  - dead_code: node exists but has no caller and is not reachable from\n"
+            "               any entry point\n"
+            "  - logic_dead_end: call chain terminates without producing observable\n"
+            "                    effect or return value used downstream\n"
+            "  - uncertain_boundary: node could plausibly belong to multiple modules;\n"
+            "                        clarify which and why\n\n"
+            "Anomaly types you must NOT emit in this call:\n"
+            "  - vuln_high / vuln_medium: vulnerability scan data is not currently\n"
+            "                             injected into this prompt. Do NOT fabricate\n"
+            "                             vulnerability findings from AST alone.\n\n"
+            "## Response format\n\n"
             "Respond with a JSON object that has exactly these top-level keys:\n"
             "  - modules: list of {module_id, label, confidence, source_nodes}\n"
-            "  - module_interactions: list of {from_module, to_module, description, relation_type}\n"
-            "  - anomalies: list of {anomaly_type, affected_node_ids, explanation, confidence}\n\n"
+            "  - module_interactions: list of {from_module, to_module, description,\n"
+            "                                  relation_type}\n"
+            "  - anomalies: list of {anomaly_type, affected_node_ids, explanation,\n"
+            "                        confidence}\n\n"
             "confidence values must be 'high', 'medium', or 'low'.\n"
             "relation_type values must be 'static' or 'inferred'.\n"
             "Return only the JSON object, no additional text."
