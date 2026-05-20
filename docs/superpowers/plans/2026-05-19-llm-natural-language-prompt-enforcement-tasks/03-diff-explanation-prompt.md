@@ -62,9 +62,11 @@ def test_diff_explanation_prompt_has_good_and_bad_examples():
 
 
 def test_diff_explanation_prompt_carries_through_output_language():
-    """Existing contract — language parameter must reach the prompt."""
+    """Existing contract — language parameter must reach the prompt.
+    Assert the full interpolated phrase, not the bare substring "en":
+    "en" also occurs inside the forbidden-jargon word "endpoint"."""
     prompt = APIHandlers._build_diff_explanation_prompt("feat-x", {}, "en")
-    assert "en" in prompt
+    assert "必須使用 en 語言" in prompt
 
 
 def test_diff_explanation_prompt_preserves_existing_schema():
