@@ -3,6 +3,32 @@ import { els } from './dom.js';
 import { appendUserNotesSection } from './ui-notes.js';
 import { appendDiffExplanationSection } from './ui-diff-explanation.js';
 import { appendNextActionsSection } from './ui-next-actions.js';
+import { wordDiff } from './diff-util.js';
+
+export function shouldShowWarningBanner(feature) {
+  return feature?.change_type === 'added' && feature?.confidence === 'low';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderBeforeAfter(before, after) {
+  if (!before && !after) return '';
+  const segments = wordDiff(before ?? '', after ?? '');
+  const beforeHtml = segments
+    .filter(s => s.type !== 'add')
+    .map(s => s.type === 'remove' ? `<mark class="diff-mark diff-mark-remove">${escapeHtml(s.text)}</mark>` : escapeHtml(s.text))
+    .join('');
+  const afterHtml = segments
+    .filter(s => s.type !== 'remove')
+    .map(s => s.type === 'add' ? `<mark class="diff-mark diff-mark-add">${escapeHtml(s.text)}</mark>` : escapeHtml(s.text))
+    .join('');
+  return `<div class="diff-before-after">
+    <div class="diff-panel diff-panel-before"><strong>修改前</strong><br>${beforeHtml}</div>
+    <div class="diff-panel diff-panel-after"><strong>修改後</strong><br>${afterHtml}</div>
+  </div>`;
+}
 
 export function renderEmpty(parent, message) {
   const div = document.createElement('div');

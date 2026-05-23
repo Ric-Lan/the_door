@@ -751,6 +751,19 @@ describe('applyDiffSort — ?? 99 on a side with known flag', () => {
   });
 });
 
+// ── shouldShowWarningBanner ────────────────────────────────────────
+
+import { shouldShowWarningBanner } from '../js/ui-detail.js';
+
+describe('shouldShowWarningBanner', () => {
+  it('true only when added + low confidence', () => {
+    expect(shouldShowWarningBanner({ change_type: 'added', confidence: 'low' })).toBe(true);
+    expect(shouldShowWarningBanner({ change_type: 'added', confidence: 'high' })).toBe(false);
+    expect(shouldShowWarningBanner({ change_type: 'attribute_changed', confidence: 'low' })).toBe(false);
+    expect(shouldShowWarningBanner(null)).toBe(false);
+  });
+});
+
 // ── S3.3 regression: user-notes + diff-explanation wiring ─────────
 
 describe('ui-detail regression — user notes + diff explanation sections', () => {

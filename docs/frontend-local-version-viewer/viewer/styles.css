@@ -1474,3 +1474,65 @@ h1 {
   outline: 2px solid var(--accent, #0d9488);
   outline-offset: 1px;
 }
+
+/* Detail panel sticky header/tabs (§ 7.2) */
+.detail-panel .panel-header.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface, #fff);
+}
+.detail-panel .detail-tabs.sticky {
+  position: sticky;
+  top: var(--detail-header-h, 56px);
+  z-index: 1;
+  background: var(--surface, #fff);
+}
+
+/* Warning banner (§ 7.4) */
+.detail-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--warn-bg, #fef3c7);
+  border-left: 3px solid var(--warn, #b45309);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--warn-fg, #855207);
+}
+
+/* Before/After word-diff (§ 7.3) */
+.diff-before-after {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.diff-panel {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.diff-panel-before {
+  background: var(--removed-bg, #fdf2f2);
+  border: 1px solid var(--removed-border, #f5c6cb);
+}
+.diff-panel-after {
+  background: var(--added-bg, #f0fdf4);
+  border: 1px solid var(--added-border, #b7efc5);
+}
+.diff-mark-remove {
+  background: var(--removed-border, #f5c6cb);
+  color: var(--removed-fg, #9a1a1a);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.diff-mark-add {
+  background: var(--added-border, #b7efc5);
+  color: var(--added-fg, #1d6e34);
+  border-radius: 2px;
+  padding: 0 1px;
+}
