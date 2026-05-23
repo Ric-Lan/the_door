@@ -24,8 +24,16 @@
 
         <!-- 版本選擇器（多 snapshot 時顯示） -->
         <div id="version-selector-bar" class="version-selector-bar">
-          <button class="vsb-pill vsb-pill-a" id="vsb-pill-a" type="button">版本 A</button>
-          <button class="vsb-pill vsb-pill-b" id="vsb-pill-b" type="button">版本 B</button>
+          <div class="vsb-pill vsb-pill-a">
+            <span class="vsb-tag">A</span>
+            <select class="vsb-select" id="select-version-a"></select>
+            <span class="vsb-chevron">▾</span>
+          </div>
+          <div class="vsb-pill vsb-pill-b">
+            <span class="vsb-tag">B</span>
+            <select class="vsb-select" id="select-version-b"></select>
+            <span class="vsb-chevron">▾</span>
+          </div>
         </div>
 
         <nav class="mode-switch" aria-label="viewer mode">
@@ -118,9 +126,14 @@
             <h2>詳情</h2>
             <p id="detail-source">尚未選取</p>
           </div>
+          <div class="detail-tabs">
+            <button class="tab tab-detail active" data-tab="detail" type="button">詳情</button>
+            <button class="tab tab-notes" data-tab="notes" type="button">備註 <span class="tab-count" id="notes-tab-count" hidden>0</span></button>
+          </div>
           <div id="detail-content" class="detail-content empty-state">
             點選左側功能卡片以查看詳情。
           </div>
+          <div id="notes-tab-pane" class="notes-tab-pane" hidden></div>
           <div id="layer-explanation"></div>
         </aside>
       </main>

@@ -53,6 +53,50 @@ export function renderNoSelection() {
   els.detailSource.textContent = '尚未選取';
   els.detailContent.className  = 'detail-content empty-state';
   els.detailContent.textContent = '選取左側項目以查看詳情。';
+  _clearNotesPane();
+}
+
+function _notesPane() {
+  return document.getElementById('notes-tab-pane');
+}
+
+function _clearNotesPane() {
+  const pane = _notesPane();
+  if (pane) pane.textContent = '';
+}
+
+function _appendNotes(mode, versionA, versionB, featureId) {
+  const pane = _notesPane();
+  if (!pane) return;
+  pane.textContent = '';
+  appendUserNotesSection(pane, mode, versionA, versionB, featureId);
+  // switch tab back to detail by default; badge will update if notes load
+  _resetDetailTab();
+}
+
+function _resetDetailTab() {
+  document.querySelectorAll('.detail-panel .tab').forEach(t => {
+    const isDetail = t.dataset.tab === 'detail';
+    t.classList.toggle('active', isDetail);
+  });
+  const content = document.getElementById('detail-content');
+  const pane    = _notesPane();
+  if (content) content.hidden = false;
+  if (pane)    pane.hidden    = true;
+}
+
+export function initDetailTabs() {
+  document.querySelectorAll('.detail-panel .tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.detail-panel .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const which = tab.dataset.tab;
+      const content = document.getElementById('detail-content');
+      const pane    = _notesPane();
+      if (content) content.hidden = (which !== 'detail');
+      if (pane)    pane.hidden    = (which !== 'notes');
+    });
+  });
 }
 
 export function detailSection(title, text) {
@@ -172,7 +216,7 @@ function renderStructuralDiffDetail() {
 
   content.appendChild(attributionSection('/api/diff'));
   appendDiffExplanationSection(content, id);
-  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, id);
+  _appendNotes('diff', state.versionA, state.versionB, id);
 }
 
 export function renderDiffDetailPanel() {
@@ -223,7 +267,7 @@ export function renderDiffDetailPanel() {
   content.appendChild(listDetailSection('受影響關係', detail.affected_relations     ?? []));
   content.appendChild(attributionSection(detail.source));
   appendDiffExplanationSection(content, state.selectedId);
-  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, state.selectedId);
+  _appendNotes('diff', state.versionA, state.versionB, state.selectedId);
   appendNextActionsSection(content, detail);
 }
 
@@ -253,7 +297,7 @@ export function renderSingleVersionDetailPanel(callbacks = {}) {
     content.appendChild(enterL2Btn);
   }
   content.appendChild(attributionSection(feature.source));
-  appendUserNotesSection(content, state.mode, state.versionA, state.versionB, feature.id);
+  _appendNotes(state.mode, state.versionA, state.versionB, feature.id);
   appendNextActionsSection(content, feature);
 }
 
@@ -356,7 +400,7 @@ export function renderDetailPanelDiff(node) {
   content.appendChild(listDetailSection('風險標記', node.risk_flags || []));
   content.appendChild(attributionSection('UpdateReport.l1_changes[feature_id=' + node.id + ']'));
   appendDiffExplanationSection(content, node.id);
-  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, node.id);
+  _appendNotes('diff', state.versionA, state.versionB, node.id);
   appendNextActionsSection(content, node);
 }
 

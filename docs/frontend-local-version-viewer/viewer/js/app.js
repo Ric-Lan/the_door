@@ -4,7 +4,7 @@ import { API_BASE } from "./api.js";
 import { buildViewModelFromReport, snapshotLabel } from "./viewmodel.js";
 import { renderTopBar, updateLogoMark } from "./ui-topbar.js";
 import { renderChangeList } from "./ui-list.js";
-import { renderDetailPanel, renderError } from "./ui-detail.js";
+import { renderDetailPanel, renderError, initDetailTabs } from "./ui-detail.js";
 import {
   showUpdateModal,
   hideUpdateModal,
@@ -292,6 +292,7 @@ function populateVersionSelectors() {
 }
 
 export function init() {
+  initDetailTabs();
   els.btnDiff.addEventListener("click", () => setMode("diff"));
   els.btnBaseline.addEventListener("click", () => setMode("baseline"));
   els.btnCurrent.addEventListener("click", () => setMode("current"));
