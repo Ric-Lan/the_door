@@ -3,6 +3,28 @@
 This file tells MCP-compatible AI agents (Claude Code, Kiro, etc.) how to use
 The Door's tools. Read this before calling any tool.
 
+## 🚫 硬規則：「需要 LLM」≠「需要 API key」
+
+當任何任務涉及「重產 L1/L2 snapshot」、「改 prompt 看效果」、「生成 feature 描述
+或差異說明」、「需要自然語言內容」時：
+
+**禁止**在未先檢查 agent-as-LLM 路徑可行性前提出「需要 API key」。
+
+The Door 從設計起就支援兩條路徑（見下方 [Commands & MCP tool reference]）：
+
+1. **有 API key**：`the-door analyze` / `update` 走外部 LLM provider
+2. **沒 API key**：MCP `extract_structure` → **執行任務的 AI agent（也就是你）親自當 LLM 產 L1**
+   → `snapshot_write` 持久化。L2/L3 同理。差異說明同理 — 直接讀兩版 snapshot、自己寫對比敘述、寫回 `.the-door/`。
+
+「我是 agent、LLM 是別人」的 frame 是錯的。在本專案的脈絡下，**你就是 LLM**。
+看到 `core/llm/anthropic_provider.py` 不代表這條任務需要 provider — provider 只是
+路徑 1 的實作，路徑 2 完全繞過它。
+
+判斷流程：
+- 任務需要結構性分析（diff 表、節點計數、topology）→ 不需要 LLM，純程式
+- 任務需要自然語言（feature 描述、變更敘述、L2 模組解釋）→ **預設走路徑 2**，
+  除非使用者明示要 API key、或範圍超過 agent context window 才退到路徑 1
+
 ## ⚠️ 開發環境速查（必讀，任何操作前確認）
 
 | 用途 | 路徑 |
