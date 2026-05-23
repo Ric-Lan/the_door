@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>The Door — Design System Mockup (v1.1.2/1.1.3)</title>
+<style>
+/* ============================================================
+   Design Tokens — verbatim from design_handoff colors_and_type.css
+   ============================================================ */
+:root {
+  --bg:#f6f7f9; --surface:#fff; --surface-muted:#f0f3f6; --surface-card:#fbfcfd;
+  --text:#17202a; --text-body:#344054; --muted:#667085;
+  --line:#d7dde5; --shadow:0 1px 2px rgba(16,24,40,.08);
+  --accent:#0f766e; --accent-soft:#d9f3ef; --accent-press:#0d6460;
+  --warn:#b45309; --warn-bg:#fef3c7; --warn-fg:#855207;
+  --added-border:#28a745; --added-bg:#d4edda;
+  --removed-border:#dc3545; --removed-bg:#f8d7da;
+  --modified-border:#fd7e14; --modified-bg:#ffe0cc;
+  --font-sans:"Segoe UI",Arial,"Noto Sans TC","PingFang TC",sans-serif;
+  --font-mono:Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font-sans);height:100vh;overflow:hidden}
+
+/* ============================================================
+   App shell
+   ============================================================ */
+.app-shell{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:8px 16px;
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.logo{
+  width:28px;height:28px;border-radius:4px;background:var(--accent);
+  color:#fff;display:inline-flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;
+}
+.topbar-title{font-size:15px;font-weight:600;flex-shrink:0}
+.spacer{flex:1}
+
+/* Version selector pills */
+.version-selector-bar{display:inline-flex;align-items:center;gap:8px}
+.vsb-pill{
+  position:relative;display:inline-flex;align-items:stretch;
+  background:var(--surface);border:1px solid;border-radius:6px;
+  box-shadow:var(--shadow);overflow:hidden;transition:transform .12s,box-shadow .15s;
+}
+.vsb-pill:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(16,24,40,.12)}
+.vsb-tag{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:28px;padding:0 8px;color:#fff;font:700 13px/1 var(--font-sans);
+  letter-spacing:.04em;position:relative;
+}
+.vsb-tag::after{content:"";position:absolute;top:4px;bottom:4px;right:-1px;width:1px;background:rgba(255,255,255,.35)}
+.vsb-select{
+  appearance:none;-webkit-appearance:none;padding:6px 26px 6px 11px;
+  border:none;background:transparent;font:700 13px var(--font-mono);
+  cursor:pointer;min-width:86px;
+}
+.vsb-select:focus{outline:none}
+.vsb-chevron{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:9px;pointer-events:none;opacity:.7}
+.vsb-pill-a{border-color:#dc3545}
+.vsb-pill-a .vsb-tag{background:#dc3545}
+.vsb-pill-a .vsb-select,.vsb-pill-a .vsb-chevron{color:#9a1a1a}
+.vsb-pill-b{border-color:#28a745}
+.vsb-pill-b .vsb-tag{background:#28a745}
+.vsb-pill-b .vsb-select,.vsb-pill-b .vsb-chevron{color:#1d6e34}
+
+/* Mode switch */
+.mode-switch{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.mode-btn{
+  padding:6px 12px;border:none;background:transparent;cursor:pointer;
+  font:600 13px var(--font-sans);color:var(--text-body);border-right:1px solid var(--line);
+}
+.mode-btn:last-child{border-right:none}
+.mode-btn.active{background:var(--accent-soft);color:var(--accent)}
+
+/* Count badges (right side) */
+.count-strip{display:inline-flex;gap:6px}
+.count-badge{
+  display:inline-flex;align-items:center;padding:3px 8px;border-radius:3px;
+  font:600 12px var(--font-mono);border:1px solid;
+}
+.count-added   {background:var(--added-bg);   border-color:var(--added-border);   color:#1d6e34}
+.count-removed {background:var(--removed-bg); border-color:var(--removed-border); color:#9a1a1a}
+.count-modified{background:var(--modified-bg);border-color:var(--modified-border);color:#7a4e00}
+.count-risk-button{
+  background:var(--warn-bg);border-color:var(--warn);color:var(--warn-fg);
+  cursor:pointer;transition:box-shadow .1s,transform .05s;
+}
+.count-risk-button:hover{box-shadow:0 0 0 2px rgba(180,83,9,.18)}
+.count-risk-button.active{background:var(--warn);color:#fff;box-shadow:0 0 0 2px rgba(180,83,9,.25)}
+
+/* ── Summary band ── */
+.summary-band{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--line);
+}
+.summary-band p{margin:0;color:var(--text-body);flex:1}
+.summary-version-tag{
+  flex-shrink:0;display:inline-flex;align-items:center;padding:2px 8px;
+  background:var(--accent-soft);color:var(--accent);border-radius:3px;
+  font:700 11px var(--font-mono);letter-spacing:.02em;margin-top:2px;
+}
+
+/* ── Diff banner ── */
+.diff-mode-banner{
+  padding:6px 20px;background:#eef7f6;border-bottom:1px solid var(--line);
+  font-size:12px;color:var(--accent);
+}
+
+/* ── Workspace ── */
+.workspace{
+  flex:1;display:grid;grid-template-columns:1fr minmax(300px,420px);
+  gap:10px;padding:10px;overflow:hidden;
+}
+.cards-panel,.detail-panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-header{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.panel-header h2{margin:0;font-size:15px;font-weight:600}
+
+/* Cards filter bar */
+.cards-filter-bar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:8px 16px;background:var(--surface-muted);border-bottom:1px solid var(--line);
+  font-size:12px;
+}
+.cards-filter-bar label{color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+.cards-filter-bar select{
+  padding:3px 6px;font:600 12px var(--font-sans);
+  border:1px solid var(--line);border-radius:3px;background:var(--surface);
+}
+.cards-filter-active{
+  display:flex;gap:10px;align-items:center;padding:6px 16px;
+  background:var(--warn-bg);border-bottom:1px solid var(--line);font-size:12px;
+}
+.cards-filter-active .pill{
+  display:inline-flex;padding:2px 8px;border-radius:3px;
+  background:var(--warn);color:#fff;font:700 11px var(--font-sans);
+}
+.cards-filter-active .clear{margin-left:auto;color:var(--accent);cursor:pointer;text-decoration:underline;font-weight:600}
+
+/* Feature cards grid — ORIGINAL viewer layout preserved */
+.feature-cards-grid{
+  flex:1;overflow-y:auto;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:12px;padding:12px;align-content:start;
+}
+.feature-card{
+  display:flex;flex-direction:column;gap:8px;
+  padding:14px;border:1px solid var(--line);border-radius:6px;
+  background:#fbfcfd;cursor:pointer;text-align:left;font:inherit;
+}
+.feature-card:hover{
+  border-color:var(--accent);background:var(--surface);
+  box-shadow:0 0 0 2px var(--accent-soft);
+}
+.feature-card.active{
+  border-color:var(--accent);background:var(--accent-soft);
+  box-shadow:0 0 0 2px var(--accent-soft);
+}
+.feature-card.changed{border-width:2px}
+.feature-card-label{
+  display:block;font-size:14px;font-weight:700;line-height:1.3;color:var(--text);
+}
+.feature-card-desc{
+  display:block;color:#344054;font-size:12px;line-height:1.5;
+}
+.feature-card-meta{
+  display:flex;gap:6px;align-items:center;margin-top:auto;
+}
+.change-badge{
+  display:inline-flex;align-items:center;padding:1px 6px;border-radius:2px;
+  font:700 11px var(--font-mono);border:1px solid;
+}
+.change-badge.change-added              {background:var(--added-bg);   color:#1d6e34; border-color:var(--added-border)}
+.change-badge.change-removed            {background:var(--removed-bg); color:#9a1a1a; border-color:var(--removed-border)}
+.change-badge.change-attribute_changed,
+.change-badge.change-dependency_changed {background:var(--modified-bg);color:#7a4e00; border-color:var(--modified-border)}
+.confidence-badge{
+  display:inline-flex;padding:1px 6px;border-radius:3px;font:700 10px var(--font-mono);
+}
+.confidence-badge-high  {background:#d9f3ef;color:#0f766e}
+.confidence-badge-medium{background:#fff3cd;color:#7a4e00}
+.confidence-badge-low   {background:#f8d7da;color:#9a1a1a}
+
+/* ── Detail panel ── */
+.detail-panel .panel-header.sticky{position:sticky;top:0;z-index:2}
+.detail-tabs{
+  display:flex;gap:0;padding:0 14px;border-bottom:1px solid var(--line);
+  background:var(--surface);position:sticky;top:56px;z-index:1;
+}
+.tab{
+  padding:10px 14px;border:none;background:transparent;cursor:pointer;
+  border-bottom:2px solid transparent;color:var(--muted);font:600 13px var(--font-sans);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-count{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+  background:var(--accent-soft);color:var(--accent);font:700 11px var(--font-sans);
+}
+.tab.active .tab-count{background:var(--accent);color:#fff}
+
+.detail-body{flex:1;overflow:auto;padding:14px 16px}
+.warning-banner{
+  display:flex;flex-direction:column;gap:2px;margin-bottom:14px;
+  padding:10px 12px;border-left:4px solid var(--warn);
+  background:var(--warn-bg);border-radius:3px;
+}
+.warning-banner strong{color:var(--warn-fg);font:700 12px var(--font-sans);letter-spacing:.04em}
+.warning-banner span{color:var(--text);font-size:13px}
+.detail-section{margin-bottom:14px}
+.detail-section h3{
+  margin:0 0 6px;font:600 11px var(--font-sans);
+  letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+}
+.detail-section p{margin:0;font-size:14px;color:var(--text-body)}
+
+/* Before / After */
+.before-after{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;
+}
+.detail-hint{
+  grid-column:1/-1;margin:0 0 6px;font-style:italic;
+  font-size:11px;color:var(--muted);
+}
+.ba-panel{padding:10px 12px;border-radius:4px;border:1px solid var(--line)}
+.ba-panel.before{background:#fdecec;border-color:#f3b6b6;border-left:4px solid var(--removed-border)}
+.ba-panel.after {background:#e2f4e6;border-color:#a9d8b5;border-left:4px solid var(--added-border)}
+.ba-label{font:600 10px var(--font-sans);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.ba-panel.before .ba-label{color:#9a1a1a}
+.ba-panel.after  .ba-label{color:#1d6e34}
+.ba-text{font-size:12px;color:var(--text);line-height:1.5}
+.diff-mark{padding:0 1px;border-radius:2px}
+.diff-mark-remove{
+  background:rgba(220,53,69,.22);color:#9a1a1a;
+  text-decoration:line-through;text-decoration-color:rgba(154,26,26,.6);
+}
+.diff-mark-add{background:rgba(40,167,69,.22);color:#1d6e34}
+
+.source-list{margin:0;padding-left:18px;font:12px var(--font-mono);color:var(--text-body)}
+.source-list li{margin-bottom:2px}
+.attribution{
+  margin-top:18px;padding-top:10px;border-top:1px dashed var(--line);
+  font-size:11px;color:var(--muted);
+}
+.attribution code{background:var(--surface-muted);padding:1px 4px;border-radius:2px;font-family:var(--font-mono)}
+
+/* Mockup callout banner */
+.mockup-banner{
+  background:#1e293b;color:#e2e8f0;padding:6px 14px;
+  font:12px var(--font-mono);display:flex;gap:14px;align-items:center;
+}
+.mockup-banner b{color:#fbbf24}
+.mockup-banner a{color:#7dd3fc;text-decoration:none;margin-left:8px}
+.mockup-banner a.active{color:#fbbf24;font-weight:700}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <div class="mockup-banner">
+    <b>📐 MOCKUP · 主畫面</b>
+    <a href="/mockup.html" class="active">主畫面</a>
+    <a href="/mockup-graph.html">關聯圖</a>
+    <a href="/mockup-mindmap.html">心智圖</a>
+    <span style="margin-left:auto">Design System v1.1.2/1.1.3 · 純 HTML/CSS · 無 build step</span>
+  </div>
+
+  <!-- ============== TOPBAR ============== -->
+  <div class="topbar">
+    <span class="logo" title="mark-diff">⛯</span>
+    <span class="topbar-title">The Door · viewer</span>
+
+    <div class="version-selector-bar">
+      <div class="vsb-pill vsb-pill-a">
+        <span class="vsb-tag">A</span>
+        <select class="vsb-select"><option>v1.0.0</option><option>v1.0.5</option></select>
+        <span class="vsb-chevron">▾</span>
+      </div>
+      <div class="vsb-pill vsb-pill-b">
+        <span class="vsb-tag">B</span>
+        <select class="vsb-select"><option selected>v1.0.5</option><option>v1.0.0</option></select>
+        <span class="vsb-chevron">▾</span>
+      </div>
+    </div>
+
+    <div class="mode-switch">
+      <button class="mode-btn active">差異</button>
+      <button class="mode-btn">版本 A · v1.0.0</button>
+      <button class="mode-btn">版本 B · v1.0.5</button>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="count-strip">
+      <span class="count-badge count-added"    title="新增功能數">新增 2</span>
+      <span class="count-badge count-removed"  title="移除功能數">移除 0</span>
+      <span class="count-badge count-modified" title="修改功能數">修改 1</span>
+      <button class="count-badge count-risk-button active" title="點擊只顯示需注意的項目">注意 1</button>
+    </div>
+  </div>
+
+  <!-- ============== SUMMARY BAND ============== -->
+  <div class="summary-band">
+    <p id="summary-text">
+      v1.0.0 → v1.0.5：共 10 個 L1 功能，<strong>2 項新增</strong>、<strong>1 項屬性變更</strong>、0 項移除。
+      其中 <strong>1 項標記為需優先確認</strong>（新增 + 低信心）。
+    </p>
+  </div>
+
+  <div class="diff-mode-banner">⇄ 差異模式 · 比較 v1.0.0 → v1.0.5</div>
+
+  <!-- ============== WORKSPACE ============== -->
+  <div class="workspace">
+
+    <!-- =========== CARDS PANEL =========== -->
+    <section class="cards-panel">
+      <div class="panel-header"><h2>變更清單</h2></div>
+
+      <div class="cards-filter-bar">
+        <label>信心
+          <select><option>全部</option><option>僅高</option><option>僅中</option><option>僅低</option><option>非高</option></select>
+        </label>
+        <label>類型
+          <select><option>全部</option><option>+ 新增</option><option>− 移除</option><option>~ 修改</option><option>未變動</option></select>
+        </label>
+        <label>排序
+          <select><option>風險優先（預設）</option><option>名稱</option><option>Source 數量</option><option>類型</option></select>
+        </label>
+      </div>
+
+      <div class="cards-filter-active">
+        <span class="pill">⚠ 僅顯示需注意項目</span>
+        <span>顯示 <strong>1</strong> / 3 項</span>
+        <span class="clear">清除全部過濾</span>
+      </div>
+
+      <div class="feature-cards-grid">
+
+        <button type="button" class="feature-card changed active">
+          <span class="feature-card-label">即時通知中心</span>
+          <span class="feature-card-desc">使用者可在右上角看到所有通知與未讀數，並可標示為已讀。</span>
+          <div class="feature-card-meta">
+            <span class="change-badge change-added">+ added</span>
+          </div>
+        </button>
+
+        <button type="button" class="feature-card changed">
+          <span class="feature-card-label">使用者偏好設定</span>
+          <span class="feature-card-desc">擴充支援深色模式與語系切換；移除舊版 cookie 切換。</span>
+          <div class="feature-card-meta">
+            <span class="change-badge change-attribute_changed">~ attribute_changed</span>
+          </div>
+        </button>
+
+        <button type="button" class="feature-card changed">
+          <span class="feature-card-label">匯出 PDF 報告</span>
+          <span class="feature-card-desc">在差異視圖中匯出當前比較為 PDF。</span>
+          <div class="feature-card-meta">
+            <span class="change-badge change-added">+ added</span>
+          </div>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- =========== DETAIL PANEL =========== -->
+    <aside class="detail-panel">
+      <div class="panel-header sticky">
+        <h2>即時通知中心</h2>
+        <p style="font-size:12px;color:var(--muted);margin-top:2px">來自 UpdateReport.l2_details</p>
+      </div>
+
+      <div class="detail-tabs">
+        <button class="tab active">詳情</button>
+        <button class="tab">備註 <span class="tab-count">3</span></button>
+      </div>
+
+      <div class="detail-body">
+
+        <div class="warning-banner">
+          <strong>⚠ 需要優先確認</strong>
+          <span>此項為新增功能，但 LLM 對翻譯不確定（低信心）。建議優先人工驗證內容。</span>
+        </div>
+
+        <section class="detail-section">
+          <h3>描述</h3>
+          <p>使用者可在右上角看到所有通知與未讀數，並可標示為已讀。支援推播通道與站內訊息兩種來源，並可設定靜音時段。</p>
+        </section>
+
+        <section class="detail-section">
+          <h3>Before / After（屬性變更）</h3>
+          <div class="before-after">
+            <p class="detail-hint">紅底為被刪除的字，綠底為新增的字。</p>
+            <div class="ba-panel before">
+              <div class="ba-label">Before</div>
+              <div class="ba-text">使用者可在<mark class="diff-mark diff-mark-remove">設定頁</mark>查看通知<mark class="diff-mark diff-mark-remove">列表</mark>。</div>
+            </div>
+            <div class="ba-panel after">
+              <div class="ba-label">After</div>
+              <div class="ba-text">使用者可在<mark class="diff-mark diff-mark-add">右上角通知中心</mark>查看通知<mark class="diff-mark diff-mark-add">與未讀數</mark>。</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-section">
+          <h3>差異推論</h3>
+          <p>從支援節點變化推測：UI 入口從「設定頁」遷移至 top-bar 的 notification bell。新增 unread badge 邏輯，與既有 settings 流程解耦。</p>
+        </section>
+
+        <section class="detail-section">
+          <h3>Source nodes（7）</h3>
+          <ul class="source-list">
+            <li>NotificationCenter.tsx::Bell</li>
+            <li>NotificationCenter.tsx::UnreadBadge</li>
+            <li>NotificationCenter.tsx::DropdownList</li>
+            <li>notifications/store.ts::useNotifications</li>
+            <li>notifications/store.ts::markAsRead</li>
+            <li>api/notifications.ts::fetchUnread</li>
+            <li>api/notifications.ts::subscribe</li>
+          </ul>
+        </section>
+
+        <section class="detail-section">
+          <h3>信心 · Confidence</h3>
+          <p><span class="confidence-badge confidence-badge-low">低</span> &nbsp; LLM 對此功能命名翻譯把握偏低。</p>
+        </section>
+
+        <section class="detail-section">
+          <h3>疑義（2）</h3>
+          <p><a href="#">→ 檢視 2 條疑義</a></p>
+        </section>
+
+        <div class="attribution">
+          資料來源：<code>UpdateReport.l1_features[feat-notifications]</code> · 產生時間 2026-05-22 14:03
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+// Minimal interactivity to feel real (not part of any real code path)
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+  });
+});
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+  });
+});
+document.querySelectorAll('.feature-card').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.feature-card').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+  });
+});
+document.querySelector('.count-risk-button')?.addEventListener('click',function(){
+  this.classList.toggle('active');
+});
+</script>
+</body>
+</html>

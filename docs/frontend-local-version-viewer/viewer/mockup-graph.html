@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>The Door — Relation Graph Mockup (§ 9)</title>
+<style>
+:root{
+  --bg:#f6f7f9;--surface:#fff;--surface-muted:#f0f3f6;--line:#d7dde5;
+  --text:#17202a;--text-body:#344054;--muted:#667085;
+  --accent:#0f766e;--accent-soft:#d9f3ef;
+  --added-border:#28a745;--added-bg:#d4edda;
+  --removed-border:#dc3545;--removed-bg:#f8d7da;
+  --modified-border:#fd7e14;--modified-bg:#ffe0cc;
+  --warn:#b45309;--warn-bg:#fef3c7;--warn-fg:#855207;
+  --font-sans:"Segoe UI",Arial,"Noto Sans TC",sans-serif;
+  --font-mono:Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font-sans);height:100vh;overflow:hidden}
+
+.mockup-banner{
+  background:#1e293b;color:#e2e8f0;padding:6px 14px;
+  font:12px var(--font-mono);display:flex;gap:14px;align-items:center;
+}
+.mockup-banner b{color:#fbbf24}
+.mockup-banner a{color:#7dd3fc;text-decoration:none;margin-left:8px}
+.mockup-banner a.active{color:#fbbf24;font-weight:700}
+
+.app-shell{height:calc(100vh - 28px);display:flex;flex-direction:column}
+
+/* ── Toolbar (title + inline legend + window controls) ── */
+.gv-toolbar{
+  display:flex;align-items:center;gap:14px;padding:8px 14px;
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.gv-title{font-weight:600;font-size:14px}
+.gv-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text-body)}
+.gv-legend-row{display:inline-flex;gap:6px;align-items:center}
+.gv-swatch{
+  display:inline-block;width:14px;height:14px;border-radius:3px;
+  border:1px solid var(--line);background:#fff;
+}
+.gv-swatch.added   {background:var(--added-bg);   border-color:var(--added-border)}
+.gv-swatch.removed {background:var(--removed-bg); border-color:var(--removed-border)}
+.gv-swatch.modified{background:var(--modified-bg);border-color:var(--modified-border)}
+.gv-swatch.unchanged{background:#fff;border-color:var(--line)}
+.gv-swatch.selected{background:#fff;border:2px solid var(--accent)}
+.gv-swatch.conf-medium{background:#fff;border:2px dashed var(--line)}
+.gv-swatch.conf-low   {background:#fff;border:2px dotted var(--line)}
+.gv-window-ctl{
+  margin-left:auto;display:inline-flex;gap:6px;
+}
+.gv-window-ctl button{
+  width:26px;height:26px;border:1px solid var(--line);background:var(--surface);
+  border-radius:3px;cursor:pointer;font-size:13px;color:var(--text-body);
+}
+
+/* ── Stage ── */
+.gv-stage{
+  flex:1;position:relative;overflow:auto;background:var(--bg);
+  padding:30px 28px 60px;
+}
+.gv-grid{
+  position:relative;
+  display:grid;
+  grid-template-columns:repeat(5,minmax(180px,1fr));
+  grid-auto-rows:90px;
+  gap:24px 24px;
+  max-width:1100px;
+  margin:0 auto;
+}
+
+/* edges layer */
+.gv-edges{position:absolute;inset:0;pointer-events:none;width:100%;height:100%}
+
+/* ── Node card ── */
+.gv-node{
+  position:relative;
+  background:#fff;border:1.5px solid var(--line);border-radius:6px;
+  padding:8px 12px 10px;
+  display:flex;flex-direction:column;gap:2px;
+  cursor:pointer;transition:box-shadow .12s;
+  box-shadow:0 1px 2px rgba(16,24,40,.05);
+  z-index:1;
+}
+.gv-node:hover{box-shadow:0 4px 10px rgba(16,24,40,.1)}
+.gv-node-tag{
+  font:600 11px var(--font-sans);color:var(--text-body);
+  letter-spacing:.02em;margin-bottom:2px;
+}
+.gv-node-tag.tag-added   {color:#1d6e34}
+.gv-node-tag.tag-removed {color:#9a1a1a}
+.gv-node-tag.tag-modified{color:#7a4e00}
+.gv-node-title{font:700 14px var(--font-sans);color:var(--text);line-height:1.2}
+.gv-node-meta{
+  margin-top:auto;font:12px var(--font-mono);color:var(--muted);
+  letter-spacing:.02em;
+}
+
+/* change-type fills */
+.gv-node.added             {background:var(--added-bg);   border-color:var(--added-border)}
+.gv-node.removed           {background:var(--removed-bg); border-color:var(--removed-border)}
+.gv-node.attribute_changed,
+.gv-node.dependency_changed{background:var(--modified-bg);border-color:var(--modified-border)}
+
+/* confidence → border style */
+.gv-node.conf-high  {border-style:solid; border-width:2px}
+.gv-node.conf-medium{border-style:dashed;border-width:2px}
+.gv-node.conf-low   {border-style:dotted;border-width:2px}
+
+/* Lower-saturation fill when confidence is low (per screenshot:
+   pale green/orange for low-confidence diff cards) */
+.gv-node.added.conf-low             {background:#ecf7ef}
+.gv-node.attribute_changed.conf-low,
+.gv-node.dependency_changed.conf-low{background:#fdeede}
+
+/* selected ring */
+.gv-node.selected{
+  border-color:var(--accent);border-style:solid;border-width:3px;
+  box-shadow:0 0 0 2px var(--accent-soft);
+}
+
+/* anomaly badge top-right */
+.gv-anom{
+  position:absolute;top:6px;right:8px;
+  display:inline-flex;align-items:center;padding:1px 6px;border-radius:8px;
+  background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn);
+  font:700 10px var(--font-sans);
+}
+</style>
+</head>
+<body>
+
+<div class="mockup-banner">
+  <b>📐 MOCKUP · § 9 關聯圖（修正版：grid 卡片，符合現有 layout）</b>
+  <a href="/mockup.html">主畫面</a>
+  <a href="/mockup-graph.html" class="active">關聯圖</a>
+  <a href="/mockup-mindmap.html">心智圖</a>
+</div>
+
+<div class="app-shell">
+
+  <!-- Toolbar -->
+  <div class="gv-toolbar">
+    <span class="gv-title">L1 關聯圖</span>
+    <div class="gv-legend">
+      <span class="gv-legend-row"><span class="gv-swatch added"></span>新增</span>
+      <span class="gv-legend-row"><span class="gv-swatch removed"></span>移除</span>
+      <span class="gv-legend-row"><span class="gv-swatch modified"></span>修改</span>
+      <span class="gv-legend-row"><span class="gv-swatch unchanged"></span>未變動</span>
+      <span class="gv-legend-row"><span class="gv-swatch selected"></span>選取中</span>
+      <span class="gv-legend-row"><span class="gv-swatch conf-medium"></span>中信心</span>
+      <span class="gv-legend-row"><span class="gv-swatch conf-low"></span>低信心</span>
+    </div>
+    <div class="gv-window-ctl">
+      <button title="切換抽屜">⇆</button>
+      <button title="放大">＋</button>
+      <button title="縮小">－</button>
+      <button title="關閉">✕</button>
+    </div>
+  </div>
+
+  <!-- Stage -->
+  <div class="gv-stage">
+    <div class="gv-grid">
+
+      <!-- edges layer (SVG positioned within grid, simple straight lines between centres) -->
+      <svg class="gv-edges" viewBox="0 0 1100 320" preserveAspectRatio="none">
+        <!-- row1: 程式碼結構辨識 → 依賴優先序分析 → 功能語言翻譯 -->
+        <line x1="180" y1="45" x2="220" y2="45" stroke="#94a3b8" stroke-width="1.5"/>
+        <line x1="430" y1="45" x2="470" y2="45" stroke="#94a3b8" stroke-width="1.5"/>
+        <!-- row1 → row2 (dashed, medium conf) -->
+        <line x1="100" y1="90" x2="350" y2="150" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <line x1="560" y1="90" x2="820" y2="150" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <!-- row2 → row3 (dotted, low) -->
+        <line x1="100" y1="195" x2="350" y2="265" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="2 4"/>
+        <line x1="350" y1="195" x2="580" y2="265" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="2 4"/>
+      </svg>
+
+      <!-- ROW 1 -->
+      <div class="gv-node conf-high">
+        <div class="gv-node-title">程式碼結構辨識</div>
+        <div class="gv-node-meta">高信心 · 3 nodes</div>
+      </div>
+      <div class="gv-node conf-high">
+        <div class="gv-node-title">依賴優先序分析</div>
+        <div class="gv-node-meta">高信心 · 2 nodes</div>
+      </div>
+      <div class="gv-node attribute_changed conf-high selected">
+        <div class="gv-node-tag tag-modified">~ 修改</div>
+        <div class="gv-node-title">功能語言翻譯</div>
+        <div class="gv-node-meta">高信心 · 3 nodes</div>
+      </div>
+      <div class="gv-node conf-medium">
+        <span class="gv-anom" title="疑義數量">△ 注意 1</span>
+        <div class="gv-node-title">語言模型供應商管理</div>
+        <div class="gv-node-meta">中信心 · 4 nodes</div>
+      </div>
+      <div></div>
+
+      <!-- ROW 2 -->
+      <div class="gv-node conf-high">
+        <div class="gv-node-title">翻譯品質驗證</div>
+        <div class="gv-node-meta">高信心 · 1 nodes</div>
+      </div>
+      <div class="gv-node attribute_changed conf-high">
+        <div class="gv-node-tag tag-modified">~ 修改</div>
+        <div class="gv-node-title">功能圖形產出與本地呈現</div>
+        <div class="gv-node-meta">高信心 · 2 nodes</div>
+      </div>
+      <div class="gv-node conf-high">
+        <div class="gv-node-title">版本比對</div>
+        <div class="gv-node-meta">高信心 · 2 nodes</div>
+      </div>
+      <div class="gv-node conf-medium">
+        <div class="gv-node-title">漏洞掃描</div>
+        <div class="gv-node-meta">中信心 · 1 nodes</div>
+      </div>
+      <div></div>
+
+      <!-- ROW 3 -->
+      <div class="gv-node conf-high">
+        <div class="gv-node-title">範圍驗核</div>
+        <div class="gv-node-meta">高信心 · 1 nodes</div>
+      </div>
+      <div class="gv-node dependency_changed conf-low">
+        <span class="gv-anom" title="疑義數量">△ 注意 2</span>
+        <div class="gv-node-tag tag-modified">≠ 依賴</div>
+        <div class="gv-node-title">疑義追蹤</div>
+        <div class="gv-node-meta">低信心 · 1 nodes</div>
+      </div>
+      <div class="gv-node added conf-high">
+        <div class="gv-node-tag tag-added">+ 新增</div>
+        <div class="gv-node-title">本地前端工作台</div>
+        <div class="gv-node-meta">高信心 · 2 nodes</div>
+      </div>
+      <div class="gv-node added conf-low">
+        <div class="gv-node-tag tag-added">+ 新增</div>
+        <div class="gv-node-title">版本差異 Viewer</div>
+        <div class="gv-node-meta">低信心 · 1 nodes</div>
+      </div>
+      <div></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.gv-node').forEach(n=>{
+  n.addEventListener('click',()=>{
+    document.querySelectorAll('.gv-node').forEach(x=>x.classList.remove('selected'));
+    n.classList.add('selected');
+  });
+});
+</script>
+</body>
+</html>

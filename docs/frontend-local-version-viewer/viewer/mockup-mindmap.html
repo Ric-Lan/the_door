@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<title>The Door — Mindmap Badge Mockup (§ 10, before / after)</title>
+<style>
+:root{
+  --bg:#f6f7f9;--surface:#fff;--surface-muted:#f0f3f6;--line:#d7dde5;
+  --canvas-mindmap:#f0f2f5;
+  --text:#17202a;--text-body:#344054;--muted:#667085;
+  --accent:#0f766e;
+  --added-border:#28a745;--added-bg:#d4edda;
+  --removed-border:#dc3545;--removed-bg:#f8d7da;
+  --modified-border:#fd7e14;--modified-bg:#ffe0cc;
+  --warn:#b45309;--warn-bg:#fef3c7;--warn-fg:#855207;
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;
+  --font-mono:Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font-sans);min-height:100vh}
+
+.mockup-banner{
+  background:#1e293b;color:#e2e8f0;padding:6px 14px;
+  font:12px var(--font-mono);display:flex;gap:14px;align-items:center;
+}
+.mockup-banner b{color:#fbbf24}
+.mockup-banner a{color:#7dd3fc;text-decoration:none;margin-left:8px}
+.mockup-banner a.active{color:#fbbf24;font-weight:700}
+
+.page{padding:18px 24px;max-width:1100px;margin:0 auto}
+h1{font-size:18px;margin:0 0 4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:18px}
+.note{
+  background:var(--warn-bg);border-left:3px solid var(--warn);
+  padding:8px 12px;font-size:13px;color:var(--warn-fg);
+  border-radius:3px;margin-bottom:20px;
+}
+.note b{color:#7a4e00}
+
+h2{font-size:14px;margin:24px 0 8px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.cmp-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  padding:14px 16px;margin-bottom:14px;
+}
+.cmp-cell{display:flex;flex-direction:column;gap:8px}
+.cmp-label{
+  font:600 11px var(--font-sans);letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);
+}
+.cmp-label.after{color:var(--accent)}
+.cmp-stage{
+  background:var(--canvas-mindmap);border:1px solid var(--line);border-radius:4px;
+  padding:24px 18px;display:flex;justify-content:center;align-items:center;
+  min-height:130px;
+}
+.desc{font-size:12px;color:var(--text-body);line-height:1.6}
+.desc code{background:var(--surface-muted);padding:1px 4px;border-radius:2px;font-family:var(--font-mono);font-size:11px}
+
+/* Old L1 node — 148 × 46 */
+.l1-old{
+  position:relative;display:inline-block;
+  width:148px;height:46px;background:#fff;border:1px solid #d7dde5;border-radius:4px;
+  padding:6px 8px;
+}
+.l1-old .name{font:700 13px var(--font-sans);color:#17202a}
+.l1-old .sub {font:11px var(--font-sans);color:var(--muted);margin-top:2px}
+
+/* New L1 node — 160 × 36 */
+.l1-new{
+  position:relative;display:inline-block;
+  width:160px;height:36px;background:#fff;border:1px solid #d7dde5;border-radius:4px;
+  padding:4px 8px;
+}
+.l1-new .name{font:700 13px var(--font-sans);color:#17202a;line-height:1.15}
+.l1-new .sub {font:11px var(--font-sans);color:var(--muted);line-height:1.1}
+
+/* Old badges */
+.old-badge-anom{
+  position:absolute;top:-7px;right:6px;display:inline-flex;align-items:center;
+  padding:1px 6px;border-radius:2px;background:#FF6D00;color:#fff;
+  font:700 9px var(--font-sans);
+}
+.old-badge-diff{
+  position:absolute;top:-7px;right:6px;display:inline-flex;align-items:center;
+  padding:1px 6px;border-radius:2px;background:#E3F2FD;color:#1565C0;
+  border:1px solid #90CAF9;font:700 9px var(--font-sans);
+}
+
+/* New badges — pill 56×14 (diff) / 52×14 (anom), rx 7 */
+.new-badge{
+  position:absolute;top:-7px;display:inline-flex;align-items:center;justify-content:center;
+  height:14px;padding:0 6px;border-radius:7px;border:1px solid;
+  font:700 9px var(--font-sans);
+}
+.new-badge.anom    {background:#fef3c7;color:#855207;border-color:#b45309;right:64px}
+.new-badge.added   {background:#d4edda;color:#1d6e34;border-color:#28a745;right:6px}
+.new-badge.removed {background:#f8d7da;color:#9a1a1a;border-color:#dc3545;right:6px}
+.new-badge.modified{background:#ffe0cc;color:#7a4e00;border-color:#fd7e14;right:6px}
+/* when only anom (no diff), anom sits at right:6 */
+.new-badge.anom.solo{right:6px}
+
+/* Toolbar legend strip — before / after */
+.tb-strip{
+  display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:8px 12px;background:var(--canvas-mindmap);
+  border:1px solid var(--line);border-radius:4px;font-size:12px;
+}
+.tb-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:8px;font:700 11px var(--font-sans)}
+.tb-badge.anom-old    {background:#FF6D00;color:#fff;border-radius:2px}
+.tb-badge.diff-old    {background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:2px}
+.tb-badge.anom-new    {background:#fef3c7;color:#855207;border:1px solid #b45309}
+.tb-badge.added-new   {background:#d4edda;color:#1d6e34;border:1px solid #28a745}
+.tb-badge.removed-new {background:#f8d7da;color:#9a1a1a;border:1px solid #dc3545}
+.tb-badge.modified-new{background:#ffe0cc;color:#7a4e00;border:1px solid #fd7e14}
+.tb-hint{color:var(--muted);font-size:11px;margin-right:4px}
+.tb-divider{color:var(--line);margin:0 4px}
+</style>
+</head>
+<body>
+
+<div class="mockup-banner">
+  <b>📐 MOCKUP · § 10 心智圖（僅徽章/尺寸對照）</b>
+  <a href="/mockup.html">主畫面</a>
+  <a href="/mockup-graph.html">關聯圖</a>
+  <a href="/mockup-mindmap.html" class="active">心智圖</a>
+</div>
+
+<div class="page">
+
+  <h1>心智圖徽章與 L1 尺寸 — Before / After 對照</h1>
+  <p class="subtitle">
+    心智圖的整體 layout 與互動行為（中心節點 + 放射 L1 + 點 L1 觸發 info-panel）
+    <strong>維持現況不動</strong>。本頁只展示 § 10 改動的視覺項：徽章、L1 尺寸、toolbar 圖例。
+  </p>
+
+  <div class="note">
+    <b>不在改動範圍</b>：右側 <code>#info-panel</code> 與心智圖的 SVG layout 演算法保持原樣。
+    生產檔請改 <code>viewer/mindmap-popup.html</code> 內：① 徽章 SVG block（rect/text）
+    ② <code>L1_W</code>/<code>L1_H</code> 常數 ③ toolbar 上的 <code>.tb-badge</code> 列 ④ guide-panel 文案。
+  </div>
+
+  <!-- ─────────── 1) L1 node sizing ─────────── -->
+
+  <h2>1 · L1 節點尺寸</h2>
+
+  <div class="cmp-row">
+    <div class="cmp-cell">
+      <span class="cmp-label">Before · 148 × 46</span>
+      <div class="cmp-stage">
+        <div class="l1-old">
+          <div class="name">即時通知中心</div>
+          <div class="sub">7 個模組</div>
+        </div>
+      </div>
+      <p class="desc">較高、稍窄，徽章貼在右上角，與內文易擠壓。</p>
+    </div>
+    <div class="cmp-cell">
+      <span class="cmp-label after">After · 160 × 36</span>
+      <div class="cmp-stage">
+        <div class="l1-new">
+          <div class="name">即時通知中心</div>
+          <div class="sub">7 個模組</div>
+        </div>
+      </div>
+      <p class="desc">稍寬、變矮；給徽章留出右上方空間，文字不變兩行。</p>
+    </div>
+  </div>
+
+  <!-- ─────────── 2) Diff badge ─────────── -->
+
+  <h2>2 · 版本差異徽章（4 種）</h2>
+
+  <div class="cmp-row">
+    <div class="cmp-cell">
+      <span class="cmp-label">Before · 一律 <code>Δ 有差異</code></span>
+      <div class="cmp-stage" style="gap:24px;flex-wrap:wrap">
+        <div class="l1-old"><div class="name">某個 L1 功能</div><div class="sub">N 個模組</div>
+          <span class="old-badge-diff">Δ 有差異</span>
+        </div>
+      </div>
+      <p class="desc">所有變更類型共用一個藍色徽章，無法分辨是新增/移除/修改。</p>
+    </div>
+    <div class="cmp-cell">
+      <span class="cmp-label after">After · 4 種類型感知徽章</span>
+      <div class="cmp-stage" style="gap:18px;flex-wrap:wrap;justify-content:flex-start">
+        <div class="l1-new"><div class="name">新增的功能</div><div class="sub">N 個模組</div>
+          <span class="new-badge added">+ 新增</span>
+        </div>
+        <div class="l1-new"><div class="name">移除的功能</div><div class="sub">N 個模組</div>
+          <span class="new-badge removed">− 移除</span>
+        </div>
+        <div class="l1-new"><div class="name">屬性變更</div><div class="sub">N 個模組</div>
+          <span class="new-badge modified">~ 修改</span>
+        </div>
+        <div class="l1-new"><div class="name">依賴改變</div><div class="sub">N 個模組</div>
+          <span class="new-badge modified">≠ 依賴</span>
+        </div>
+      </div>
+      <p class="desc">綠/紅/橘三色家族與卡片、Before/After 面板一致；pill 形狀 (rx 7)、56×14。</p>
+    </div>
+  </div>
+
+  <!-- ─────────── 3) Anomaly badge ─────────── -->
+
+  <h2>3 · 異常徽章</h2>
+
+  <div class="cmp-row">
+    <div class="cmp-cell">
+      <span class="cmp-label">Before · 飽和橘 <code>⚠ N</code></span>
+      <div class="cmp-stage">
+        <div class="l1-old"><div class="name">某個 L1 功能</div><div class="sub">N 個模組</div>
+          <span class="old-badge-anom">⚠ 2</span>
+        </div>
+      </div>
+      <p class="desc">純色橘 <code>#FF6D00</code>，視覺與系統其他 warn 色不一致；無 "注意" 字樣。</p>
+    </div>
+    <div class="cmp-cell">
+      <span class="cmp-label after">After · warn-yellow palette</span>
+      <div class="cmp-stage">
+        <div class="l1-new"><div class="name">某個 L1 功能</div><div class="sub">N 個模組</div>
+          <span class="new-badge anom solo">⚠ 注意 2</span>
+        </div>
+      </div>
+      <p class="desc">改用設計系統的 warn 色（<code>#fef3c7</code> / <code>#b45309</code> / <code>#855207</code>），與卡片、detail 面板的警示語意統一。</p>
+    </div>
+  </div>
+
+  <!-- ─────────── 4) Both badges stacking ─────────── -->
+
+  <h2>4 · 兩個徽章同時存在</h2>
+
+  <div class="cmp-row">
+    <div class="cmp-cell">
+      <span class="cmp-label">Before · 互相覆蓋</span>
+      <div class="cmp-stage">
+        <div class="l1-old"><div class="name">即時通知中心</div><div class="sub">7 個模組</div>
+          <span class="old-badge-anom">⚠ 2</span>
+        </div>
+      </div>
+      <p class="desc">由於兩種徽章定位相同，舊版實作下通常擇一顯示。</p>
+    </div>
+    <div class="cmp-cell">
+      <span class="cmp-label after">After · 並排</span>
+      <div class="cmp-stage">
+        <div class="l1-new"><div class="name">即時通知中心</div><div class="sub">7 個模組</div>
+          <span class="new-badge anom">⚠ 注意 2</span>
+          <span class="new-badge added">+ 新增</span>
+        </div>
+      </div>
+      <p class="desc">異常徽章在左、版本差異徽章在右，貼在 L1 節點上方外側。</p>
+    </div>
+  </div>
+
+  <!-- ─────────── 5) Toolbar legend ─────────── -->
+
+  <h2>5 · Toolbar 圖例</h2>
+
+  <div class="cmp-row">
+    <div class="cmp-cell">
+      <span class="cmp-label">Before</span>
+      <div class="cmp-stage">
+        <div class="tb-strip">
+          <span class="tb-badge anom-old">⚠ N</span><span class="tb-hint">異常</span>
+          <span class="tb-divider">|</span>
+          <span class="tb-badge diff-old">Δ 有差異</span><span class="tb-hint">版本差異</span>
+        </div>
+      </div>
+    </div>
+    <div class="cmp-cell">
+      <span class="cmp-label after">After</span>
+      <div class="cmp-stage">
+        <div class="tb-strip">
+          <span class="tb-badge anom-new">⚠ 注意</span><span class="tb-hint">異常</span>
+          <span class="tb-divider">|</span>
+          <span class="tb-badge added-new">+ 新增</span>
+          <span class="tb-badge removed-new">− 移除</span>
+          <span class="tb-badge modified-new">~ 修改</span><span class="tb-hint">版本差異</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
