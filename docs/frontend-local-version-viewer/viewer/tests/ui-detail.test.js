@@ -31,6 +31,7 @@ function resetState() {
   state.l2GraphViewModel = null;
   state.layerExplanation = null;
   state.selectedFeatureId = null;
+  state.versionDiff = null;
 }
 
 beforeEach(() => {
@@ -748,6 +749,112 @@ describe('applyDiffSort — ?? 99 on a side with known flag', () => {
     ];
     const sorted = applyDiffSort(nodes, 'risk');
     expect(sorted[0].id).toBe('vuln'); // priority 1 < 3
+  });
+});
+
+describe('renderStructuralDiffDetail (via renderDiffDetailPanel)', () => {
+  it('shows version A and version B descriptions side by side', () => {
+    state.mode = 'diff';
+    state.updateModel = null;
+    state.selectedId = 'feat-1';
+    state.versionDiff = {
+      node_states: { 'feat-1': 'attribute_changed' },
+      node_details: {
+        'feat-1': {
+          baseline_label: '舊名',
+          baseline_description: '舊版描述內容',
+          current_label: '新名',
+          current_description: '新版描述內容',
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    const text = els.detailContent.textContent;
+    expect(text).toContain('舊版描述內容');
+    expect(text).toContain('新版描述內容');
+    expect(els.detailContent.querySelectorAll('.before-after').length).toBe(1);
+  });
+
+  it('drops the tautological 變更摘要 block', () => {
+    state.mode = 'diff';
+    state.updateModel = null;
+    state.selectedId = 'feat-1';
+    state.versionDiff = {
+      node_states: { 'feat-1': 'attribute_changed' },
+      node_details: {
+        'feat-1': {
+          baseline_label: '舊名',
+          baseline_description: '舊述',
+          current_label: '新名',
+          current_description: '新述',
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    expect(els.detailContent.textContent).not.toContain('變更摘要');
+    expect(els.detailContent.textContent).not.toContain('新舊版本之間');
+  });
+
+  it('shows an absence message for an added feature (no version A)', () => {
+    state.mode = 'diff';
+    state.updateModel = null;
+    state.selectedId = 'feat-new';
+    state.versionDiff = {
+      node_states: { 'feat-new': 'added' },
+      node_details: {
+        'feat-new': {
+          baseline_label: null,
+          baseline_description: null,
+          current_label: '全新功能',
+          current_description: '只在新版存在',
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    expect(els.detailContent.textContent).toContain('版本A尚無此功能');
+    expect(els.detailContent.textContent).toContain('只在新版存在');
+  });
+
+  it('shows an absence message for a removed feature (no version B)', () => {
+    state.mode = 'diff';
+    state.updateModel = null;
+    state.selectedId = 'feat-gone';
+    state.versionDiff = {
+      node_states: { 'feat-gone': 'removed' },
+      node_details: {
+        'feat-gone': {
+          baseline_label: '舊功能',
+          baseline_description: '只在舊版存在',
+          current_label: null,
+          current_description: null,
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    expect(els.detailContent.textContent).toContain('此功能已於版本B移除');
+    expect(els.detailContent.textContent).toContain('只在舊版存在');
+  });
+
+  it('shows 未提供 for an attribute_changed feature with an empty version A description', () => {
+    state.mode = 'diff';
+    state.updateModel = null;
+    state.selectedId = 'feat-1';
+    state.versionDiff = {
+      node_states: { 'feat-1': 'attribute_changed' },
+      node_details: {
+        'feat-1': {
+          baseline_label: '名稱',
+          baseline_description: '',
+          current_label: '名稱',
+          current_description: '有內容的新描述',
+        },
+      },
+    };
+    renderDiffDetailPanel();
+    const text = els.detailContent.textContent;
+    expect(text).toContain('未提供');
+    expect(text).not.toContain('版本A尚無此功能');
+    expect(text).toContain('有內容的新描述');
   });
 });
 

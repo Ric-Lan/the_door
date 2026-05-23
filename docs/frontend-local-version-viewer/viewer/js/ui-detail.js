@@ -111,11 +111,29 @@ export function renderDetailPanel(callbacks = {}) {
 }
 
 const CHANGE_TYPE_LABEL = {
-  added:              { label: '新增', explain: '此功能在新版本中首次出現，舊版本沒有對應項目。' },
-  removed:            { label: '移除', explain: '此功能存在於舊版本，但新版本中已不存在。' },
-  attribute_changed:  { label: '屬性變更', explain: '此功能在新舊版本之間的描述、信心或來源節點等屬性有差異。' },
-  dependency_changed: { label: '相依變更', explain: '此功能與其他功能的相依關係（depends_on / uses）在新舊版本之間有變動。' },
+  added:              '新增',
+  removed:            '移除',
+  attribute_changed:  '屬性變更',
+  dependency_changed: '相依變更',
 };
+
+function _versionDescPanel(side, versionLabel, description, absentText) {
+  const panel = document.createElement('div');
+  panel.className = 'ba-panel ' + side;
+  const labelEl = document.createElement('div');
+  labelEl.className = 'ba-label';
+  labelEl.textContent = versionLabel;
+  const textEl = document.createElement('div');
+  textEl.className = 'ba-text';
+  if (description) {
+    textEl.textContent = description;
+  } else {
+    textEl.textContent = absentText;
+    textEl.classList.add('missing');
+  }
+  panel.append(labelEl, textEl);
+  return panel;
+}
 
 function renderStructuralDiffDetail() {
   const id = state.selectedId;
@@ -124,22 +142,29 @@ function renderStructuralDiffDetail() {
     renderNoSelection();
     return;
   }
-  const feature = (state.l1Model?.features ?? []).find(f => f.id === id);
+  const detail = state.versionDiff?.node_details?.[id] ?? {};
   els.detailSource.textContent = '/api/diff';
   const content = els.detailContent;
   content.className = 'detail-content';
   content.textContent = '';
 
-  const meta = CHANGE_TYPE_LABEL[changeType] ?? { label: changeType, explain: '此功能在兩個版本間有差異。' };
-
   const chip = document.createElement('div');
   chip.className = 'change-badge change-' + changeType;
-  chip.textContent = meta.label;
+  chip.textContent = CHANGE_TYPE_LABEL[changeType] ?? changeType;
   content.appendChild(chip);
 
-  content.appendChild(detailSection('功能名稱', feature?.label ?? id));
-  content.appendChild(detailSection('描述（目前版本）', feature?.description));
-  content.appendChild(detailSection('變更摘要', meta.explain));
+  content.appendChild(detailSection('功能名稱',
+    detail.current_label ?? detail.baseline_label ?? id));
+
+  const baWrap = document.createElement('div');
+  baWrap.className = 'before-after';
+  baWrap.appendChild(_versionDescPanel(
+    'before', '版本A', detail.baseline_description,
+    changeType === 'added' ? '版本A尚無此功能' : '未提供'));
+  baWrap.appendChild(_versionDescPanel(
+    'after', '版本B', detail.current_description,
+    changeType === 'removed' ? '此功能已於版本B移除' : '未提供'));
+  content.appendChild(baWrap);
 
   content.appendChild(attributionSection('/api/diff'));
   appendDiffExplanationSection(content, id);
