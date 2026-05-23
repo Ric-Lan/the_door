@@ -1536,3 +1536,70 @@ h1 {
   border-radius: 2px;
   padding: 0 1px;
 }
+
+/* Notes tab (§ 7.5) */
+.notes-add-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 2px dashed var(--border, #d1d5db);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--on-surface-muted, #64748b);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.notes-add-btn:hover {
+  border-color: var(--accent, #0d9488);
+  color: var(--accent, #0d9488);
+}
+.notes-form-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--surface-card, #f8f9fa);
+}
+.notes-form-card input,
+.notes-form-card textarea {
+  width: 100%;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+.notes-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.user-note-card {
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--surface-card, #f8f9fa);
+}
+.user-note-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.note-author {
+  font-weight: 700;
+  font-size: 13px;
+}
+.note-time {
+  font-size: 11px;
+  color: var(--on-surface-muted, #64748b);
+}
+.note-body {
+  font-size: 13px;
+  white-space: pre-wrap;
+  color: var(--on-surface, #17202a);
+}

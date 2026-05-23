@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { appendUserNotesSection } from '../js/ui-notes.js';
+import { appendUserNotesSection, relativeTime } from '../js/ui-notes.js';
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -319,5 +319,27 @@ describe('appendUserNotesSection — submit failure', () => {
 
     const errorEl = section.querySelector('.user-notes-error');
     expect(errorEl.textContent).toContain('network error');
+  });
+});
+
+// ── relativeTime ──────────────────────────────────────────────────
+
+describe('relativeTime', () => {
+  const now = new Date('2026-05-23T12:00:00Z').getTime();
+  it('seconds → 剛剛', () => {
+    expect(relativeTime(now - 30 * 1000, now)).toBe('剛剛');
+  });
+  it('minutes', () => {
+    expect(relativeTime(now - 5 * 60 * 1000, now)).toBe('5 分鐘前');
+  });
+  it('hours', () => {
+    expect(relativeTime(now - 3 * 3600 * 1000, now)).toBe('3 小時前');
+  });
+  it('days', () => {
+    expect(relativeTime(now - 2 * 86400 * 1000, now)).toBe('2 天前');
+  });
+  it('older than 7d falls back to UTC MM-DD HH:MM', () => {
+    const past = new Date('2026-04-01T08:30:00Z').getTime();
+    expect(relativeTime(past, now)).toBe('04-01 08:30');
   });
 });

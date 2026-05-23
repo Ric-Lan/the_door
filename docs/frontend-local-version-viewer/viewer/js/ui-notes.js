@@ -1,5 +1,16 @@
 import * as api from './api.js';
 
+export function relativeTime(ts, now = Date.now()) {
+  const diff = now - ts;
+  if (diff < 60_000) return '剛剛';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分鐘前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小時前`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} 天前`;
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 function prependNote(note, container) {
   const details = document.createElement("details");
   details.className = "user-note";
