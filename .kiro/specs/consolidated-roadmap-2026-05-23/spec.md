@@ -23,8 +23,8 @@
 | ID | 工作流 | 既有 artifact | 狀態 | 阻擋 / 被阻擋 |
 |---|---|---|---|---|
 | **A** | 多語言 L1 抽取 | `.kiro/specs/multilang-node-extraction/spec.md` + `language_configs.py` + 27 tests | ✅ **完成**，merged main `3749e0e`（2026-05-23） | 獨立，不阻擋其他流 |
-| **B** | Viewer 視覺套設計系統 | `design/The Door Design System/design_handoff_v1.1.1_diff_visuals/` + 3 個 mockup（`docs/frontend-local-version-viewer/viewer/mockup{,-graph,-mindmap}.html`） | 設計確認 ✅，待寫 plan | **阻擋 C**（兩者都動 DetailPanel）；前置 stoic-spence #3 ✅ 已落地 main |
-| **C** | Diff 詳情面板重做 | `.kiro/specs/frontend-local-version-viewer/` 內 design.md + tasks.md 的相關章節（worktree `ecstatic-beaver-49806e`） | spec + 3-task plan 寫完，code-review 過，未執行 | 被 **B** 阻擋；前置 stoic-spence #3 ✅ 已落地 main |
+| **B** | Viewer 視覺套設計系統 | `design/The Door Design System/design_handoff_v1.1.1_diff_visuals/` + 3 個 mockup（`docs/frontend-local-version-viewer/viewer/mockup{,-graph,-mindmap}.html`） | ✅ **完成**，merged main `ceef48a`（2026-05-23），639 vitest tests | 前置 stoic-spence #3 ✅ 已落地 main |
+| **C** | Diff 詳情面板重做 | `.kiro/specs/frontend-local-version-viewer/` 內 design.md + tasks.md 的相關章節（worktree `ecstatic-beaver-49806e`） | ✅ **完成**，merged main `02d2e56`（2026-05-23）；決策 Branch C：T1 後端 node_details ✅、T2 A/B layout ✅、T3 欄寬 ✅ | ecstatic-beaver worktree 已移除 |
 | **D** | CLAUDE.md → hooks | `.claude/settings.json` 3 條 hook | ✅ **完成**，merged main `4fd86b0`（2026-05-23） | 獨立 |
 
 git 起點：`main` HEAD `0b353df` + tag `v1.2.1`（本 session 未動 main）。
