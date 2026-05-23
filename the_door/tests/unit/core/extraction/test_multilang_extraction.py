@@ -213,3 +213,41 @@ class TestGoExtraction:
         nodes = {n.name: n for n in result.nodes}
         assert "Drawable" in nodes
         assert nodes["Drawable"].type == "class"
+
+
+class TestConfigFallback:
+    """Unknown language uses old substring fallback (spec R2)."""
+
+    def test_unknown_language_fallback_extracts_function_definition(self, tmp_path):
+        import tree_sitter_python
+        from tree_sitter import Language, Parser
+
+        from the_door.core.extraction.node_builder import NodeBuilder
+        from the_door.models import FileInfo
+
+        lang = Language(tree_sitter_python.language())
+        parser = Parser(lang)
+        tree = parser.parse(b"def foo(): pass")
+        file_info = FileInfo(path="x.unknown", language="unknown_lang")
+        nb = NodeBuilder()
+        results = []
+        nb._walk_config_driven(tree.root_node, file_info, results, None)
+        names = {n.name for n in results}
+        assert "foo" in names
+
+    def test_unknown_language_fallback_extracts_class_declaration(self, tmp_path):
+        import tree_sitter_python
+        from tree_sitter import Language, Parser
+
+        from the_door.core.extraction.node_builder import NodeBuilder
+        from the_door.models import FileInfo
+
+        lang = Language(tree_sitter_python.language())
+        parser = Parser(lang)
+        tree = parser.parse(b"class Bar: pass")
+        file_info = FileInfo(path="x.unknown", language="unknown_lang")
+        nb = NodeBuilder()
+        results = []
+        nb._walk_config_driven(tree.root_node, file_info, results, None)
+        names = {n.name for n in results}
+        assert "Bar" in names
