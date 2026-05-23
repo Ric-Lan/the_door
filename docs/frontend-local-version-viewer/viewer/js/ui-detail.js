@@ -103,6 +103,10 @@ export function attributionSection(source) {
 }
 
 export function renderDetailPanel(callbacks = {}) {
+  const workspace = els.detailContent.closest('.workspace');
+  if (workspace) {
+    workspace.classList.toggle('workspace--diff', state.mode === 'diff');
+  }
   if (state.mode === 'diff') {
     renderDiffDetailPanel();
   } else {

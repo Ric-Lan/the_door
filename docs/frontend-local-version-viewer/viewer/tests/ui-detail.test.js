@@ -927,3 +927,27 @@ describe('ui-detail regression — user notes + diff explanation sections', () =
     expect(els.detailContent.querySelector('.diff-explanation-section')).not.toBeNull();
   });
 });
+
+describe('renderDetailPanel diff-mode width modifier', () => {
+  it('adds workspace--diff class when mode is diff', () => {
+    state.mode = 'diff';
+    state.updateModel = { details: {} };
+    state.selectedId = null;
+    renderDetailPanel();
+    const ws = els.detailContent.closest('.workspace');
+    expect(ws).not.toBeNull();
+    expect(ws.classList.contains('workspace--diff')).toBe(true);
+  });
+
+  it('removes workspace--diff class when mode is single-version', () => {
+    state.mode = 'diff';
+    state.updateModel = { details: {} };
+    state.selectedId = null;
+    renderDetailPanel();
+    state.mode = 'baseline';
+    state.l1Model = { features: [] };
+    renderDetailPanel();
+    const ws = els.detailContent.closest('.workspace');
+    expect(ws.classList.contains('workspace--diff')).toBe(false);
+  });
+});

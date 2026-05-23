@@ -250,6 +250,10 @@ h1 {
   overflow: hidden;
 }
 
+.workspace--diff {
+  grid-template-columns: 1fr minmax(460px, 560px);
+}
+
 .cards-panel,
 .detail-panel {
   min-width: 0;
