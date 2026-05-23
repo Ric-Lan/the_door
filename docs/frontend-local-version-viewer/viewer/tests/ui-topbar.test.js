@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderTopBar, updateLogoMark } from '../js/ui-topbar.js';
+import { renderTopBar, updateLogoMark, resolveLogoState } from '../js/ui-topbar.js';
 import { state } from '../js/state.js';
 import { els } from '../js/dom.js';
 
@@ -339,5 +339,25 @@ describe('updateLogoMark', () => {
     logo.id = 'logo-mark-disabled';
     expect(() => updateLogoMark()).not.toThrow();
     logo.id = 'logo-mark';
+  });
+});
+
+describe('resolveLogoState', () => {
+  it('L3 layer overrides mode', () => {
+    expect(resolveLogoState('diff', 'L3')).toBe('l3');
+    expect(resolveLogoState('current', 'L3')).toBe('l3');
+  });
+  it('diff mode → diff logo', () => {
+    expect(resolveLogoState('diff', 'L1')).toBe('diff');
+    expect(resolveLogoState('diff', 'L2')).toBe('diff');
+  });
+  it('current mode → l2 logo', () => {
+    expect(resolveLogoState('current', 'L1')).toBe('l2');
+  });
+  it('baseline mode → l1 logo', () => {
+    expect(resolveLogoState('baseline', 'L1')).toBe('l1');
+  });
+  it('unknown mode falls back to l1', () => {
+    expect(resolveLogoState('weird', 'L1')).toBe('l1');
   });
 });

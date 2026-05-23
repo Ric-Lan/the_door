@@ -66,6 +66,14 @@ export function renderTopBar() {
   }
 }
 
+export function resolveLogoState(mode, layerState) {
+  if (layerState === 'L3') return 'l3';
+  if (mode === 'diff')      return 'diff';
+  if (mode === 'current')   return 'l2';
+  if (mode === 'baseline')  return 'l1';
+  return 'l1';
+}
+
 export function updateLogoMark() {
   const img = document.getElementById('logo-mark');
   if (!img) return;
