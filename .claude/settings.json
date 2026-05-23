@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r \".tool_input.file_path // empty\" | grep -q \"frontend-local-version-viewer/prototype/\" && { echo \"⛔ prototype/ 已廢棄，請改寫 docs/frontend-local-version-viewer/viewer/\" >&2; exit 2; } || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r \".tool_input.command // empty\" | grep -qE \"the-door\\\\s+serve\\\\b\" && { echo \"⛔ 指令是 the-door ui <test-target>，不是 serve。請改用 ui 子命令。\" >&2; exit 2; } || exit 0"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"⚠ The Door: 前端唯一正式版 = docs/frontend-local-version-viewer/viewer/（不要動 prototype/）；啟動本地伺服器指令是 the-door ui <test-target>，不是 serve。\""
+          }
+        ]
+      }
+    ]
+  }
+}
