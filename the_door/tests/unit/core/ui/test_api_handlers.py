@@ -595,6 +595,24 @@ class TestDiffVersionsO2:
             body["error"]["remediation"]["next_action"]["id"] == "system_status.show"
         )
 
+    def test_diff_api_returns_node_details(self, tmp_path):
+        """node_details mirrors node_states keys and carries both versions'
+        label + description per feature."""
+        _seed_two_snapshots(tmp_path)
+        handlers = _make_handlers(tmp_path)
+        status, body = handlers.handle_diff_versions(
+            baseline_id="v1.0.0", current_id="v1.0.5"
+        )
+        assert status == 200, body
+        assert "node_details" in body
+        assert set(body["node_details"].keys()) == set(body["node_states"].keys())
+        assert body["node_details"]["feat-baseline"] == {
+            "baseline_label": "Baseline feature",
+            "baseline_description": "baseline",
+            "current_label": "Baseline feature",
+            "current_description": "baseline",
+        }
+
     def test_diff_api_with_no_changes_still_returns_next_actions(self, tmp_path):
         """O2-T4: self-diff (no changes) still emits next_actions."""
         v1, _ = _seed_two_snapshots(tmp_path)

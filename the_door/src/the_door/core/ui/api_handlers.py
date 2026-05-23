@@ -429,6 +429,15 @@ class APIHandlers:
                 nd.node_id: nd.diff_state
                 for nd in diff_result.node_diffs
             }
+            node_details = {
+                nd.node_id: {
+                    "baseline_label": nd.baseline_label,
+                    "baseline_description": nd.baseline_description,
+                    "current_label": nd.current_label,
+                    "current_description": nd.current_description,
+                }
+                for nd in diff_result.node_diffs
+            }
             body = {
                 "baseline_id": baseline.version_id,
                 "baseline_label": baseline.label,
@@ -442,6 +451,7 @@ class APIHandlers:
                     "total_changed": diff_result.summary.total_changed_count,
                 },
                 "node_states": node_states,
+                "node_details": node_details,
             }
             state = StateInspector(self._project_root).inspect()
             actions = NextActionSuggester().suggest(state, context="viewer")
