@@ -4,6 +4,7 @@ from __future__ import annotations
 from tree_sitter import Node as TSNode
 
 from the_door.models import ASTNode, FileInfo
+from the_door.core.extraction.language_configs import LANGUAGE_CONFIGS
 
 
 class NodeBuilder:
@@ -42,7 +43,7 @@ class NodeBuilder:
             self._walk_typescript(node, file_info, results, parent_class)
         else:
             # Basic fallback: look for function_definition and class_definition
-            self._walk_generic(node, file_info, results, parent_class)
+            self._walk_config_driven(node, file_info, results, parent_class)
 
     # ── Python ──────────────────────────────────────────────────────────
 
@@ -366,44 +367,119 @@ class NodeBuilder:
 
     # ── Generic fallback ────────────────────────────────────────────────
 
-    def _walk_generic(
+    def _walk_config_driven(
         self,
         node: TSNode,
         file_info: FileInfo,
         results: list[ASTNode],
         parent_class: str | None,
     ) -> None:
-        """Generic fallback for unsupported languages — look for common patterns."""
-        if "function_definition" in node.type or "function_declaration" in node.type:
-            name = self._child_text(node, "identifier")
-            if name:
-                results.append(
-                    ASTNode(
+        """Config-driven walker for languages covered by LANGUAGE_CONFIGS."""
+        cfg = LANGUAGE_CONFIGS.get(file_info.language)
+        if cfg is None:
+            # Fallback for languages not yet in the config table.
+            # Retained so newly-registered grammars get rough extraction
+            # rather than nothing.
+            if "function_definition" in node.type or "function_declaration" in node.type:
+                name = self._child_text(node, "identifier")
+                if name:
+                    results.append(ASTNode(
                         node_id=f"{file_info.path}::{name}",
                         type="method" if parent_class else "function",
                         name=name,
                         file=file_info.path,
                         language=file_info.language,
-                    )
-                )
-            return
-
-        if "class_definition" in node.type or "class_declaration" in node.type:
-            name = self._child_text(node, "identifier") or self._child_text(node, "type_identifier")
-            if name:
-                results.append(
-                    ASTNode(
+                    ))
+                return
+            if "class_definition" in node.type or "class_declaration" in node.type:
+                name = self._child_text(node, "identifier") or self._child_text(node, "type_identifier")
+                if name:
+                    results.append(ASTNode(
                         node_id=f"{file_info.path}::{name}",
                         type="class",
                         name=name,
                         file=file_info.path,
                         language=file_info.language,
-                    )
-                )
+                    ))
+                return
+            for child in node.children:
+                self._walk_config_driven(child, file_info, results, parent_class)
             return
 
+        # ── Go type_spec special case (spec § 5.3) ──────────────────────
+        if file_info.language == "go" and node.type == "type_spec":
+            type_child = node.child_by_field_name("type")
+            if type_child is not None and type_child.type in ("struct_type", "interface_type"):
+                name = self._get_name_by_field(node)
+                if name:
+                    results.append(ASTNode(
+                        node_id=f"{file_info.path}::{name}",
+                        type="class",
+                        name=name,
+                        file=file_info.path,
+                        language=file_info.language,
+                    ))
+            return
+
+        # ── Container nodes (e.g. Rust impl_item): scope but no own node ──
+        if node.type in cfg.container_types:
+            type_node = node.child_by_field_name("type")
+            container_name = (
+                type_node.text.decode("utf-8", errors="replace")
+                if type_node is not None
+                else "__impl__"
+            )
+            for child in node.children:
+                self._walk_config_driven(child, file_info, results, container_name)
+            return
+
+        # ── Class nodes ───────────────────────────────────────────────────
+        if node.type in cfg.class_types:
+            name = self._extract_name(node, file_info.language)
+            if name:
+                results.append(ASTNode(
+                    node_id=f"{file_info.path}::{name}",
+                    type="class",
+                    name=name,
+                    file=file_info.path,
+                    language=file_info.language,
+                ))
+                for child in node.children:
+                    self._walk_config_driven(child, file_info, results, name)
+            else:
+                for child in node.children:
+                    self._walk_config_driven(child, file_info, results, parent_class)
+            return
+
+        # ── Method nodes (inside a class/container scope) ─────────────────
+        if node.type in cfg.method_types and parent_class is not None:
+            name = self._extract_name(node, file_info.language)
+            if name:
+                results.append(ASTNode(
+                    node_id=f"{file_info.path}::{name}",
+                    type="method",
+                    name=name,
+                    file=file_info.path,
+                    language=file_info.language,
+                ))
+            return
+
+        # ── Function nodes (top-level or method_types with no parent) ─────
+        if node.type in cfg.function_types:
+            name = self._extract_name(node, file_info.language)
+            if name:
+                results.append(ASTNode(
+                    node_id=f"{file_info.path}::{name}",
+                    type="function",
+                    name=name,
+                    file=file_info.path,
+                    language=file_info.language,
+                ))
+            return
+
+        # ── Recurse ───────────────────────────────────────────────────────
         for child in node.children:
-            self._walk_generic(child, file_info, results, parent_class)
+            self._walk_config_driven(child, file_info, results, parent_class)
 
     # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -413,6 +489,37 @@ class NodeBuilder:
         for child in node.children:
             if child.type == child_type:
                 return child.text.decode("utf-8", errors="replace")
+        return None
+
+    @staticmethod
+    def _get_name_by_field(node: TSNode) -> str | None:
+        """Get node name via child_by_field_name('name'), decode if found."""
+        name_node = node.child_by_field_name("name")
+        if name_node is not None:
+            return name_node.text.decode("utf-8", errors="replace")
+        return None
+
+    @staticmethod
+    def _extract_name(node: TSNode, language: str) -> str | None:
+        """Extract node name, handling per-language quirks."""
+        # C and C++: function name is nested in declarator field
+        if language in ("c", "cpp") and node.type == "function_definition":
+            decl = node.child_by_field_name("declarator")
+            if decl is not None:
+                inner = decl.child_by_field_name("declarator")
+                if inner is not None:
+                    return inner.text.decode("utf-8", errors="replace")
+            return None
+
+        # Standard: try name field first, then type_identifier, then identifier
+        name_node = node.child_by_field_name("name")
+        if name_node is not None:
+            return name_node.text.decode("utf-8", errors="replace")
+
+        for child_type in ("type_identifier", "identifier"):
+            for child in node.children:
+                if child.type == child_type:
+                    return child.text.decode("utf-8", errors="replace")
         return None
 
     @staticmethod
