@@ -10,6 +10,74 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.2] — 2026-05-23
+
+### Added
+- **多語言 L1 抽取（Stream A）**：以 `language_configs.py` config-driven 架構取代
+  `_walk_generic`，新增 Rust / Java / Ruby / PHP / C# / Go / Python / TypeScript / JavaScript
+  逐語言節點型別對照表；修復 Go methods、orphaned method_types 抽取失效。
+  測試覆蓋率 100%（unit + regression + property）。
+- **Claude Code hooks（Stream D）**：新增 3 條開發守衛 hook（UserPromptSubmit、
+  PostToolUse、Stop），確保前端唯一正式版路徑與 UI 啟動指令。
+- **Viewer 設計系統套用（Stream B）**：依 design system v1.1.1 全面更新
+  design token、topbar（版本 pill、logo 狀態、risk filter button）、
+  list filter bar（信心/類型/排序純函式 pipeline）、CJK-aware word-level diff、
+  notes 折疊卡片、doubt 詳情視圖、心智圖 diff badge + anomaly badge + L1 節點尺寸。
+- **Diff 詳情面板（Stream C）**：`/api/diff` 回應加入 `node_details` map；
+  詳情欄在 structural diff 模式下顯示版本 A/B 說明文字對比；詳情欄加寬。
+- **版本選擇器 dropdown 修復**：版本 A/B pill 恢復 `<select>` 下拉；
+  `populateVersionSelectors()` 正確掛載。
+- **備註 tab**：詳情面板新增「詳情 / 備註」分頁切換，備註區塊移至獨立 tab pane。
+- **關聯圖 grid 卡片 layout**：以 CSS grid 卡片取代 Cytoscape 節點圖，
+  呈現變更類型色彩與信心度邊框；SVG edge overlay 由 `requestAnimationFrame` 繪製。
+
+### Internal
+- `.kiro/specs/consolidated-roadmap-2026-05-23/`：4 工作流合併 spec（10 節）
+  + 5 份 task 文件。
+
+---
+
+## [1.2.1] — 2026-05-20
+
+### Added
+- **L1 System Prompt**：新增 `L1_SYSTEM_PROMPT`，針對非技術讀者強制輸出規則，
+  透過 `batch_reader` provider 傳入所有 L1 分析呼叫。
+- **L2 Anomaly Checklist**：`per-module anomaly checklist` 針對 3 種可由 AST 判斷
+  的異常類型（過大模組、孤立節點、循環相依）強制執行。
+- **Diff Explanation Prompt 強化**：新增 forbidden list + examples，
+  防止 LLM 產出過於模糊或重複的差異推論。
+
+---
+
+## [1.2.0] — 2026-05-18
+
+### Added
+- **增量分析完整實作**：`compute_affected_features`、`incremental_pipeline`
+  orchestrator、`analyze_changes` MCP tool、`snapshot_write` 支援 `inherit_from`
+  + `updated_features`，實現跨 snapshot 增量更新。
+- **Guidance Engine**：`SystemState` frozen dataclass、`StateInspector`（50ms 限制）、
+  `NextActionSuggester` 規則表 + after-error boost、`Remediation` + 標準錯誤信封（F3）。
+- **CLI UX**：`the-door status`、`--from-snapshot` 增量旗標、`extract --as-version`
+  backfill、所有 CLI 命令加入 post-run Next: hook 與 F3 error envelope。
+- **MCP Surface**：`system_status`、`analyze_changes` tool；所有 MCP 工具回應
+  統一注入 `next_actions`；shared response envelope helper。
+- **Viewer 模組化**：`js/` 拆分為 state / dom / api / viewmodel / graph /
+  ui-detail / ui-list / ui-topbar / ui-notes / ui-diff-explanation /
+  ui-modal / layers / app.js 共 13 個模組；TDD 逐步實作（Steps 0–10）。
+- **Viewer 功能**：`ui-detail.js` 接線真實 notes + diff-explanation；
+  `buildMindmapData` 統一 diff 資料來源；onboarding card；Next Actions 區塊；
+  版本比較 count badge 修正；state-aware branding；CSS token 統一。
+- **Snapshot 強化**：per-version gzipped structure 讀寫；`list_analyzed_versions`；
+  `source_nodes` 持久化；`source_node_count` 推導；node_id 碰撞後綴（P3）。
+- **測試基礎建設**：Hypothesis property test patterns；contract test skeletons；
+  v105 scenario gate（7 steps）；`_seed_helpers` 整合 7 個 call site。
+
+### Changed
+- `CLAUDE.md` 重構為決策樹格式，以 `the-door status` 為唯一起點。
+- README 重構為 UX-sequence-focused onboarding guide（407 → 182 行）。
+
+---
+
 ## [1.1.0] — 2026-05-13
 
 ### Added
@@ -161,6 +229,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 | Version | Release Date | Key Change |
 |---------|-------------|-----------|
+| 1.2.2 | 2026-05-23 | Multilang extraction + Viewer design system + Diff detail panel + 3 regression fixes |
+| 1.2.1 | 2026-05-20 | L1 system prompt + L2 anomaly checklist + diff explanation prompt 強化 |
+| 1.2.0 | 2026-05-18 | 增量分析 + Guidance Engine + CLI UX + MCP surface + Viewer 模組化 |
+| 1.1.0 | 2026-05-13 | 使用者備註、輸出語言選擇、差異推論、Topbar 強化 |
 | 1.0.6 | 2026-05-10 | `snapshot_write` MCP tool + `CLAUDE.md` agent orchestration + ProjectRegistry |
 | 1.0.5 | 2026-05-09 | Dual license + bilingual README + `confidence_reason` |
 | 1.0.4 | 2026-05-09 | Mindmap popup polish: CJK sizing, anomaly badges, SVG layout |
