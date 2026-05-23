@@ -1,6 +1,38 @@
 import { state } from './state.js';
 import { els } from './dom.js';
 
+const CONF_PRIORITY = { low: 0, medium: 1, high: 2 };
+const TYPE_PRIORITY = { removed: 0, attribute_changed: 1, dependency_changed: 1, added: 2, null: 9 };
+
+export function applyCardFilters(features, { conf, type } = {}) {
+  return features.filter(f => {
+    if (conf === 'high'     && f.confidence !== 'high') return false;
+    if (conf === 'medium'   && f.confidence !== 'medium') return false;
+    if (conf === 'low'      && f.confidence !== 'low') return false;
+    if (conf === 'not-high' && f.confidence === 'high') return false;
+    if (type === 'added'    && f.change_type !== 'added') return false;
+    if (type === 'removed'  && f.change_type !== 'removed') return false;
+    if (type === 'modified' && !['attribute_changed','dependency_changed'].includes(f.change_type)) return false;
+    if (type === 'none'     && f.change_type != null) return false;
+    return true;
+  });
+}
+
+export function sortCards(features, mode) {
+  const arr = [...features];
+  if (mode === 'risk' || !mode) {
+    return arr.sort((a, b) => {
+      const ra = (a.anomaly_count > 0 ? 0 : 1) * 10 + (CONF_PRIORITY[a.confidence] ?? 2);
+      const rb = (b.anomaly_count > 0 ? 0 : 1) * 10 + (CONF_PRIORITY[b.confidence] ?? 2);
+      return ra - rb;
+    });
+  }
+  if (mode === 'alpha')  return arr.sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
+  if (mode === 'source') return arr.sort((a, b) => (b.source_nodes?.length ?? 0) - (a.source_nodes?.length ?? 0));
+  if (mode === 'type')   return arr.sort((a, b) => (TYPE_PRIORITY[a.change_type] ?? 9) - (TYPE_PRIORITY[b.change_type] ?? 9));
+  return arr;
+}
+
 export function applyRiskFilter(features, riskOnly) {
   if (!riskOnly) return features;
   return features.filter(f => f.anomaly_count > 0 || f.confidence === 'low');

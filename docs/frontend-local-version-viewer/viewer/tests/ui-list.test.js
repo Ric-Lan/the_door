@@ -270,6 +270,37 @@ describe('applyRiskFilter', () => {
   });
 });
 
+import { applyCardFilters, sortCards } from '../js/ui-list.js';
+
+describe('applyCardFilters', () => {
+  const fs = [
+    { id: 'a', confidence: 'high', change_type: 'added' },
+    { id: 'b', confidence: 'medium', change_type: 'attribute_changed' },
+    { id: 'c', confidence: 'low', change_type: null },
+  ];
+  it('confidence filter 僅高', () => {
+    expect(applyCardFilters(fs, { conf: 'high' }).map(f => f.id)).toEqual(['a']);
+  });
+  it('confidence 非高 keeps medium + low', () => {
+    expect(applyCardFilters(fs, { conf: 'not-high' }).map(f => f.id)).toEqual(['b','c']);
+  });
+  it('type 修改 covers attribute_changed and dependency_changed', () => {
+    const x = [{ change_type: 'attribute_changed' }, { change_type: 'dependency_changed' }, { change_type: 'added' }];
+    expect(applyCardFilters(x, { type: 'modified' }).length).toBe(2);
+  });
+});
+
+describe('sortCards', () => {
+  it('risk default: anomaly + low conf first', () => {
+    const xs = [
+      { id: 'safe', anomaly_count: 0, confidence: 'high' },
+      { id: 'lowc', anomaly_count: 0, confidence: 'low' },
+      { id: 'anom', anomaly_count: 2, confidence: 'high' },
+    ];
+    expect(sortCards(xs, 'risk').map(x => x.id)).toEqual(['anom', 'lowc', 'safe']);
+  });
+});
+
 describe('renderChangeList — mode=baseline / current', () => {
   it('sets listTitle="舊版功能" and fills featureCard buttons for mode=baseline', () => {
     state.mode = 'baseline';

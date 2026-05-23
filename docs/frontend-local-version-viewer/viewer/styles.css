@@ -1451,3 +1451,26 @@ h1 {
   margin-right: 6px;
   vertical-align: middle;
 }
+
+/* Cards filter bar (§ 5) */
+.cards-filter-bar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--surface, #fff);
+  flex-wrap: wrap;
+}
+.filter-select {
+  padding: 3px 8px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--surface-card, #f8f9fa);
+  color: var(--on-surface, #17202a);
+  cursor: pointer;
+}
+.filter-select:focus {
+  outline: 2px solid var(--accent, #0d9488);
+  outline-offset: 1px;
+}

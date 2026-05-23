@@ -87,6 +87,28 @@
             <h2 id="list-title">功能總覽</h2>
             <p id="list-source"></p>
           </div>
+          <div class="cards-filter-bar" id="cards-filter-bar">
+            <select id="filter-conf" class="filter-select" title="信心篩選">
+              <option value="">全部信心</option>
+              <option value="high">高信心</option>
+              <option value="medium">中信心</option>
+              <option value="low">低信心</option>
+              <option value="not-high">非高信心</option>
+            </select>
+            <select id="filter-type" class="filter-select type-select" title="變更類型" hidden>
+              <option value="">全部類型</option>
+              <option value="added">新增</option>
+              <option value="removed">移除</option>
+              <option value="modified">修改</option>
+              <option value="none">無變更</option>
+            </select>
+            <select id="sort-mode" class="filter-select" title="排序">
+              <option value="risk">風險優先</option>
+              <option value="alpha">名稱 A→Z</option>
+              <option value="source">節點數</option>
+              <option value="type">類型</option>
+            </select>
+          </div>
           <div id="feature-list" class="feature-cards-grid"></div>
         </section>
 
