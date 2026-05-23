@@ -25,6 +25,55 @@
   --removed-bg: #f8d7da;
   --modified-border: #fd7e14;
   --modified-bg: #ffe0cc;
+
+  /* ── Additional surfaces ── */
+  --surface-card:   #fbfcfd;
+  --canvas-mindmap: #f0f2f5;
+  --on-accent:      #ffffff;
+
+  /* ── Additional shadows ── */
+  --shadow-fab:     0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-modal:   0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-drawer:  4px 0 24px rgba(0, 0, 0, 0.15);
+
+  /* ── Semantic additions ── */
+  --warn-bg:        #fef3c7;
+  --warn-fg:        #855207;
+  --danger-bg:      #fff4f2;
+  --info:           #0369a1;
+  --info-bg:        #f0f9ff;
+  --info-line:      #bae6fd;
+
+  /* ── Change-type foreground ── */
+  --added-fg:       #155724;
+  --removed-fg:     #721c24;
+  --modified-fg:    #7a4e00;
+
+  /* ── Lower-saturation diff tags ── */
+  --tag-added-bg:   #e8f5e9;
+  --tag-added-fg:   #2e7d32;
+  --tag-added-line: #a5d6a7;
+  --tag-removed-bg: #ffebee;
+  --tag-removed-fg: #c62828;
+  --tag-removed-line:#ef9a9a;
+  --tag-attr-bg:    #e3f2fd;
+  --tag-attr-fg:    #1565c0;
+  --tag-attr-line:  #90caf9;
+  --tag-dep-bg:     #fff8e1;
+  --tag-dep-fg:     #e65100;
+  --tag-dep-line:   #ffe082;
+
+  /* ── Mindmap categorical ── */
+  --cat-1: #4285F4;
+  --cat-2: #EA4335;
+  --cat-3: #34A853;
+  --cat-4: #F4B400;
+  --cat-5: #9C27B0;
+  --cat-6: #FF5722;
+  --cat-7: #00897B;
+  --cat-8: #795548;
+  --cat-9: #607D8B;
+  --cat-10: #E91E63;
 }
 
 * {
