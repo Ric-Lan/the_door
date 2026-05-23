@@ -342,6 +342,27 @@ describe('updateLogoMark', () => {
   });
 });
 
+import { modeSwitchLabel } from '../js/ui-topbar.js';
+
+describe('modeSwitchLabel', () => {
+  const snapshots = [
+    { version_id: 'v1', label: 'v1.0.0' },
+    { version_id: 'v2', label: 'v1.0.5' },
+  ];
+  it('returns 差異 for diff', () => {
+    expect(modeSwitchLabel('diff', 'v1', 'v2', snapshots)).toBe('差異');
+  });
+  it('baseline shows 版本 A label', () => {
+    expect(modeSwitchLabel('baseline', 'v1', 'v2', snapshots)).toBe('版本 A · v1.0.0');
+  });
+  it('current shows 版本 B label', () => {
+    expect(modeSwitchLabel('current', 'v1', 'v2', snapshots)).toBe('版本 B · v1.0.5');
+  });
+  it('unknown version → 版本 A · —', () => {
+    expect(modeSwitchLabel('baseline', 'xxx', 'v2', snapshots)).toBe('版本 A · —');
+  });
+});
+
 describe('resolveLogoState', () => {
   it('L3 layer overrides mode', () => {
     expect(resolveLogoState('diff', 'L3')).toBe('l3');

@@ -66,6 +66,14 @@ export function renderTopBar() {
   }
 }
 
+export function modeSwitchLabel(mode, versionA, versionB, snapshots) {
+  if (mode === 'diff') return '差異';
+  const id = mode === 'baseline' ? versionA : versionB;
+  const tag = mode === 'baseline' ? 'A' : 'B';
+  const label = snapshots.find(s => s.version_id === id)?.label ?? '—';
+  return `版本 ${tag} · ${label}`;
+}
+
 export function resolveLogoState(mode, layerState) {
   if (layerState === 'L3') return 'l3';
   if (mode === 'diff')      return 'diff';

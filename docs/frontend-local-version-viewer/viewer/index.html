@@ -23,11 +23,9 @@
         </div>
 
         <!-- 版本選擇器（多 snapshot 時顯示） -->
-        <div id="version-selector-bar" class="version-selector-bar" hidden>
-          <label for="select-version-a" title="選擇比較基準版本">版本 A</label>
-          <select id="select-version-a" class="version-select" title="選擇比較基準版本"></select>
-          <label for="select-version-b" title="選擇要比較的新版本">版本 B</label>
-          <select id="select-version-b" class="version-select" title="選擇要比較的新版本"></select>
+        <div id="version-selector-bar" class="version-selector-bar">
+          <button class="vsb-pill vsb-pill-a" id="vsb-pill-a" type="button">版本 A</button>
+          <button class="vsb-pill vsb-pill-b" id="vsb-pill-b" type="button">版本 B</button>
         </div>
 
         <nav class="mode-switch" aria-label="viewer mode">
