@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { changeSymbol, changeListButton, featureCard, renderChangeList } from '../js/ui-list.js';
+import { changeSymbol, changeListButton, featureCard, renderChangeList, applyRiskFilter } from '../js/ui-list.js';
 import { state } from '../js/state.js';
 import { els } from '../js/dom.js';
 
@@ -251,6 +251,22 @@ describe('renderChangeList — mode=diff, versionDiff path', () => {
     const empty = els.featureList.querySelector('.empty-state');
     expect(empty).not.toBeNull();
     expect(empty.textContent).toBe('無變更項目。');
+  });
+});
+
+// ── applyRiskFilter ────────────────────────────────────────────────
+
+describe('applyRiskFilter', () => {
+  const features = [
+    { id: 'a', anomaly_count: 0, confidence: 'high' },
+    { id: 'b', anomaly_count: 2, confidence: 'high' },
+    { id: 'c', anomaly_count: 0, confidence: 'low' },
+  ];
+  it('passes through when riskOnly false', () => {
+    expect(applyRiskFilter(features, false).map(f => f.id)).toEqual(['a','b','c']);
+  });
+  it('keeps anomaly OR low-confidence when riskOnly true', () => {
+    expect(applyRiskFilter(features, true).map(f => f.id)).toEqual(['b','c']);
   });
 });
 

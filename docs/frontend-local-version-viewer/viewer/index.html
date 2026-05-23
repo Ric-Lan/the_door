@@ -44,12 +44,21 @@
           <span id="count-added"    class="count-badge count-added"    title="B 版相較 A 版新增的功能數量">新增 0</span>
           <span id="count-removed"  class="count-badge count-removed"  title="B 版相較 A 版移除的功能數量">移除 0</span>
           <span id="count-modified" class="count-badge count-modified" title="B 版相較 A 版內容或關聯改變的功能數量">修改 0</span>
-          <span id="count-risk"     class="count-badge count-risk"     title="需要留意的差異項目數量" hidden>注意 0</span>
+          <button id="count-risk" type="button"
+                  class="count-badge count-risk count-risk-button"
+                  title="點擊只顯示需注意的項目"
+                  hidden>注意 0</button>
         </div>
       </header>
 
       <div id="summary-band" class="summary-band">
         <p id="summary-text">載入中…</p>
+      </div>
+
+      <div class="cards-filter-active" id="cards-filter-active" hidden>
+        <span class="risk-active-pill">⚠ 僅顯示需注意項目</span>
+        <span id="risk-active-counter" class="risk-active-counter"></span>
+        <button type="button" id="clear-risk-filter" class="risk-clear-btn">清除全部過濾</button>
       </div>
 
       <div id="diff-mode-banner" class="diff-mode-banner" hidden>

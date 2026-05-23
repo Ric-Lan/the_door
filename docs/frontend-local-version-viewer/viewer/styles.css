@@ -1398,3 +1398,43 @@ h1 {
   color: var(--on-accent, #fff);
   border-color: var(--accent, #0d9488);
 }
+
+/* Risk filter button (§ 3.2) */
+.count-risk-button {
+  cursor: pointer;
+  background: var(--warn-bg, #fef3c7);
+  color: var(--warn-fg, #855207);
+  border: 1.5px solid var(--warn, #b45309);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.count-risk-button.active {
+  background: var(--warn, #b45309);
+  color: #fff;
+}
+/* Active filter strip */
+.cards-filter-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--warn-bg, #fef3c7);
+  border-bottom: 1px solid var(--warn, #b45309);
+  font-size: 12px;
+}
+.risk-active-pill {
+  font-weight: 600;
+  color: var(--warn-fg, #855207);
+}
+.risk-clear-btn {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--warn, #b45309);
+  background: transparent;
+  color: var(--warn-fg, #855207);
+  cursor: pointer;
+  font-size: 11px;
+}

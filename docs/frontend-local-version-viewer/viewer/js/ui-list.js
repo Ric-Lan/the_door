@@ -1,6 +1,11 @@
 import { state } from './state.js';
 import { els } from './dom.js';
 
+export function applyRiskFilter(features, riskOnly) {
+  if (!riskOnly) return features;
+  return features.filter(f => f.anomaly_count > 0 || f.confidence === 'low');
+}
+
 export function changeSymbol(changeType) {
   const map = {
     added:              '+',
