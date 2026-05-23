@@ -1,9 +1,21 @@
 import { state } from './state.js';
 
+const TYPE_TAG = {
+  added:              '+ 新增',
+  removed:            '− 移除',
+  attribute_changed:  '~ 修改',
+  dependency_changed: '≠ 依賴',
+};
+
+export function buildDisplayLabel(node) {
+  const tag = TYPE_TAG[node.change_type];
+  return tag ? `${tag}\n${node.label}` : node.label;
+}
+
 export function buildCytoscapeElements(viewModel) {
   const nodes = (viewModel.nodes || []).map((node) => {
     const { id, label, ...rest } = node;
-    return { data: { id, label, ...rest } };
+    return { data: { id, label, displayLabel: buildDisplayLabel(node), ...rest } };
   });
 
   const featuresById = {};
@@ -29,19 +41,18 @@ export function buildCytoscapeStyle(_layerState) {
     {
       selector: 'node',
       style: {
-        'label': 'data(label)',
+        'label': 'data(displayLabel)',
         'text-valign': 'center',
         'text-halign': 'center',
-        'font-size': '32px',
+        'font-size': '24px',
         'font-weight': '600',
-        'color': '#ffffff',
-        'text-outline-width': 2,
-        'text-outline-color': 'rgba(0,0,0,0.35)',
+        'color': '#17202a',
+        'text-outline-width': 0,
         'text-wrap': 'wrap',
         'text-max-width': '280px',
-        'background-color': '#607d8b',
+        'background-color': '#fbfcfd',
         'border-width': 3,
-        'border-color': '#455a64',
+        'border-color': '#d7dde5',
         'border-style': 'solid',
         'width': 'label',
         'height': 'label',
@@ -51,19 +62,19 @@ export function buildCytoscapeStyle(_layerState) {
     },
     {
       selector: "node[change_type = 'added']",
-      style: { 'background-color': '#4caf50', 'border-color': '#388e3c' },
+      style: { 'background-color': '#d4edda', 'border-color': '#28a745', 'color': '#1d6e34' },
     },
     {
       selector: "node[change_type = 'removed']",
-      style: { 'background-color': '#f44336', 'border-color': '#c62828' },
+      style: { 'background-color': '#f8d7da', 'border-color': '#dc3545', 'color': '#9a1a1a' },
     },
     {
       selector: "node[change_type = 'attribute_changed']",
-      style: { 'background-color': '#ff9800', 'border-color': '#e65100' },
+      style: { 'background-color': '#ffe0cc', 'border-color': '#fd7e14', 'color': '#7a4e00' },
     },
     {
       selector: "node[change_type = 'dependency_changed']",
-      style: { 'background-color': '#ffc107', 'border-color': '#f57f17', 'color': '#333' },
+      style: { 'background-color': '#ffe0cc', 'border-color': '#fd7e14', 'color': '#7a4e00' },
     },
     {
       selector: "node[confidence = 'high']",
@@ -79,7 +90,7 @@ export function buildCytoscapeStyle(_layerState) {
     },
     {
       selector: 'node:selected',
-      style: { 'border-color': '#2196f3', 'border-width': 4, 'border-style': 'solid' },
+      style: { 'border-color': '#0f766e', 'border-width': 4, 'border-style': 'solid' },
     },
     {
       selector: 'edge',

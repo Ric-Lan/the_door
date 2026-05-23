@@ -3,6 +3,7 @@ import {
   buildCytoscapeElements,
   buildCytoscapeStyle,
   buildMermaidText,
+  buildDisplayLabel,
   renderMermaidFallback,
   openGraphDrawer,
   closeGraphDrawer,
@@ -41,11 +42,11 @@ describe('buildCytoscapeElements', () => {
     expect(buildCytoscapeElements({})).toEqual([]);
   });
 
-  it('maps nodes to { data: { id, label, ...rest } }', () => {
+  it('maps nodes to { data: { id, label, displayLabel, ...rest } }', () => {
     const vm = { nodes: [{ id: 'feat-1', label: 'Feature 1', confidence: 'high' }], edges: [] };
     const elements = buildCytoscapeElements(vm);
     expect(elements).toHaveLength(1);
-    expect(elements[0]).toEqual({ data: { id: 'feat-1', label: 'Feature 1', confidence: 'high' } });
+    expect(elements[0]).toEqual({ data: { id: 'feat-1', label: 'Feature 1', displayLabel: 'Feature 1', confidence: 'high' } });
   });
 
   it('maps edges to { data: { id, source, target, lowestConfidence, ...rest } }', () => {
@@ -146,22 +147,22 @@ describe('buildCytoscapeStyle', () => {
     expect(style.length).toBeGreaterThanOrEqual(10);
   });
 
-  it('base node selector has background-color #607d8b', () => {
+  it('base node selector has background-color #fbfcfd', () => {
     const style = buildCytoscapeStyle('L1');
     const nodeRule = style.find(r => r.selector === 'node');
-    expect(nodeRule?.style?.['background-color']).toBe('#607d8b');
+    expect(nodeRule?.style?.['background-color']).toBe('#fbfcfd');
   });
 
-  it('added node has background-color #4caf50', () => {
+  it('added node has background-color #d4edda', () => {
     const style = buildCytoscapeStyle('L1');
     const rule = style.find(r => r.selector === "node[change_type = 'added']");
-    expect(rule?.style?.['background-color']).toBe('#4caf50');
+    expect(rule?.style?.['background-color']).toBe('#d4edda');
   });
 
-  it('removed node has background-color #f44336', () => {
+  it('removed node has background-color #f8d7da', () => {
     const style = buildCytoscapeStyle('L1');
     const rule = style.find(r => r.selector === "node[change_type = 'removed']");
-    expect(rule?.style?.['background-color']).toBe('#f44336');
+    expect(rule?.style?.['background-color']).toBe('#f8d7da');
   });
 
   it('medium confidence node has border-style dashed', () => {
@@ -170,10 +171,10 @@ describe('buildCytoscapeStyle', () => {
     expect(rule?.style?.['border-style']).toBe('dashed');
   });
 
-  it('selected node has border-color #2196f3', () => {
+  it('selected node has border-color #0f766e', () => {
     const style = buildCytoscapeStyle('L1');
     const rule = style.find(r => r.selector === 'node:selected');
-    expect(rule?.style?.['border-color']).toBe('#2196f3');
+    expect(rule?.style?.['border-color']).toBe('#0f766e');
   });
 });
 
@@ -495,5 +496,25 @@ describe('initZoomControls', () => {
     initZoomControls(mockCy);
     document.getElementById('btn-zoom-fit').onclick();
     expect(mockCy.center).toHaveBeenCalled();
+  });
+});
+
+// ── buildDisplayLabel ─────────────────────────────────────────────
+
+describe('buildDisplayLabel', () => {
+  it('prepends type tag for added', () => {
+    expect(buildDisplayLabel({ label: 'Foo', change_type: 'added' })).toBe('+ 新增\nFoo');
+  });
+  it('no tag when change_type missing', () => {
+    expect(buildDisplayLabel({ label: 'Foo' })).toBe('Foo');
+  });
+  it('dependency_changed → ≠ 依賴', () => {
+    expect(buildDisplayLabel({ label: 'X', change_type: 'dependency_changed' })).toBe('≠ 依賴\nX');
+  });
+  it('removed → − 移除', () => {
+    expect(buildDisplayLabel({ label: 'Bar', change_type: 'removed' })).toBe('− 移除\nBar');
+  });
+  it('attribute_changed → ~ 修改', () => {
+    expect(buildDisplayLabel({ label: 'Baz', change_type: 'attribute_changed' })).toBe('~ 修改\nBaz');
   });
 });
