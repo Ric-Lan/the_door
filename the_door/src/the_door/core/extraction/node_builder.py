@@ -464,6 +464,22 @@ class NodeBuilder:
                 ))
             return
 
+        # ── Orphaned method nodes (method_types but no parent class) ──────
+        # Go methods appear at AST top-level with no class wrapper; they are
+        # still methods. Any other language method_type that lacks a class
+        # context is also extracted as method rather than silently dropped.
+        if node.type in cfg.method_types and node.type not in cfg.function_types:
+            name = self._extract_name(node, file_info.language)
+            if name:
+                results.append(ASTNode(
+                    node_id=f"{file_info.path}::{name}",
+                    type="method",
+                    name=name,
+                    file=file_info.path,
+                    language=file_info.language,
+                ))
+            return
+
         # ── Function nodes (top-level or method_types with no parent) ─────
         if node.type in cfg.function_types:
             name = self._extract_name(node, file_info.language)
