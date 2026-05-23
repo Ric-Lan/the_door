@@ -37,3 +37,100 @@ class TestRustExtraction:
         result = ASTExtractor().extract(str(tmp_path))
         nodes = {n.name: n for n in result.nodes}
         assert nodes["free_function"].type == "function"
+
+
+class TestJavaExtraction:
+    """Java: method_declaration, constructor_declaration, class_declaration (spec R3)."""
+
+    def test_java_class_extracted(self, tmp_path):
+        (tmp_path / "A.java").write_text("public class Animal { public void speak() {} public Animal() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        class_nodes = [n for n in result.nodes if n.name == "Animal" and n.type == "class"]
+        assert len(class_nodes) >= 1
+
+    def test_java_method_extracted_as_method(self, tmp_path):
+        (tmp_path / "A.java").write_text("public class Animal { public void speak() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "speak" in nodes
+        assert nodes["speak"].type == "method"
+
+    def test_java_constructor_extracted_as_method(self, tmp_path):
+        (tmp_path / "A.java").write_text("public class Animal { public Animal() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        method_nodes = [n for n in result.nodes if n.name == "Animal" and n.type == "method"]
+        assert len(method_nodes) >= 1
+
+
+class TestRubyExtraction:
+    """Ruby: method, class (spec R3)."""
+
+    def test_ruby_class_extracted(self, tmp_path):
+        (tmp_path / "a.rb").write_text("class Animal\n  def speak\n  end\nend\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Animal" in nodes
+        assert nodes["Animal"].type == "class"
+
+    def test_ruby_method_inside_class_is_method(self, tmp_path):
+        (tmp_path / "a.rb").write_text("class Animal\n  def speak\n  end\nend\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "speak" in nodes
+        assert nodes["speak"].type == "method"
+
+    def test_ruby_standalone_method_is_function(self, tmp_path):
+        (tmp_path / "a.rb").write_text("def standalone_func\nend\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "standalone_func" in nodes
+        assert nodes["standalone_func"].type == "function"
+
+
+class TestPhpExtraction:
+    """PHP: function_definition, method_declaration, class_declaration (spec R3)."""
+
+    def test_php_standalone_function_extracted(self, tmp_path):
+        (tmp_path / "a.php").write_text("<?php\nfunction standalone_func() {}\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "standalone_func" in nodes
+        assert nodes["standalone_func"].type == "function"
+
+    def test_php_class_extracted(self, tmp_path):
+        (tmp_path / "a.php").write_text("<?php\nclass Animal { function speak() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Animal" in nodes
+        assert nodes["Animal"].type == "class"
+
+    def test_php_method_inside_class_is_method(self, tmp_path):
+        (tmp_path / "a.php").write_text("<?php\nclass Animal { function speak() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "speak" in nodes
+        assert nodes["speak"].type == "method"
+
+
+class TestCSharpExtraction:
+    """C#: method_declaration, constructor_declaration, class_declaration (spec R3)."""
+
+    def test_csharp_class_extracted(self, tmp_path):
+        (tmp_path / "a.cs").write_text("class Animal { void Speak() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Animal" in nodes
+        assert nodes["Animal"].type == "class"
+
+    def test_csharp_method_extracted_as_method(self, tmp_path):
+        (tmp_path / "a.cs").write_text("class Animal { void Speak() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Speak" in nodes
+        assert nodes["Speak"].type == "method"
+
+    def test_csharp_constructor_extracted_as_method(self, tmp_path):
+        (tmp_path / "a.cs").write_text("class Animal { public Animal() {} }\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        method_nodes = [n for n in result.nodes if n.name == "Animal" and n.type == "method"]
+        assert len(method_nodes) >= 1
