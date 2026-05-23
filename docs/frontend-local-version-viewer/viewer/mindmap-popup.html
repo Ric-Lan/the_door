@@ -29,6 +29,13 @@ body {
 .tb-badge-orange { background: #FF6D00; color: #fff; }
 .tb-badge-blue   { background: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }
 .tb-hint { font-size: 11px; color: rgba(255,255,255,0.45); }
+.tb-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:600; margin-right:2px; }
+.tb-badge-anom { background:#fef3c7; color:#855207; border:1px solid #b45309; }
+.tb-badge-added { background:#d4edda; color:#1d6e34; border:1px solid #28a745; }
+.tb-badge-removed { background:#f8d7da; color:#9a1a1a; border:1px solid #dc3545; }
+.tb-badge-modified { background:#ffe0cc; color:#7a4e00; border:1px solid #fd7e14; }
+.tb-hint { font-size:11px; color:#64748b; margin-right:8px; }
+.tb-divider { color:#d1d5db; margin:0 6px; }
 #btn-close {
   margin-left: auto;
   background: rgba(255,255,255,0.12); border: none; color: #fff;
@@ -165,9 +172,11 @@ body {
 <div id="toolbar">
   <span id="project-name">心智圖</span>
   <span class="tb-divider">|</span>
-  <span class="tb-badge tb-badge-orange">⚠ N</span><span class="tb-hint">異常</span>
+  <span class="tb-badge tb-badge-anom">⚠ 注意</span><span class="tb-hint">異常</span>
   <span class="tb-divider">|</span>
-  <span class="tb-badge tb-badge-blue">Δ 有差異</span><span class="tb-hint">版本差異</span>
+  <span class="tb-badge tb-badge-added">+ 新增</span>
+  <span class="tb-badge tb-badge-removed">− 移除</span>
+  <span class="tb-badge tb-badge-modified">~ 修改</span><span class="tb-hint">版本差異</span>
   <span class="tb-divider">|</span>
   <span class="tb-hint">點擊節點展開 L2</span>
   <button id="btn-close" onclick="window.close()">關閉視窗</button>
@@ -252,11 +261,12 @@ body {
   </div>
 </div>
 
-<script>
+<script type="module">
+import { selectDiffBadge } from './js/mindmap-util.js';
 // ── Constants ────────────────────────────────────────────────
 const COL0_X  = 100,  COL1_X = 290,  COL2_LEFT = 470; // COL2_LEFT = left edge of L2 nodes
 const NODE_W0 = 110,  NODE_H0 = 38;
-const NODE_W1 = 148,  NODE_H1 = 46;
+const NODE_W1 = 160,  NODE_H1 = 36;
 const NODE_H2 = 32,   L2_MIN_W = 130,  L2_MAX_W = 240;
 const ROW_H   = 60,   PAD_TOP = 32, PAD_BOT = 32;
 
@@ -514,17 +524,18 @@ function buildSVG({ l1Layout, center_y, totalH, svgW }, dispW, dispH) {
     let bx = nx + NODE_W1;   // right edge, badges grow leftward
 
     if (anomalyCount > 0) {
-      const bw = 32, bh = 15, cx_ = bx - bw / 2 - 2, by = ny - 1;
-      s += `<rect x="${cx_ - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="8" fill="#FF6D00"/>`;
-      s += txt(cx_, by, "white", 700, 9, `⚠ ${anomalyCount}`);
+      const bw = 52, bh = 14, cx_ = bx - bw / 2 - 2, by = ny - 1;
+      s += `<rect x="${cx_ - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="7" fill="#fef3c7" stroke="#b45309" stroke-width="1"/>`;
+      s += txt(cx_, by, "#855207", 700, 9, `⚠ 注意 ${anomalyCount}`);
       bx -= bw + 4;
     }
 
-    if (data.diffAvailable && data.diffNodes.find(d => d.id === node.id)) {
+    const diffBadge = selectDiffBadge(node.id, data.diffAvailable ? data.diffNodes : null);
+    if (diffBadge) {
       const bw = 44, bh = 15, cx_ = bx - bw / 2 - 2, by = ny - 1;
-      s += `<rect x="${cx_ - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="3" `
-         + `fill="#E3F2FD" stroke="#90CAF9" stroke-width="1"/>`;
-      s += txt(cx_, by, "#1565C0", 700, 9, "Δ 有差異");
+      s += `<rect x="${cx_ - bw/2}" y="${by - bh/2}" width="${bw}" height="${bh}" rx="7" `
+         + `fill="${diffBadge.fill}" stroke="${diffBadge.stroke}" stroke-width="1"/>`;
+      s += txt(cx_, by, diffBadge.color, 700, 9, diffBadge.text);
     }
 
     s += `</g>`;
