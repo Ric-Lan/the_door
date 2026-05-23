@@ -66,6 +66,16 @@ export function renderTopBar() {
   }
 }
 
+export function renderSummaryText(mode, state) {
+  if (mode === 'diff') {
+    return { tag: null, text: state.updateModel?.summary ?? '尚未有分析報告。' };
+  }
+  const id = mode === 'baseline' ? state.versionA : state.versionB;
+  const label = state.snapshots.find(s => s.version_id === id)?.label ?? '—';
+  const count = state.l1Model?.features?.length ?? 0;
+  return { tag: label, text: `${label} 共有 ${count} 個 L1 功能。` };
+}
+
 export function modeSwitchLabel(mode, versionA, versionB, snapshots) {
   if (mode === 'diff') return '差異';
   const id = mode === 'baseline' ? versionA : versionB;

@@ -382,3 +382,24 @@ describe('resolveLogoState', () => {
     expect(resolveLogoState('weird', 'L1')).toBe('l1');
   });
 });
+
+import { renderSummaryText } from '../js/ui-topbar.js';
+
+describe('renderSummaryText', () => {
+  it('diff mode uses updateModel.summary', () => {
+    const r = renderSummaryText('diff', {
+      updateModel: { summary: 'X 變了' }, snapshots: [], versionA: '', versionB: '', l1Model: { features: [] }
+    });
+    expect(r.text).toBe('X 變了');
+    expect(r.tag).toBe(null);
+  });
+  it('baseline mode shows version tag + count', () => {
+    const r = renderSummaryText('baseline', {
+      snapshots: [{ version_id: 'a', label: 'v1.0.0' }],
+      versionA: 'a', versionB: 'a',
+      l1Model: { features: [{}, {}, {}] },
+    });
+    expect(r.tag).toBe('v1.0.0');
+    expect(r.text).toContain('3 個 L1');
+  });
+});
