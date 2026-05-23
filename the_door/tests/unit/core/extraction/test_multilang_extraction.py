@@ -134,3 +134,82 @@ class TestCSharpExtraction:
         result = ASTExtractor().extract(str(tmp_path))
         method_nodes = [n for n in result.nodes if n.name == "Animal" and n.type == "method"]
         assert len(method_nodes) >= 1
+
+
+class TestCExtraction:
+    """C: function_definition, struct_specifier (spec R3)."""
+
+    def test_c_function_extracted(self, tmp_path):
+        (tmp_path / "a.c").write_text("void move_point(int x) {}\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "move_point" in nodes
+        assert nodes["move_point"].type == "function"
+
+    def test_c_struct_extracted_as_class(self, tmp_path):
+        (tmp_path / "a.c").write_text("struct Point { int x; };\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Point" in nodes
+        assert nodes["Point"].type == "class"
+
+
+class TestCppExtraction:
+    """C++: function_definition, class_specifier (spec R3)."""
+
+    def test_cpp_class_extracted(self, tmp_path):
+        (tmp_path / "a.cpp").write_text("class Shape { void draw() {} };\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Shape" in nodes
+        assert nodes["Shape"].type == "class"
+
+    def test_cpp_method_inside_class_is_method(self, tmp_path):
+        (tmp_path / "a.cpp").write_text("class Shape { void draw() {} };\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "draw" in nodes
+        assert nodes["draw"].type == "method"
+
+    def test_cpp_top_level_function_is_function(self, tmp_path):
+        (tmp_path / "a.cpp").write_text("void render() {}\n")
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "render" in nodes
+        assert nodes["render"].type == "function"
+
+
+class TestGoExtraction:
+    """Go: function_declaration, method_declaration, type_spec struct/interface (spec R4)."""
+
+    def test_go_standalone_function_extracted(self, tmp_path):
+        src = "package main\nfunc Standalone() {}\n"
+        (tmp_path / "a.go").write_text(src)
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Standalone" in nodes
+        assert nodes["Standalone"].type == "function"
+
+    def test_go_method_extracted_as_method(self, tmp_path):
+        src = "package main\ntype Shape struct{}\nfunc (s Shape) Draw() {}\n"
+        (tmp_path / "a.go").write_text(src)
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Draw" in nodes
+        assert nodes["Draw"].type == "method"
+
+    def test_go_struct_extracted_as_class(self, tmp_path):
+        src = "package main\ntype Shape struct { X int }\n"
+        (tmp_path / "a.go").write_text(src)
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Shape" in nodes
+        assert nodes["Shape"].type == "class"
+
+    def test_go_interface_extracted_as_class(self, tmp_path):
+        src = "package main\ntype Drawable interface { Draw() }\n"
+        (tmp_path / "a.go").write_text(src)
+        result = ASTExtractor().extract(str(tmp_path))
+        nodes = {n.name: n for n in result.nodes}
+        assert "Drawable" in nodes
+        assert nodes["Drawable"].type == "class"
