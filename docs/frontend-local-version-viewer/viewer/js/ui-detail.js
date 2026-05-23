@@ -84,9 +84,49 @@ export function renderDetailPanel(callbacks = {}) {
   }
 }
 
+const CHANGE_TYPE_LABEL = {
+  added:              { label: '新增', explain: '此功能在新版本中首次出現，舊版本沒有對應項目。' },
+  removed:            { label: '移除', explain: '此功能存在於舊版本，但新版本中已不存在。' },
+  attribute_changed:  { label: '屬性變更', explain: '此功能在新舊版本之間的描述、信心或來源節點等屬性有差異。' },
+  dependency_changed: { label: '相依變更', explain: '此功能與其他功能的相依關係（depends_on / uses）在新舊版本之間有變動。' },
+};
+
+function renderStructuralDiffDetail() {
+  const id = state.selectedId;
+  const changeType = state.versionDiff?.node_states?.[id];
+  if (!id || !changeType) {
+    renderNoSelection();
+    return;
+  }
+  const feature = (state.l1Model?.features ?? []).find(f => f.id === id);
+  els.detailSource.textContent = '/api/diff';
+  const content = els.detailContent;
+  content.className = 'detail-content';
+  content.textContent = '';
+
+  const meta = CHANGE_TYPE_LABEL[changeType] ?? { label: changeType, explain: '此功能在兩個版本間有差異。' };
+
+  const chip = document.createElement('div');
+  chip.className = 'change-badge change-' + changeType;
+  chip.textContent = meta.label;
+  content.appendChild(chip);
+
+  content.appendChild(detailSection('功能名稱', feature?.label ?? id));
+  content.appendChild(detailSection('描述（目前版本）', feature?.description));
+  content.appendChild(detailSection('變更摘要', meta.explain));
+
+  content.appendChild(attributionSection('/api/diff'));
+  appendDiffExplanationSection(content, id);
+  appendUserNotesSection(content, 'diff', state.versionA, state.versionB, id);
+}
+
 export function renderDiffDetailPanel() {
   const detail = state.updateModel?.details?.[state.selectedId];
   if (!detail) {
+    if (state.versionDiff && state.selectedId) {
+      renderStructuralDiffDetail();
+      return;
+    }
     renderNoSelection();
     return;
   }

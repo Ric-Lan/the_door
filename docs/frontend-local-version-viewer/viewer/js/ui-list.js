@@ -31,7 +31,9 @@ export function changeListButton(item, isActive, callbacks) {
   const descEl = document.createElement('span');
   descEl.className = 'feature-card-desc';
   const detail = state.updateModel?.details?.[item.id];
-  descEl.textContent = detail?.after?.description || detail?.before?.description || '';
+  const l1Desc = (state.l1Model?.features ?? []).find(f => f.id === item.id)?.description;
+  descEl.textContent =
+    detail?.after?.description || detail?.before?.description || l1Desc || '';
 
   const metaEl = document.createElement('div');
   metaEl.className = 'feature-card-meta';

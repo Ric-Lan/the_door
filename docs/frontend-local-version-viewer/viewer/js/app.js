@@ -156,7 +156,7 @@ async function loadFromApi() {
     state.versionB &&
     state.versionA !== state.versionB
   );
-  state.mode = "baseline";
+  state.mode = hasVersionCompare ? "current" : "baseline";
   state.selectedId = firstSelectableId();
   render();
 
