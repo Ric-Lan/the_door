@@ -95,13 +95,13 @@ describe('renderTopBar — summaryText', () => {
   it('shows feature count from l1Model.features.length when no diff', () => {
     state.l1Model = { features: [1, 2, 3] };
     renderTopBar();
-    expect(els.summaryText.textContent).toBe('功能總覽：共 3 個功能。');
+    expect(els.summaryText.textContent).toBe('共 3 個功能');
   });
 
   it('prefers l1Model.stats.feature_count over features.length', () => {
     state.l1Model = { stats: { feature_count: 7 }, features: [1, 2] };
     renderTopBar();
-    expect(els.summaryText.textContent).toBe('功能總覽：共 7 個功能。');
+    expect(els.summaryText.textContent).toBe('共 7 個功能');
   });
 
   it('shows loading message when no diff and no l1Model', () => {
@@ -242,10 +242,10 @@ describe('renderTopBar — button labels', () => {
 });
 
 describe('renderTopBar — edge cases', () => {
-  it('shows "共 0 個功能。" when l1Model has no stats and no features', () => {
+  it('shows "共 0 個功能" when l1Model has no stats and no features', () => {
     state.l1Model = {};
     renderTopBar();
-    expect(els.summaryText.textContent).toBe('功能總覽：共 0 個功能。');
+    expect(els.summaryText.textContent).toBe('共 0 個功能');
   });
 
   it('uses change_counts when versionDiff.summary.total_changed is 0', () => {
@@ -380,6 +380,28 @@ describe('resolveLogoState', () => {
   });
   it('unknown mode falls back to l1', () => {
     expect(resolveLogoState('weird', 'L1')).toBe('l1');
+  });
+});
+
+describe('renderTopBar — summaryText shows version label', () => {
+  it('single version mode includes snapshot label in summaryText', () => {
+    state.snapshots = [{ version_id: 'v1', label: 'v1.0.5', git_tags: [] }];
+    state.versionB = 'v1';
+    state.l1Model = { features: Array(7).fill({}), stats: { feature_count: 7 } };
+    state.mode = 'current';
+    renderTopBar();
+    expect(els.summaryText.textContent).toContain('v1.0.5');
+    expect(els.summaryText.textContent).toContain('7');
+  });
+
+  it('fallback to count-only when no snapshot found', () => {
+    state.snapshots = [];
+    state.versionB = null;
+    state.l1Model = { features: Array(3).fill({}), stats: { feature_count: 3 } };
+    state.mode = 'current';
+    renderTopBar();
+    expect(els.summaryText.textContent).toMatch(/3/);
+    expect(els.summaryText.textContent).not.toContain('·');
   });
 });
 

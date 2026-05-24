@@ -21,7 +21,12 @@ export function renderTopBar() {
     els.summaryText.textContent = um?.summary || '（無摘要）';
   } else if (state.l1Model) {
     const fc = state.l1Model.stats?.feature_count ?? state.l1Model.features?.length ?? 0;
-    els.summaryText.textContent = '功能總覽：共 ' + fc + ' 個功能。';
+    const vId = state.mode === 'baseline' ? state.versionA : state.versionB;
+    const snap = state.snapshots.find(s => s.version_id === vId);
+    const label = snap ? snapshotLabel(snap) : null;
+    els.summaryText.textContent = label
+      ? `${label} · 共 ${fc} 個功能`
+      : `共 ${fc} 個功能`;
   } else {
     els.summaryText.textContent = '（載入中…）';
   }
