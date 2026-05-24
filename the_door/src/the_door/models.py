@@ -412,6 +412,7 @@ class VersionSnapshot:
     feature_relations_snapshot: list[RelationSummary] = field(default_factory=list)
     vulnerabilities_snapshot: list[VulnerabilityEntry] = field(default_factory=list)
     vulnerability_db_freshness: DatabaseFreshness | None = None
+    codebase_path: Path | None = None
 
 
 @dataclass(frozen=True)

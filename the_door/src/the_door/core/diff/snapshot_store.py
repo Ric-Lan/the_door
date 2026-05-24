@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from the_door.core.extraction.structure_serializer import parse_structure_dict
+from the_door.core.project_identity import ProjectIdentity
 from the_door.models import (
     BaselineInfo,
     BlockSummary,
@@ -48,9 +49,19 @@ class SnapshotEntry:
 class SnapshotStore:
     """Manage version snapshot creation, persistence, and retrieval."""
 
-    def __init__(self, project_root: Path):
-        self._project_path = project_root
-        self._snapshots_dir = project_root / ".the-door" / "snapshots"
+    def __init__(self, project_root: Path, store_root: Path | None = None):
+        self._project_root = project_root
+        self._project_path = project_root  # backward-compat alias
+
+        if store_root is not None:
+            resolved_root = store_root
+        else:
+            result = ProjectIdentity.resolve_store_root(project_root)
+            resolved_root = result.store_root or (project_root / ".the-door")
+
+        self._store_root = resolved_root
+        self._snapshots_dir = resolved_root / "snapshots"
+        self._structures_dir = resolved_root / "structures"
 
     def create_snapshot(
         self,
@@ -92,6 +103,7 @@ class SnapshotStore:
             feature_relations_snapshot=feature_relations,
             vulnerabilities_snapshot=vulnerabilities if vulnerabilities is not None else [],
             vulnerability_db_freshness=db_freshness,
+            codebase_path=self._project_root,
         )
 
         self._snapshots_dir.mkdir(parents=True, exist_ok=True)
@@ -157,8 +169,8 @@ class SnapshotStore:
 
     def list_analyzed_versions(self) -> list[SnapshotEntry]:
         """Return SnapshotEntry list for all persisted snapshots, sorted by timestamp DESC."""
-        snap_dir = self._project_path / ".the-door" / "snapshots"
-        struct_dir = self._project_path / ".the-door" / "structures"
+        snap_dir = self._snapshots_dir
+        struct_dir = self._structures_dir
         if not snap_dir.is_dir():
             return []
         entries = []
@@ -191,7 +203,7 @@ class SnapshotStore:
 
     def get_structure(self, version_id: str) -> StructureJSON | None:
         """Load a persisted gzipped structure by version_id. Returns None if missing or corrupt."""
-        path = self._project_path / ".the-door" / "structures" / f"{version_id}.json.gz"
+        path = self._structures_dir / f"{version_id}.json.gz"
         if not path.is_file():
             return None
         try:
@@ -256,6 +268,7 @@ class SnapshotStore:
             "commit_hash": snapshot.commit_hash,
             "git_tags": snapshot.git_tags,
             "label": snapshot.label,
+            "codebase_path": str(snapshot.codebase_path) if snapshot.codebase_path else None,
             "l1_snapshot": l1_data,
             "analyzed_files": snapshot.analyzed_files,
             "l1_5_snapshot": l1_5_data,
@@ -347,6 +360,7 @@ class SnapshotStore:
                 stale_warning=db_freshness_data.get("stale_warning"),
             )
 
+        raw_cp = data.get("codebase_path")
         return VersionSnapshot(
             version_id=data["version_id"],
             timestamp=data["timestamp"],
@@ -360,6 +374,7 @@ class SnapshotStore:
             feature_relations_snapshot=relations,
             vulnerabilities_snapshot=vulnerabilities,
             vulnerability_db_freshness=db_freshness,
+            codebase_path=Path(raw_cp) if raw_cp else None,
         )
 
     # --- Private resolution helpers ---

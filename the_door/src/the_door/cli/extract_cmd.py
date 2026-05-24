@@ -24,6 +24,18 @@ from the_door.models import StructureJSON
 logger = logging.getLogger(__name__)
 
 
+def _count_empty_source_nodes(snapshot) -> int:
+    """Return number of features with empty source_nodes.
+
+    source_nodes must be provided by agent-as-LLM; this only counts
+    how many need to be filled in.
+    """
+    return sum(
+        1 for feature in snapshot.l1_snapshot.values()
+        if not feature.source_nodes
+    )
+
+
 def _emit_stdout_utf8(text: str) -> None:
     """Print text to stdout as UTF-8.
 
@@ -130,6 +142,38 @@ def extract_cmd(
         click.echo(
             f"Backfilled .the-door/structures/{baseline.version_id}.json.gz"
         )
+
+        # Notify agent about source_nodes that need to be filled in
+        snapshot = store.get_snapshot(baseline.version_id)
+        if snapshot is not None:
+            from the_door.core.flow_guard import CheckpointOption, FlowGuard
+            from the_door.cli.checkpoint_renderer import CheckpointRenderer
+            guard = FlowGuard()
+            renderer = CheckpointRenderer(guard)
+            empty_count = _count_empty_source_nodes(snapshot)
+            decision = guard.check(
+                "backfill-complete",
+                (
+                    f"結構已回填（.the-door/structures/{baseline.version_id}.json.gz）。"
+                    f"{empty_count} 個 feature 的 source_nodes 為空，"
+                    f"需由 agent 執行 agent-as-LLM 流程補入後再呼叫 snapshot_write 更新。"
+                ),
+                options=[
+                    CheckpointOption(
+                        "A", "執行 analyze_changes 驗證差異",
+                        f"analyze_changes(codebase_path='{project_root}', baseline='{as_version}')",
+                    ),
+                    CheckpointOption(
+                        "B", "直接開啟 viewer",
+                        f"the-door ui {project_root}",
+                    ),
+                ],
+            )
+            try:
+                renderer.prompt(decision)
+            except EOFError:
+                pass  # non-interactive environment: skip CHECKPOINT interaction
+
         from the_door.cli.post_run_hook import cli_post_run_hook
         cli_post_run_hook(codebase_path)
         return

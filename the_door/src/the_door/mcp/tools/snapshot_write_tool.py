@@ -4,10 +4,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.actions import NextAction
 from the_door.core.guidance.remediation import Remediation, make_error_envelope
 from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import FeatureSummary, RelationSummary, SnapshotNotFoundError
+
+_flow_guard = FlowGuard()
 
 VALID_CONFIDENCE = {"high", "medium", "low"}
 
@@ -103,6 +106,13 @@ TOOL_SCHEMA = {
             "items": {"type": "string"},
             "description": "File paths scanned during extract_structure.",
         },
+        "choice": {
+            "type": "string",
+            "description": (
+                "CHECKPOINT 選項的 key（'A'、'B'、'C'）。"
+                "首次呼叫省略；收到 result=null 後帶入選擇重新呼叫。"
+            ),
+        },
     },
 }
 
@@ -150,18 +160,19 @@ async def execute(arguments: dict) -> dict:
     git_tags = arguments.get("git_tags", [])
     analyzed_files = arguments.get("analyzed_files", [])
     inherit_from = arguments.get("inherit_from")
+    choice = arguments.get("choice")
 
     store = SnapshotStore(Path(codebase_path))
 
     if inherit_from:
-        # Inheritance mode: start from baseline, merge updated_features.
+        # Inheritance mode: start from baseline, detect new features, ask agent.
         try:
-            baseline = store.resolve_baseline(inherit_from)
+            baseline_snap = store.resolve_baseline(inherit_from)
         except SnapshotNotFoundError:
-            baseline = None
-        if baseline is None:
-            baseline = store.get_snapshot(inherit_from)
-        if baseline is None:
+            baseline_snap = None
+        if baseline_snap is None:
+            baseline_snap = store.get_snapshot(inherit_from)
+        if baseline_snap is None:
             rem = Remediation(
                 code="baseline_not_found",
                 message=f"Cannot resolve baseline {inherit_from!r}",
@@ -180,15 +191,60 @@ async def execute(arguments: dict) -> dict:
                 source="snapshot_write_tool.execute",
             )
 
-        merged: dict[str, FeatureSummary] = dict(baseline.l1_snapshot)
-        for feat_dict in arguments.get("updated_features", []):
-            fs = _feature_dict_to_summary(feat_dict)
-            if isinstance(fs, dict):  # validation error
-                return fs
-            merged[fs.feature_id] = fs
+        raw_l1: list[dict] = arguments.get("l1_features", [])
+        raw_updated: list[dict] = arguments.get("updated_features", [])
+
+        if raw_l1:
+            # Full-replacement mode: detect new features, may trigger CHECKPOINT
+            new_features: dict[str, FeatureSummary] = {}
+            for feat_dict in raw_l1:
+                fs = _feature_dict_to_summary(feat_dict)
+                if isinstance(fs, dict):
+                    return fs
+                new_features[fs.feature_id] = fs
+
+            baseline_ids = set(baseline_snap.l1_snapshot.keys())
+            new_ids = set(new_features.keys())
+            added_ids = new_ids - baseline_ids
+
+            if added_ids:
+                if choice == "C":
+                    return {"result": None, "aborted": True}
+
+                decision = _flow_guard.check(
+                    "new-features-detected",
+                    f"偵測到 {len(added_ids)} 個新 feature：{', '.join(sorted(added_ids))}",
+                    options=[
+                        CheckpointOption("A", "保留新 feature（合併進 snapshot）"),
+                        CheckpointOption("B", "捨棄新 feature（只保留 baseline）"),
+                        CheckpointOption("C", "中止，不寫入"),
+                    ],
+                    choice=choice,
+                )
+                if not decision.is_resolved:
+                    payload: dict = {"_decision": decision}
+                    return wrap(payload, project_path=Path(codebase_path), context="mcp")
+
+                if decision.chosen == "A":
+                    merged = {**baseline_snap.l1_snapshot, **{fid: new_features[fid] for fid in added_ids}}
+                else:  # B
+                    merged = {fid: baseline_snap.l1_snapshot[fid] for fid in baseline_ids & new_ids}
+            else:
+                # All features already in baseline: merge on top
+                merged = dict(baseline_snap.l1_snapshot)
+                for fid, fs in new_features.items():
+                    merged[fid] = fs
+        else:
+            # Incremental-update mode (updated_features): merge on top of baseline, no CHECKPOINT
+            merged = dict(baseline_snap.l1_snapshot)
+            for feat_dict in raw_updated:
+                fs = _feature_dict_to_summary(feat_dict)
+                if isinstance(fs, dict):
+                    return fs
+                merged[fs.feature_id] = fs
 
         l1_snapshot = merged
-        relations = list(baseline.feature_relations_snapshot)
+        relations = list(baseline_snap.feature_relations_snapshot)
     else:
         # Direct mode: existing behaviour.
         raw_features: list[dict] = arguments.get("l1_features", [])

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.remediation import make_error_envelope
 from the_door.core.pipeline.incremental_pipeline import (
     IncrementalAnalysisError,
@@ -16,6 +18,7 @@ from the_door.core.pipeline.incremental_pipeline import (
 )
 from the_door.mcp.tools._response_envelope import wrap
 
+_flow_guard = FlowGuard()
 
 TOOL_SCHEMA = {
     "type": "object",
@@ -24,6 +27,20 @@ TOOL_SCHEMA = {
         "baseline": {
             "type": "string",
             "description": "label / tag / SHA / date / version_id",
+        },
+        "source_path": {
+            "type": "string",
+            "description": (
+                "Source codebase 路徑（當 source 和 store 在不同目錄時使用）。"
+                "省略時使用 snapshot.codebase_path。"
+            ),
+        },
+        "choice": {
+            "type": "string",
+            "description": (
+                "CHECKPOINT 選項的 key（'A'、'B'）。"
+                "首次呼叫省略；收到 result=null 後帶入選擇重新呼叫。"
+            ),
         },
     },
     "required": ["codebase_path", "baseline"],
@@ -65,10 +82,41 @@ def _affected_to_json(af) -> dict:
 async def execute(arguments: dict) -> dict:
     codebase_path = Path(arguments["codebase_path"])
     baseline_ref = arguments["baseline"]
+    source_path_arg = arguments.get("source_path")
+    choice = arguments.get("choice")
+
+    # Resolve source path: explicit arg > snapshot.codebase_path > codebase_path
+    if source_path_arg:
+        resolved_source = Path(source_path_arg)
+    else:
+        store = SnapshotStore(codebase_path)
+        try:
+            from the_door.models import SnapshotNotFoundError
+            snap = store.resolve_baseline(baseline_ref)
+        except Exception:
+            snap = store.get_snapshot(baseline_ref)
+        snap_cp = getattr(snap, "codebase_path", None) if snap else None
+        resolved_source = snap_cp if snap_cp else codebase_path
+
+    if not resolved_source.exists():
+        decision = _flow_guard.check(
+            "source-path-broken",
+            f"baseline {baseline_ref!r} 的來源路徑 {resolved_source} 不存在",
+            options=[
+                CheckpointOption(
+                    "A", "提供新路徑",
+                    f"analyze_changes(baseline='{baseline_ref}', source_path='<填入>')",
+                ),
+                CheckpointOption("B", "中止"),
+            ],
+            choice=choice,
+        )
+        payload: dict = {"_decision": decision}
+        return wrap(payload, project_path=codebase_path, context="mcp")
 
     try:
         result = run_incremental_pipeline(
-            codebase_path=codebase_path, baseline_ref=baseline_ref
+            codebase_path=resolved_source, baseline_ref=baseline_ref
         )
     except IncrementalAnalysisError as e:
         rem = e.remediation

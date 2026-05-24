@@ -20,8 +20,45 @@ logger = logging.getLogger(__name__)
 def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes: bool, output: str | None, offline: bool):
     """Run full analysis pipeline: extract → topology → batch read → validate → render."""
     from pathlib import Path
+    from the_door.core.flow_guard import CheckpointOption, FlowGuard
+    from the_door.cli.checkpoint_renderer import CheckpointRenderer
+    from the_door.core.llm.config_manager import ConfigManager
     from the_door.models import AnalyzeConfig, CostConfirmationRequired
     from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
+
+    import os
+    llm_config = ConfigManager.load()
+    if not (
+        llm_config.anthropic_api_key
+        or llm_config.openai_api_key
+        or os.environ.get("ANTHROPIC_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    ):
+        guard = FlowGuard()
+        renderer = CheckpointRenderer(guard)
+        decision = guard.check(
+            "no-api-key",
+            "未偵測到 API key（~/.the-door/config.toml 無設定）",
+            options=[
+                CheckpointOption(
+                    "A", "你是 AI agent → 使用 MCP agent-as-LLM 路徑",
+                    "extract_structure(codebase_path='<path>')",
+                ),
+                CheckpointOption(
+                    "B", "你是人類使用者 → 設定 API key 後重試",
+                    "編輯 ~/.the-door/config.toml：[anthropic] api_key = '...'",
+                ),
+            ],
+        )
+        try:
+            choice = renderer.prompt(decision)
+        except EOFError:
+            choice = "A"  # non-interactive (agent context): default to MCP path
+        if choice == "B":
+            click.echo("請設定 API key 後重新執行。")
+            raise SystemExit(0)
+        click.echo("請使用 MCP 工具：extract_structure → snapshot_write")
+        raise SystemExit(0)
 
     config = AnalyzeConfig(
         provider=provider,
