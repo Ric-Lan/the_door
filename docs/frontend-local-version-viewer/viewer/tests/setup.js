@@ -39,6 +39,8 @@ document.body.innerHTML = `
       <section class="cards-panel">
         <h2 id="list-title">功能總覽</h2>
         <p id="list-source"></p>
+        <select id="filter-conf"><option value="">全部</option><option value="high">high</option></select>
+        <select id="filter-type"><option value="">全部</option><option value="added">added</option></select>
         <div id="feature-list"></div>
       </section>
       <aside class="detail-panel">

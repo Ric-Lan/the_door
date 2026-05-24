@@ -8,12 +8,14 @@ vi.mock('../js/ui-topbar.js', () => ({
 vi.mock('../js/ui-list.js', () => ({
   renderChangeList: vi.fn(),
   changeSymbol: vi.fn((t) => '?'),
+  applyCardFilters: vi.fn((features) => features),
 }));
 
 vi.mock('../js/ui-detail.js', () => ({
   renderDetailPanel: vi.fn(),
   renderDetailPanelL1: vi.fn(),
   renderError: vi.fn(),
+  initDetailTabs: vi.fn(),
 }));
 
 vi.mock('../js/ui-modal.js', () => ({
@@ -1087,5 +1089,43 @@ describe('populateVersionSelectors (via init flow)', () => {
     } finally {
       orig.id = 'version-selector-bar';
     }
+  });
+});
+
+// ── filter wiring ────────────────────────────────────────────────
+
+describe('filter wiring — #filter-conf and #filter-type', () => {
+  beforeEach(() => {
+    state.filterConf = null;
+    state.filterType = null;
+    state._filteredFeatures = null;
+    const confSel = document.getElementById('filter-conf');
+    const typeSel = document.getElementById('filter-type');
+    if (confSel) confSel.value = '';
+    if (typeSel) typeSel.value = '';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.reject(new Error('skip')));
+    init();
+  });
+
+  it('state.js has filterConf, filterType, _filteredFeatures defaulting to null', () => {
+    expect(state).toHaveProperty('filterConf', null);
+    expect(state).toHaveProperty('filterType', null);
+    expect(state).toHaveProperty('_filteredFeatures', null);
+  });
+
+  it('changing #filter-conf updates state.filterConf', () => {
+    const confSel = document.getElementById('filter-conf');
+    expect(confSel).not.toBeNull();
+    confSel.value = 'high';
+    confSel.dispatchEvent(new Event('change'));
+    expect(state.filterConf).toBe('high');
+  });
+
+  it('changing #filter-type updates state.filterType', () => {
+    const typeSel = document.getElementById('filter-type');
+    expect(typeSel).not.toBeNull();
+    typeSel.value = 'added';
+    typeSel.dispatchEvent(new Event('change'));
+    expect(state.filterType).toBe('added');
   });
 });

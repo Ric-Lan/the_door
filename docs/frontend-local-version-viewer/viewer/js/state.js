@@ -21,4 +21,7 @@ export const state = {
   versionA: null,
   versionB: null,
   versionDiff: null,
+  filterConf: null,
+  filterType: null,
+  _filteredFeatures: null,
 };

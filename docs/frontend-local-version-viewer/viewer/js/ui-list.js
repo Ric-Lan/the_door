@@ -155,7 +155,7 @@ export function renderChangeList(callbacks) {
     return;
   }
 
-  const features = state.l1Model?.features ?? [];
+  const features = state._filteredFeatures ?? state.l1Model?.features ?? [];
   els.listTitle.textContent  = state.mode === 'baseline' ? '舊版功能' : '新版功能';
   els.listSource.textContent = 'L1Output.features';
 

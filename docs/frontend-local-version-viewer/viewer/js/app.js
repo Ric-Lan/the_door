@@ -3,7 +3,7 @@ import { els } from "./dom.js";
 import { API_BASE } from "./api.js";
 import { buildViewModelFromReport, snapshotLabel } from "./viewmodel.js";
 import { renderTopBar, updateLogoMark } from "./ui-topbar.js";
-import { renderChangeList } from "./ui-list.js";
+import { renderChangeList, applyCardFilters } from "./ui-list.js";
 import { renderDetailPanel, renderError, initDetailTabs } from "./ui-detail.js";
 import {
   showUpdateModal,
@@ -27,6 +27,10 @@ import { renderOnboardingCard } from "./onboarding.js";
 
 export function render() {
   renderTopBar();
+  state._filteredFeatures = applyCardFilters(
+    state.l1Model?.features ?? [],
+    { conf: state.filterConf, type: state.filterType }
+  );
   renderChangeList({
     onSelectFeature,
     onSelectChange,
@@ -318,6 +322,20 @@ export function init() {
   els.graphBackdrop?.addEventListener("click", closeGraphDrawer);
   els.btnMindmap?.addEventListener("click", switchToMindmap);
   els.btnBackL1?.addEventListener("click", switchToL1);
+  const filterConf = document.getElementById('filter-conf');
+  const filterType = document.getElementById('filter-type');
+  if (filterConf) {
+    filterConf.addEventListener('change', () => {
+      state.filterConf = filterConf.value || null;
+      render();
+    });
+  }
+  if (filterType) {
+    filterType.addEventListener('change', () => {
+      state.filterType = filterType.value || null;
+      render();
+    });
+  }
   loadProjectStatus();
   loadOnboardingIfEmpty();
 }
