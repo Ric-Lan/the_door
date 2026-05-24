@@ -95,7 +95,28 @@ class FlowGuard:
 
 **FlowGuard 不做 IO，不知道自己在 CLI 或 MCP。**
 
-### 4.3 MCP 回應格式
+### 4.3 MCP Tool Schema 修改
+
+每個會觸發 CHECKPOINT 的 MCP 工具，必須在 `TOOL_SCHEMA["properties"]` 加入：
+
+```json
+"choice": {
+  "type": "string",
+  "description": "CHECKPOINT 選項的 key（'A'、'B'、'C'）。首次呼叫省略；收到 result=null 後帶入選擇重新呼叫。"
+}
+```
+
+需要修改的工具（依 Section 8 CHECKPOINT 對照表）：
+
+| 工具檔案 | 觸發的 CHECKPOINT |
+|---|---|
+| `snapshot_write_tool.py` | `new-features-detected`、`pre-snapshot-diff-required`、`post-snapshot-required-action` |
+| `analyze_changes_tool.py` | `source-path-broken` |
+| `system_status_tool.py` | `unanalyzed-versions-detected`、`version-expansion-available` |
+
+`choice` 為 optional，省略等同 `None`，由 FlowGuard 判斷。
+
+### 4.4 MCP 回應格式
 
 Decision 未解決時，MCP 工具回傳：
 
@@ -183,25 +204,36 @@ class ProjectIdentity:
 class SnapshotStore:
     def __init__(self, project_root: Path, store_root: Path | None = None):
         self._project_root = project_root
-        # store_root=None → 由 ProjectIdentity 自動解析
-        # store_root 傳值 → 使用指定路徑（測試用 / 向下相容）
-        self._store_root = store_root or self._resolve_store_root()
+        # store_root=None → 委派 ProjectIdentity.resolve_store_root(project_root)
+        #   實作：self._store_root = ProjectIdentity.resolve_store_root(project_root).store_root
+        # store_root 傳值 → 直接使用（測試用 / 明確覆蓋）
+        self._store_root = store_root or ProjectIdentity.resolve_store_root(project_root).store_root
         self._snapshots_dir = self._store_root / "snapshots"
         self._structures_dir = self._store_root / "structures"
 ```
 
+**現有 23 個呼叫端向下相容說明：**
+所有現有 `SnapshotStore(path)` 呼叫不需修改，因 `store_root=None` 是預設值。
+`ProjectIdentity.resolve_store_root` 若偵測到 status="legacy"（有舊版 `.the-door/snapshots/` 但無 `project.id`），
+自動將 `store_root` 設為 `codebase_path / ".the-door"`，行為與現在完全相同。
+呼叫端只有在需要明確指定 store 位置時才傳 `store_root`。
+
 ### 5.3 向下相容 CHECKPOINT
 
-遇到舊版 store（status="legacy"）：
+遇到舊版 store（status="legacy"）時，`ProjectIdentity.resolve_store_root` 自動 fallback 到原地 store，
+同時觸發 CHECKPOINT 詢問是否升級：
 
 ```
 [CHECKPOINT: legacy-store-detected]
 狀態：偵測到舊版 store（.the-door/snapshots/ 存在，無 project.id）
 請選擇：
-  A) 遷移到中央 store（~/.the-door/store/<UUID>/）
-     next_call: the-door migrate-store <codebase_path>
-  B) 繼續使用原地 store（保持現有行為）
+  A) 升級到中央 store：建立 project.id，之後所有新 snapshot 寫入 ~/.the-door/store/<UUID>/
+     （現有 snapshot 維持原地，不搬移；新舊 snapshot 可共存）
+     next_call: 重新呼叫同一指令，系統自動初始化 project.id 並切換到中央 store
+  B) 繼續使用原地 store（保持現有行為，不建立 project.id）
 ```
+
+注意：選項 A 不需要新 CLI 指令，`ProjectIdentity.get_or_create(codebase_path)` 即可完成初始化。
 
 ### 5.4 路徑破損 CHECKPOINT
 
@@ -303,7 +335,7 @@ analyze_changes(
 | 問題 | 觸發位置 | CHECKPOINT 名稱 |
 |---|---|---|
 | #2 API key 不存在 | `provider.py` | `no-api-key` |
-| #3 未跑 status | CLI 入口 pre-flight | `status-not-run` |
+| #3 project.id 不存在（專案未初始化）| `project_identity.py` resolve 時 status="not_found" | `project-not-initialized` |
 | #4 store 有 N 版但未提示加新版 | `status_cmd.py` | `version-expansion-available` |
 | #5 未先 diff 就寫 snapshot | `snapshot_write_tool.py` | `pre-snapshot-diff-required` |
 | #6 diff 目標無 snapshot | `diff_cmd.py` | `snapshot-missing-for-diff` |
@@ -340,6 +372,22 @@ analyze_changes(
 - baseline 3 feature + 新增 1 feature，choice="B" → 結果 3 feature
 - inherit_from 無新 feature → 不觸發 CHECKPOINT
 
+**CheckpointRenderer（`tests/cli/test_checkpoint_renderer.py`）：**
+- Decision 未解決時輸出含 `[CHECKPOINT:` 前綴的區塊
+- 合法輸入 → 回傳對應 key
+- 非法輸入 → 重新列出選項（不拋錯）
+- options 為空 → raise ValueError（與 FlowGuard 一致）
+
+**Snapshot codebase_path 序列化（`tests/core/test_snapshot_codebase_path.py`）：**
+- 序列化含 `codebase_path` 欄位 → 反序列化後欄位保留
+- 舊格式（無 `codebase_path`）→ 反序列化後 `codebase_path=None`（向下相容）
+- `codebase_path=None` 的 snapshot + 無 `source_path` → CHECKPOINT `source-path-broken` 觸發
+
+**extract --as-version source_nodes 同步（`tests/cli/test_extract_backfill.py`）：**
+- 回填 gz 後，l1_snapshot 中每個 feature 的 `source_nodes` 非空
+- 回填前 source_nodes 為空，回填後有值
+- gz 不含某 feature 的 nodes → 該 feature source_nodes 保持原值（不覆蓋為空）
+
 ### 9.2 Contract Tests
 
 **MCP 工具回應格式（`tests/mcp/test_flow_guard_contract.py`）：**
@@ -375,8 +423,9 @@ analyze_changes(
 | 新增 | `cli/checkpoint_renderer.py` |
 | 修改 | `core/diff/snapshot_store.py` — 加 `store_root` 參數 |
 | 修改 | `mcp/_response_envelope.py` — Decision 序列化 |
-| 修改 | `mcp/tools/snapshot_write_tool.py` — inherit_from merge + CHECKPOINT |
-| 修改 | `mcp/tools/analyze_changes_tool.py` — `source_path` 參數 + CHECKPOINT |
+| 修改 | `mcp/tools/snapshot_write_tool.py` — inherit_from merge + CHECKPOINT + `choice` schema |
+| 修改 | `mcp/tools/analyze_changes_tool.py` — `source_path` 參數 + CHECKPOINT + `choice` schema |
+| 修改 | `mcp/tools/system_status_tool.py` — unanalyzed-versions + version-expansion CHECKPOINT + `choice` schema |
 | 修改 | `cli/extract_cmd.py` — 回填後同步 source_nodes + CHECKPOINT |
 | 修改 | `cli/analyze_cmd.py` — no-api-key CHECKPOINT |
 | 修改 | `cli/diff_cmd.py` — snapshot-missing CHECKPOINT |
