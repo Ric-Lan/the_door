@@ -10,6 +10,35 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.3] — 2026-05-24
+
+### Added
+- **FlowGuard 程式級流程強制**：新增 `FlowGuard` + `Decision` + `CheckpointOption`
+  系統，在關鍵決策點以程式邏輯拋出 checkpoint，取代僅依賴文件的引導方式。
+  MCP 層回傳 `{"result": null, ...checkpoint...}`，CLI 層以 `CheckpointRenderer`
+  阻塞 stdin，agent 無法拿到資料就無法繼續。
+- **Store 解耦（ProjectIdentity）**：新增 `ProjectIdentity` + `StoreResolutionResult`，
+  將 snapshot store 遷移至 `~/.the-door/store/<UUID>/`，與 source codebase 路徑分離。
+  `VersionSnapshot` 新增 `codebase_path` 欄位記錄來源路徑。
+- **MCP CHECKPOINT 強制點**：
+  - `system_status_tool`：`unanalyzed-versions-detected`（問題 #1/#4）
+  - `snapshot_write`：`new-features-detected` + inherit_from merge bug 修復（問題 #7）
+  - `analyze_changes`：`source-path-broken` + `source_path` 參數（問題 #8/#10）
+- **CLI CHECKPOINT 強制點**：
+  - `analyze_cmd`：`no-api-key`（問題 #2）
+  - `status_cmd`：`project-not-initialized` + `unanalyzed-versions-detected`（問題 #3/#4）
+  - `extract_cmd`：`backfill-complete` + `_count_empty_source_nodes`（問題 #9/#11）
+
+### Fixed
+- `snapshot_write` + `inherit_from` 過濾掉新增 feature 的 merge 邏輯 bug（問題 #7）
+- `analyze_changes` 在 store/source 路徑分離時無法運作（問題 #10）
+
+### Internal
+- `.kiro/specs/flow-guard-store-decoupling/`：FlowGuard spec + 5 份 task 文件
+- 測試覆蓋：898 passed + 45 skipped；新增 contract / integration / unit 全覆蓋
+
+---
+
 ## [1.2.2] — 2026-05-23
 
 ### Added
