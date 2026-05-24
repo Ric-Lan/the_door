@@ -12,7 +12,7 @@
 |---|---|
 | `the_door/tests/integration/test_cli_checkpoint.py` | CLI + FlowGuard 整合測試 |
 | `the_door/tests/integration/test_store_decoupling.py` | Store 解耦端對端測試 |
-| `the_door/tests/contract/test_flow_guard_contract.py` | MCP 回應格式合約（從 task-03 移入 contract 層） |
+| `the_door/tests/contract/test_flow_guard_contract.py` | MCP 回應格式合約測試（task-03 不建立此檔，由本 task 負責） |
 
 ### 不修改現有程式碼
 本 task 純測試；若測試發現實作問題，回修 task-01~04 對應檔案。
@@ -129,12 +129,23 @@ Scenario C — source 路徑不存在：
 執行以下指令，確認全部通過：
 
 ```bash
+# 從 the_door/ 目錄執行（pyproject.toml 所在位置）
 cd the_door
-pytest tests/unit/core/test_flow_guard.py --cov=the_door/src/the_door/core/flow_guard --cov-fail-under=100
-pytest tests/unit/core/test_project_identity.py --cov=the_door/src/the_door/core/project_identity --cov-fail-under=100
-pytest tests/unit/cli/test_checkpoint_renderer.py --cov=the_door/src/the_door/cli/checkpoint_renderer --cov-fail-under=100
-pytest tests/ --cov=the_door/src/the_door --cov-fail-under=100 -x
+
+pytest tests/unit/core/test_flow_guard.py \
+  --cov=src/the_door/core/flow_guard --cov-fail-under=100
+
+pytest tests/unit/core/test_project_identity.py \
+  --cov=src/the_door/core/project_identity --cov-fail-under=100
+
+pytest tests/unit/cli/test_checkpoint_renderer.py \
+  --cov=src/the_door/cli/checkpoint_renderer --cov-fail-under=100
+
+pytest tests/ --cov=src/the_door --cov-fail-under=100 -x
 ```
+
+注意：`--cov` 接受相對於 cwd 的 **目錄或模組路徑**，不是 `the_door/src/...` 形式。
+若 pyproject.toml 的 `testpaths` 已設定，可直接執行 `pytest --cov=src/the_door -x`。
 
 最後一條全量測試不得低於現有通過率（參考：774 passed + 45 skipped）。
 

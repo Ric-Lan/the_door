@@ -18,9 +18,10 @@
 ### 新增
 | 檔案 | 說明 |
 |---|---|
-| `the_door/tests/contract/test_flow_guard_contract.py` | MCP 回應格式合約測試 |
 | `the_door/tests/unit/mcp/test_snapshot_write_inherit.py` | inherit_from merge 邏輯測試 |
 | `the_door/tests/integration/test_mcp_flow_guard.py` | MCP + FlowGuard 整合測試 |
+
+**注意：** `tests/contract/test_flow_guard_contract.py` 由 Task 05 負責建立，本 task 不新增。
 
 ---
 
@@ -144,12 +145,14 @@ def wrap(payload: dict, project_path, context: str = "mcp") -> dict:
         return wrap(payload, ...)
 
     if choice == "A":
-        merged = {**baseline_features, **{fid: new_features[fid] for fid in added_ids}}
+        # baseline 全部保留 + 新增 feature 加入
+        merged = {**baseline, **{fid: new_features[fid] for fid in added_ids}}
     elif choice == "B":
-        merged = {fid: baseline_features[fid] for fid in baseline_ids & new_ids}
+        # 只保留 baseline 已有且本次也提供的 feature
+        merged = {fid: baseline[fid] for fid in baseline_ids & new_ids}
     elif choice == "C":
-        payload["_decision"] = Decision(chosen=None, ...)  # 強制回傳 null
-        return wrap(payload, ...)
+        # 中止：直接回傳 result=null，不經 FlowGuard（已是明確選擇，無需再問）
+        return {"result": None, "aborted": True}
 ```
 
 ---

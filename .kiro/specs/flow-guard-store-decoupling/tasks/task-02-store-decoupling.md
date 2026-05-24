@@ -15,7 +15,7 @@
 ### 新增
 | 檔案 | 說明 |
 |---|---|
-| `the_door/tests/unit/core/test_snapshot_codebase_path.py` | codebase_path 序列化測試 |
+| `the_door/tests/unit/core/diff/test_snapshot_codebase_path.py` | codebase_path 序列化測試 |
 | `the_door/tests/unit/core/diff/test_snapshot_store_store_root.py` | store_root 解耦測試 |
 
 ### 現有測試（必須繼續通過）
@@ -87,7 +87,7 @@ class SnapshotStore:
 
 ## 2.2 Snapshot codebase_path 欄位
 
-### TDD — 先寫測試 `tests/unit/core/test_snapshot_codebase_path.py`
+### TDD — 先寫測試 `tests/unit/core/diff/test_snapshot_codebase_path.py`
 
 ```python
 # 測試清單（覆蓋率 100% for 新增路徑）
@@ -135,10 +135,22 @@ codebase_path: Path | None = None
 
 **修改點 5：`create_snapshot` 傳入 codebase_path**
 
+`create_snapshot` 簽名（`snapshot_store.py:55`）接受 `VersionSnapshot` 物件，
+在呼叫建構 `VersionSnapshot` 時加入：
 ```python
-# create_snapshot 呼叫 VersionSnapshot 時自動帶入
 codebase_path=self._project_root,
 ```
+
+**注意：** `SnapshotStore` 無 `update_snapshot` 方法。
+需要寫回更新後的 snapshot 時，直接呼叫 `_serialize_snapshot` + `Path.write_text`：
+```python
+snap_path = self._snapshots_dir / f"{snapshot.version_id}.json"
+snap_path.write_text(
+    json.dumps(self._serialize_snapshot(snapshot), ensure_ascii=False, indent=2),
+    encoding="utf-8",
+)
+```
+此模式供 task-04 extract_cmd 使用。
 
 ---
 

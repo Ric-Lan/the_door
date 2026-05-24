@@ -114,7 +114,7 @@ from the_door.cli.checkpoint_renderer import CheckpointRenderer
 guard = FlowGuard()
 renderer = CheckpointRenderer(guard)
 
-if not config.has_any_api_key():
+if not (config.anthropic_api_key or config.openai_api_key):
     decision = guard.check(
         "no-api-key",
         "未偵測到 API key（~/.the-door/config.toml 無設定）",
@@ -138,7 +138,7 @@ if not config.has_any_api_key():
     raise SystemExit(0)
 ```
 
-**注意：** `config.has_any_api_key()` 需確認現有 `ConfigManager` 是否有此方法；若無則用 `config.anthropic_api_key or config.openai_api_key`。
+**注意：** `config.anthropic_api_key` 和 `config.openai_api_key` 是 `LLMConfig` 的屬性（確認於 `config_manager.py:59,66`）。`has_any_api_key()` 方法不存在，不要使用。
 
 ---
 
@@ -225,8 +225,9 @@ def _get_unanalyzed_git_tags(project_path: Path, store: SnapshotStore) -> list[s
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return []
     
-    existing_labels = {s.label for s in store.list_snapshots() if s.label}
-    existing_tags = {t for s in store.list_snapshots() for t in s.git_tags}
+    snapshots = store.list_snapshots()  # 只呼叫一次
+    existing_labels = {s.label for s in snapshots if s.label}
+    existing_tags = {t for s in snapshots for t in s.git_tags}
     analyzed = existing_labels | existing_tags
     return [t for t in tags if t not in analyzed]
 ```
@@ -235,7 +236,7 @@ def _get_unanalyzed_git_tags(project_path: Path, store: SnapshotStore) -> list[s
 
 ## 4.5 extract_cmd.py — source_nodes 回填同步 (#11)
 
-### 新增測試 `tests/cli/test_extract_backfill.py`
+### 新增測試 `tests/unit/cli/test_extract_backfill.py`
 
 ```python
 # 測試清單（覆蓋率 100% for 新增路徑）
@@ -263,13 +264,13 @@ snapshot = store.get_snapshot(version_id)
 structure = store.get_structure(version_id)  # 讀剛寫入的 gz
 
 if structure and snapshot:
-    updated_count = _sync_source_nodes(snapshot, structure)
-    store.update_snapshot(snapshot)  # 寫回更新後的 snapshot
+    empty_count = _count_empty_source_nodes(snapshot)
 
-    # CHECKPOINT：告知回填完成，詢問下一步
+    # CHECKPOINT：告知回填完成，source_nodes 需由 agent 補入
     decision = guard.check(
         "backfill-complete",
-        f"結構已回填，{updated_count} 個 feature 的 source_nodes 已同步",
+        f"結構已回填（gz 已寫入）。{empty_count} 個 feature 的 source_nodes 為空，"
+        f"需由 agent 執行 agent-as-LLM 流程補入後再呼叫 snapshot_write 更新。",
         options=[
             CheckpointOption("A", "執行 analyze_changes 驗證差異",
                 f"analyze_changes(codebase_path='{project_root}', baseline='{version_ref}')"),
@@ -283,17 +284,17 @@ if structure and snapshot:
 **新增 helper：**
 
 ```python
-def _sync_source_nodes(snapshot, structure: dict) -> int:
-    """從 structure 的 nodes 反查各 feature 的 source_nodes，回傳更新數量。"""
-    node_ids = {n["node_id"] for n in structure.get("nodes", [])}
-    updated = 0
-    for fid, feature in snapshot.l1_snapshot.items():
-        if not feature.source_nodes:
-            matched = [nid for nid in node_ids if fid.replace("feat-", "") in nid]
-            if matched:
-                feature.source_nodes = tuple(matched)
-                updated += 1
-    return updated
+def _count_empty_source_nodes(snapshot) -> int:
+    """
+    回傳 source_nodes 為空的 feature 數量。
+    
+    source_nodes 的填入必須由 agent-as-LLM 完成（feature→node 對應是語意判斷，
+    無法從 AST structure 自動推導）。此函式只用於 CHECKPOINT 提示中顯示需要補入的數量。
+    """
+    return sum(
+        1 for feature in snapshot.l1_snapshot.values()
+        if not feature.source_nodes
+    )
 ```
 
 ---
