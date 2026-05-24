@@ -11,9 +11,9 @@
 
 ### R1 — status_cmd.py Unicode 輸出（cp950）
 Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` 崩潰。
-- `status_cmd()` 執行前，若 `sys.stdout.encoding` 不是 `utf-8`，重新包裝 stdout/stderr 為 UTF-8 wrapper。
-- 所有現有輸出路徑（`sys.stdout.write`、`click.echo`）不需改動。
-- 測試：mock `sys.stdout` encoding 為 `cp950`，確認輸出不拋出 `UnicodeEncodeError`。
+- 修法：在 `status_cmd()` 進入點設定 `os.environ.setdefault("PYTHONIOENCODING", "utf-8")`，並將所有 `sys.stdout.write()` 呼叫統一改為 `click.echo()`，由 click 處理 encoding 而非直接操作 stdout。
+- **不直接替換 `sys.stdout`**（會干擾 click 的 ANSI/color 管理，導致 double-encode）。
+- 測試：mock `os.environ` 不含 `PYTHONIOENCODING`，呼叫 `status_cmd()`，確認 `os.environ["PYTHONIOENCODING"]` 被設為 `"utf-8"` 且輸出不拋出 `UnicodeEncodeError`。
 
 ### R2 — file_discovery.py 排除 `.claude/` worktrees
 - `_DEFAULT_IGNORE_PATTERNS` 加入 `".claude/"`。
@@ -21,8 +21,8 @@ Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` �
 
 ### R3 — 增量分析流程：source_nodes 填入
 - `analyze_changes_tool.py` 回傳的 affected feature 資訊須包含 baseline 的 `source_nodes`，讓 agent 知道要更新哪些 AST node。
-- `snapshot_write_tool.py` 的 `updated_features` 處理路徑驗證：`source_nodes` 被正確合併不被靜默丟棄。此驗證以測試覆蓋，**不需改動** `snapshot_write_tool.py` production 程式碼（留給 C1 統一修改）。
-- 測試：寫入含 `source_nodes` 的 baseline snapshot，執行 incremental update，驗證 result snapshot 保留 source_nodes。
+- `snapshot_write_tool.py` 的 `updated_features` 處理路徑現有邏輯已正確合併 source_nodes（不靜默丟棄），以測試驗收即可，**不修改** production 程式碼。
+- 測試（放在 `tests/test_incremental_source_nodes.py`，屬 B2 task）：寫入含 `source_nodes` 的 baseline snapshot，呼叫 `analyze_changes_tool.execute()`，確認回傳資料含 `source_nodes`；再呼叫 `snapshot_write_tool.execute()` 帶 `updated_features`，確認 result snapshot 保留 source_nodes。
 
 ### R4 — FlowGuard CHECKPOINT 端對端驗證
 - 新增整合測試：呼叫 `snapshot_write_tool.execute()` 傳入 `inherit_from` + 包含新 `feature_id` 的 `l1_features`（不帶 `choice`），驗證回傳 `_decision`（CHECKPOINT 觸發）。
@@ -59,7 +59,7 @@ Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` �
 ### R9 — 關聯圖上下間距加長
 - `styles.css`：`.gv-grid` 的 `gap: 20px` 拆為 `column-gap: 20px; row-gap: 48px`，使上下間距至少兩倍。
 - 不動 `graph.js` 邏輯。
-- 視覺測試：不需自動化測試，由 `the-door ui` 手動 eyeball 確認關聯線可見。
+- 視覺驗收（eyeball）：執行 `the-door ui C:\Users\Ric\Desktop\test-targets\the-door-v105 --no-browser --port 8765`，開啟關聯圖（L1 graph 頁），確認「有邊相連的兩個節點之間，連線不被相鄰節點遮蓋」為 pass 標準。
 
 ### R10 — Wizard 新功能
 - 新建 `cli/wizard_cmd.py`，新增 `the-door wizard <path>` 指令。
@@ -68,7 +68,7 @@ Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` �
   1. 呼叫 `FileDiscovery.discover(path)`，顯示頂層目錄清單與各目錄檔案數。
   2. 互動詢問排除目錄（可輸入逗號分隔清單，Enter 跳過）；若有排除，以 custom ignore patterns 重跑 discovery。
   3. **Checkpoint 1（總覽確認）**：顯示計畫摘要（檔案數、快照標籤、分析模式），呼叫 `FlowGuard.check("wizard-start-confirmed", ...)`，選項 A 繼續 / B 中止。
-  4. 執行分析（呼叫 `run_analyze_pipeline` 或 `extract_structure` MCP 路徑，依有無 API key 決定）。
+  4. 執行分析：以 `ConfigManager(codebase_path).load()` 判斷 API key 是否存在。有 key → 呼叫 `run_analyze_pipeline`；無 key → 印出 MCP 指令提示（`extract_structure` → agent-as-LLM → `snapshot_write`），wizard 本身不執行 MCP。
   5. 若目標路徑已有相同 label 的 snapshot，**Checkpoint 2（覆寫確認）**：選項 A 覆寫 / B 另存新標籤 / C 中止。
   6. 完成後列印 `Next:` block（使用 `render_next_block`）。
 - `FileDiscovery.discover()` 須支援額外的 `extra_ignore` 參數（`list[str]`，預設空 list），傳給 `_load_gitignore` 合併至 patterns。此參數修改在 B1 的 `file_discovery.py` 同步完成（R2 task 加入此改動）。
@@ -84,6 +84,7 @@ Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` �
 - R4（FlowGuard e2e）**不修改** `snapshot_write_tool.py`，只新增測試檔。
 - R5 修改 `snapshot_write_tool.py`；R4 測試檔在 R5 合併後可直接覆蓋完整 CHECKPOINT 流程。
 - 前端 JS 的 filter state（R6）只加欄位到 `state.js`，不改其他 state 邏輯。
+- R6（filter 接線）與 R8（mindmap sessionStorage）同屬 task D，`app.js` 在同一 PR 內一次完成，不拆分。
 
 ---
 
@@ -98,17 +99,13 @@ Windows 終端機預設 cp950 編碼，導致含中文的 `sys.stdout.write()` �
 | B2 | `mcp/tools/analyze_changes_tool.py` | R3 |
 | B2 | `tests/test_incremental_source_nodes.py`（新） | R3 驗證 |
 | C1 | `models.py` | R5（FeatureSummary.confidence_reason） |
-| C1 | `mcp/tools/snapshot_write_tool.py` | R3 incremental path 確認 + R5 schema/validation |
+| C1 | `mcp/tools/snapshot_write_tool.py` | R5 schema/validation（confidence_reason + source_nodes warning） |
 | C2 | `tests/test_snapshot_write_checkpoint_e2e.py`（新） | R4 |
-| D1 | `js/state.js` | R6（filterConf / filterType 欄位） |
-| D1 | `js/app.js` | R6（事件接線） |
-| D2 | `js/ui-topbar.js` | R7 |
-| D3 | `mindmap-popup.html` | R8（JS 段） |
-| D3 | `js/app.js`（sessionStorage 段） | R8 |
+| D | `js/state.js` | R6（filterConf / filterType 欄位） |
+| D | `js/app.js` | R6 事件接線 + R8 sessionStorage versionLabel |
+| D | `js/ui-topbar.js` | R7 |
+| D | `mindmap-popup.html` | R8（JS 段） |
 | E1 | `styles.css` | R9 |
-
-> 注意：`js/app.js` 被 D1（R6）與 D3（R8）兩個 requirement 使用，但屬同一 task group（D），
-> 由同一 task 的同一 PR 一次完成，不會產生衝突。
 
 ---
 
