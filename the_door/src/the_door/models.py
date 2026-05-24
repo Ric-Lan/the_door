@@ -362,6 +362,7 @@ class FeatureSummary:
     confidence: str  # "high" | "medium" | "low"
     trigger_description: str | None = None
     source_nodes: tuple[str, ...] = ()
+    confidence_reason: str | None = None
 
 
 @dataclass(frozen=True)

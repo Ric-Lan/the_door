@@ -365,3 +365,52 @@ class TestSnapshotWriteTool:
         result = await snapshot_write_tool.execute(args)
         assert "error" in result
         assert result["error"]["remediation"]["code"] == "baseline_not_found"
+
+
+@pytest.mark.asyncio
+async def test_confidence_reason_roundtrips(tmp_project):
+    """confidence_reason written via snapshot_write must be readable from store."""
+    from the_door.mcp.tools.snapshot_write_tool import execute
+
+    result = await execute({
+        "codebase_path": str(tmp_project),
+        "label": "v-cr-test",
+        "l1_features": [
+            {
+                "feature_id": "feat-auth",
+                "label": "Auth",
+                "description": "handles auth",
+                "confidence": "high",
+                "source_nodes": ["AuthModule.login"],
+                "confidence_reason": "函式命名清楚且路徑單一",
+            }
+        ],
+    })
+    assert "error" not in result
+    vid = result["version_id"]
+    snap = SnapshotStore(tmp_project).get_snapshot(vid)
+    fs = snap.l1_snapshot["feat-auth"]
+    assert fs.confidence_reason == "函式命名清楚且路徑單一"
+
+
+@pytest.mark.asyncio
+async def test_empty_source_nodes_returns_warning(tmp_project):
+    """When source_nodes is empty, response must include a warnings list."""
+    from the_door.mcp.tools.snapshot_write_tool import execute
+
+    result = await execute({
+        "codebase_path": str(tmp_project),
+        "label": "v-warn-test",
+        "l1_features": [
+            {
+                "feature_id": "feat-x",
+                "label": "X",
+                "description": "some feature",
+                "confidence": "medium",
+                "source_nodes": [],
+            }
+        ],
+    })
+    assert "error" not in result
+    assert "warnings" in result
+    assert any("source_nodes" in w for w in result["warnings"])

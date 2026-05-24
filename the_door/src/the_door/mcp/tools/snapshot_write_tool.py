@@ -49,6 +49,7 @@ TOOL_SCHEMA = {
                         "type": "array",
                         "items": {"type": "string"},
                     },
+                    "confidence_reason": {"type": "string"},
                 },
             },
         },
@@ -91,6 +92,7 @@ TOOL_SCHEMA = {
                         "type": "array",
                         "items": {"type": "string"},
                     },
+                    "confidence_reason": {"type": "string"},
                 },
             },
         },
@@ -140,6 +142,7 @@ def _feature_dict_to_summary(feat: dict) -> FeatureSummary | dict:
         confidence=feat["confidence"],
         trigger_description=feat.get("trigger_description"),
         source_nodes=tuple(feat.get("source_nodes", ())),
+        confidence_reason=feat.get("confidence_reason"),
     )
 
 
@@ -245,6 +248,7 @@ async def execute(arguments: dict) -> dict:
 
         l1_snapshot = merged
         relations = list(baseline_snap.feature_relations_snapshot)
+        warnings = []
     else:
         # Direct mode: existing behaviour.
         raw_features: list[dict] = arguments.get("l1_features", [])
@@ -278,6 +282,12 @@ async def execute(arguments: dict) -> dict:
             for r in raw_relations
         ]
 
+        warnings = [
+            f"Feature '{fid}' has empty source_nodes — L2 drill-down will not work"
+            for fid, fs in l1_snapshot.items()
+            if not fs.source_nodes
+        ]
+
     snapshot = store.create_snapshot(
         l1_snapshot=l1_snapshot,
         feature_relations=relations,
@@ -298,4 +308,6 @@ async def execute(arguments: dict) -> dict:
         "feature_count": len(l1_snapshot),
         "relation_count": len(relations),
     }
+    if warnings:
+        payload["warnings"] = warnings
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
