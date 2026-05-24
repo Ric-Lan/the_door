@@ -24,6 +24,7 @@ from the_door.cli.update_cmd import update_cmd
 from the_door.cli.ui_cmd import ui_cmd
 from the_door.cli.projects_cmd import projects_cmd
 from the_door.cli.status_cmd import status_cmd
+from the_door.cli.wizard_cmd import wizard_cmd
 
 
 class CliRemediableError(click.ClickException):
@@ -70,3 +71,4 @@ main.add_command(update_cmd)
 main.add_command(ui_cmd)
 main.add_command(projects_cmd)
 main.add_command(status_cmd)
+main.add_command(wizard_cmd)
