@@ -183,7 +183,7 @@ def wrap(payload: dict, project_path, context: str = "mcp") -> dict:
 if not resolved_source.exists():
     payload["_decision"] = flow_guard.check(
         "source-path-broken",
-        f"v{baseline} 的來源路徑 {resolved_source} 不存在",
+        f"baseline {baseline!r} 的來源路徑 {resolved_source} 不存在",
         options=[
             CheckpointOption("A", "提供新路徑",
                 f"analyze_changes(baseline='{baseline}', source_path='<填入>')"),

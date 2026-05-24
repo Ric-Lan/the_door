@@ -35,8 +35,10 @@
 # 測試清單（覆蓋率 100% for 新增路徑）
 
 # store_root=None，project.id 不存在，無舊版 store
-#   → 觸發 FlowGuard CHECKPOINT "project-not-initialized"（由呼叫端處理）
-#   → SnapshotStore 本身不拋 RuntimeError，回傳 StoreResolutionResult
+#   → SnapshotStore.__init__ 不拋例外
+#   → self._snapshots_dir = project_root/.the-door/snapshots（預設位置）
+#   → snapshots_dir 目錄不存在但 SnapshotStore 物件已建立
+#   （CHECKPOINT "project-not-initialized" 由呼叫端在 status_cmd 中處理，非本層責任）
 
 # store_root=None，project.id 存在，status="ok"
 #   → self._snapshots_dir = ~/.the-door/store/<UUID>/snapshots

@@ -242,44 +242,63 @@ def _get_unanalyzed_git_tags(project_path: Path, store: SnapshotStore) -> list[s
 # 測試清單（覆蓋率 100% for 新增路徑）
 
 # extract --as-version 寫入 gz 後：
-#   - l1_snapshot 中各 feature 的 source_nodes 非空
-#   - source_nodes 內容來自 gz 中的 nodes（node_id 格式正確）
+#   - structure gz 檔案存在於 .the-door/structures/<version_id>.json.gz
+#   - 觸發 CHECKPOINT "backfill-complete"
+#   - CHECKPOINT 訊息含「N 個 feature 的 source_nodes 為空」（N 來自 _count_empty_source_nodes）
 
-# gz 不含某 feature 的任何 node → 該 feature source_nodes 保持原值（不清空）
+# _count_empty_source_nodes 函式：
+#   - snapshot 全部 feature source_nodes 非空 → 回傳 0
+#   - snapshot 部分 feature source_nodes 空 → 回傳空的數量
+#   - snapshot 無任何 feature → 回傳 0
 
-# gz 讀取失敗（檔案損毀）→ CHECKPOINT 詢問，不靜默跳過
-#   → response 含 CHECKPOINT "backfill-read-error"
+# CHECKPOINT options：
+#   - "A"：next_call 含 analyze_changes
+#   - "B"：next_call 含 the-door ui
+
+# 設計說明（重要）：
+#   extract --as-version 只回填 AST 結構（gz），不自動填入 source_nodes。
+#   source_nodes 是 feature→node 的語意映射，必須由 agent-as-LLM 補入。
+#   本 CHECKPOINT 的作用是告知使用者需要走 snapshot_write 重新提供 source_nodes。
 ```
 
 ### 修改 `cli/extract_cmd.py`
 
-在現有 `extract --as-version` 寫完 gz 後（約 `extract_cmd.py:98` 附近）加入：
+在現有 `extract --as-version` 寫完 gz 後（`extract_cmd.py:124` 之後，
+即 `_serialize_versioned_structure(project_root, baseline.version_id, structure, ...)` 呼叫之後）加入：
 
 ```python
-# 回填後同步 source_nodes
-from the_door.core.diff.snapshot_store import SnapshotStore
+# 變數名稱對齊現有 extract_cmd：
+#   as_version    — 使用者傳入的版本 ref（line 70）
+#   baseline      — store.resolve_baseline(as_version) 解析後的 snapshot（line 100）
+#   baseline.version_id — 實際 version_id（line 124）
 
-store = SnapshotStore(project_root)
-snapshot = store.get_snapshot(version_id)
-structure = store.get_structure(version_id)  # 讀剛寫入的 gz
+# 回填完成後，提示使用者 source_nodes 需 agent 補入
+snapshot = store.get_snapshot(baseline.version_id)
 
-if structure and snapshot:
+if snapshot is not None:
     empty_count = _count_empty_source_nodes(snapshot)
 
-    # CHECKPOINT：告知回填完成，source_nodes 需由 agent 補入
     decision = guard.check(
         "backfill-complete",
-        f"結構已回填（gz 已寫入）。{empty_count} 個 feature 的 source_nodes 為空，"
+        f"結構已回填（.the-door/structures/{baseline.version_id}.json.gz）。"
+        f"{empty_count} 個 feature 的 source_nodes 為空，"
         f"需由 agent 執行 agent-as-LLM 流程補入後再呼叫 snapshot_write 更新。",
         options=[
-            CheckpointOption("A", "執行 analyze_changes 驗證差異",
-                f"analyze_changes(codebase_path='{project_root}', baseline='{version_ref}')"),
-            CheckpointOption("B", "直接開啟 viewer",
-                f"the-door ui {project_root}"),
+            CheckpointOption(
+                "A", "執行 analyze_changes 驗證差異",
+                f"analyze_changes(codebase_path='{project_root}', baseline='{as_version}')",
+            ),
+            CheckpointOption(
+                "B", "直接開啟 viewer",
+                f"the-door ui {project_root}",
+            ),
         ],
     )
     renderer.prompt(decision)
 ```
+
+**注意：** 不引入 `backfill-read-error` CHECKPOINT；現有 `_serialize_versioned_structure`
+（`extract_cmd.py:124`）若失敗會自行拋錯，不需新增。本 task 只新增 `backfill-complete`。
 
 **新增 helper：**
 
@@ -306,5 +325,5 @@ def _count_empty_source_nodes(snapshot) -> int:
 - [ ] 無 API key 時 `analyze_cmd` 印出 CHECKPOINT 格式（非 ConfigError traceback）
 - [ ] `diff_cmd` 在 baseline 無 snapshot 時印出 CHECKPOINT（非 KeyError）
 - [ ] `status_cmd` 呼叫 `_get_unanalyzed_git_tags`，git 不存在時安全回傳 `[]`
-- [ ] `extract --as-version` 後 snapshot source_nodes 非空（regression test）
+- [ ] `extract --as-version` 後觸發 `backfill-complete` CHECKPOINT，訊息含 empty_count 數值
 - [ ] 現有 CLI 測試不退步
