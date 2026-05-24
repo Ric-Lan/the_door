@@ -1,7 +1,7 @@
 """`the-door status` — report current project state + suggested next actions."""
 from __future__ import annotations
 
-import sys
+import os
 from pathlib import Path
 
 import click
@@ -44,6 +44,7 @@ def _get_unanalyzed_git_tags(project_path: Path, store) -> list[str]:
 )
 def status_cmd(path: str) -> None:
     """Report current project state + suggested next actions."""
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.flow_guard import CheckpointOption, FlowGuard
     from the_door.core.project_identity import ProjectIdentity
@@ -76,18 +77,18 @@ def status_cmd(path: str) -> None:
 
     state = StateInspector(project).inspect()
 
-    sys.stdout.write(f"Project: {project.as_posix()}\n")
+    click.echo(f"Project: {project.as_posix()}")
     if state.has_dot_the_door:
-        sys.stdout.write(f"  ✓ {len(state.snapshots)} snapshots\n")
+        click.echo(f"  ✓ {len(state.snapshots)} snapshots")
         for s in state.snapshots:
             marker = "✓ has structure" if s.has_persisted_structure else "○ no structure"
             label = s.label or s.version_id
-            sys.stdout.write(f"    • {label}  ({marker})\n")
+            click.echo(f"    • {label}  ({marker})")
     else:
-        sys.stdout.write("  ○ not yet initialized\n")
+        click.echo("  ○ not yet initialized")
     for warning in state.warnings:
-        sys.stdout.write(f"  ⚠ {warning.code}: {warning.message}\n")
-    sys.stdout.write("\n")
+        click.echo(f"  ⚠ {warning.code}: {warning.message}")
+    click.echo("")
 
     actions = NextActionSuggester().suggest(state, context="cli")
     render_next_block(actions)
