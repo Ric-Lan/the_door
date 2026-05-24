@@ -31,6 +31,7 @@ _EXTENSION_MAP: dict[str, str] = {
 # Directories always ignored regardless of .gitignore
 _DEFAULT_IGNORE_PATTERNS = [
     ".git/",
+    ".claude/",
     "node_modules/",
     "__pycache__/",
     "dist/",
@@ -46,7 +47,11 @@ _DEFAULT_IGNORE_PATTERNS = [
 class FileDiscovery:
     """Enumerate source files in a codebase, detect language, respect .gitignore."""
 
-    def discover(self, codebase_path: str) -> list[FileInfo]:
+    def discover(
+        self,
+        codebase_path: str,
+        extra_ignore: list[str] | None = None,
+    ) -> list[FileInfo]:
         """Walk the directory tree and return FileInfo for each recognised source file.
 
         Respects .gitignore patterns found at the codebase root.
@@ -57,7 +62,7 @@ class FileDiscovery:
         if not root.is_dir():
             return []
 
-        spec = self._load_gitignore(root)
+        spec = self._load_gitignore(root, extra_ignore=extra_ignore or [])
         results: list[FileInfo] = []
 
         for dirpath, dirnames, filenames in os.walk(root):
@@ -89,9 +94,14 @@ class FileDiscovery:
         return results
 
     @staticmethod
-    def _load_gitignore(root: Path) -> pathspec.PathSpec:
+    def _load_gitignore(
+        root: Path,
+        extra_ignore: list[str] | None = None,
+    ) -> pathspec.PathSpec:
         """Load .gitignore from root and combine with default ignore patterns."""
         patterns = list(_DEFAULT_IGNORE_PATTERNS)
+        if extra_ignore:
+            patterns.extend(extra_ignore)
         gitignore = root / ".gitignore"
         if gitignore.is_file():
             patterns.extend(

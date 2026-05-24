@@ -95,6 +95,42 @@ class TestFileDiscovery:
         assert len(files) >= 1
         assert all(isinstance(f, FileInfo) for f in files)
 
+    def test_nonexistent_path_returns_empty(self, tmp_path):
+        """Non-directory path returns empty list."""
+        files = FileDiscovery().discover(str(tmp_path / "no_such_dir"))
+        assert files == []
+
+    def test_file_matching_gitignore_pattern_is_skipped(self, tmp_path):
+        """A file matching .gitignore is excluded (covers the spec.match_file continue branch)."""
+        (tmp_path / ".gitignore").write_text("skip_me.py\n")
+        (tmp_path / "skip_me.py").write_text("x = 1")
+        (tmp_path / "keep_me.py").write_text("y = 2")
+        files = FileDiscovery().discover(str(tmp_path))
+        paths = [f.path for f in files]
+        assert not any("skip_me" in p for p in paths)
+        assert any("keep_me" in p for p in paths)
+
+    def test_ignores_dot_claude_directory(self, tmp_path):
+        """Files inside .claude/ worktrees must never appear in discovery results."""
+        (tmp_path / ".claude" / "worktrees" / "foo").mkdir(parents=True)
+        (tmp_path / ".claude" / "worktrees" / "foo" / "bar.py").write_text("x = 1")
+        (tmp_path / "main.py").write_text("y = 2")
+        files = FileDiscovery().discover(str(tmp_path))
+        paths = [f.path for f in files]
+        assert not any(".claude" in p for p in paths)
+        assert any("main.py" in p for p in paths)
+
+    def test_extra_ignore_excludes_specified_dirs(self, tmp_path):
+        """extra_ignore patterns are applied on top of the default ignore list."""
+        (tmp_path / "vendor" / "lib").mkdir(parents=True)
+        (tmp_path / "vendor" / "lib" / "foo.py").write_text("x = 1")
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "app.py").write_text("y = 2")
+        files = FileDiscovery().discover(str(tmp_path), extra_ignore=["vendor/"])
+        paths = [f.path for f in files]
+        assert not any("vendor" in p for p in paths)
+        assert any("app.py" in p for p in paths)
+
 
 # === NodeBuilder tests (Task 9.2) ===
 
