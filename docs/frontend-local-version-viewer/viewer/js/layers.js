@@ -570,7 +570,22 @@ export function buildMindmapData(state) {
     diffAvailable = diffNodes.length > 0;
   }
 
-  return { project: projectName, nodes, diffNodes, diffAvailable };
+  function _snapLabel(vId) {
+    if (!vId) return null;
+    const s = state.snapshots?.find(snap => snap.version_id === vId);
+    if (!s) return null;
+    if (s.git_tags?.length) return s.git_tags[0];
+    return s.label ?? null;
+  }
+
+  return {
+    project: projectName,
+    nodes,
+    diffNodes,
+    diffAvailable,
+    versionALabel: _snapLabel(state.versionA),
+    versionBLabel: _snapLabel(state.versionB),
+  };
 }
 
 export function switchToMindmap() {

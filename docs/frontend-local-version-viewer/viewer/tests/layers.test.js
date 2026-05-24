@@ -1486,3 +1486,28 @@ describe("buildMindmapData", () => {
     expect(data.diffNodes).toEqual([{ id: "feat-c", change_type: "modified" }]);
   });
 });
+
+describe('buildMindmapData — version labels', () => {
+  it('includes versionALabel and versionBLabel when snapshots present', () => {
+    state.snapshots = [
+      { version_id: 'id-b', label: 'v1.0.5', git_tags: [] },
+      { version_id: 'id-a', label: 'v1.0.0', git_tags: [] },
+    ];
+    state.versionA = 'id-a';
+    state.versionB = 'id-b';
+    state.l1GraphViewModel = { nodes: [], edges: [] };
+    const data = buildMindmapData(state);
+    expect(data.versionALabel).toBe('v1.0.0');
+    expect(data.versionBLabel).toBe('v1.0.5');
+  });
+
+  it('versionALabel and versionBLabel are null when no snapshots', () => {
+    state.snapshots = [];
+    state.versionA = null;
+    state.versionB = null;
+    state.l1GraphViewModel = { nodes: [], edges: [] };
+    const data = buildMindmapData(state);
+    expect(data.versionALabel).toBeNull();
+    expect(data.versionBLabel).toBeNull();
+  });
+});

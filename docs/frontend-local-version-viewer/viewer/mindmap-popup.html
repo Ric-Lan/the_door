@@ -303,7 +303,17 @@ async function init() {
 
   const projectName = (data.project || "").split(/[/\\]/).filter(Boolean).pop() || "專案";
   data.projectName = projectName;
-  document.getElementById("project-name").textContent = projectName;
+  const vAL = data.versionALabel;
+  const vBL = data.versionBLabel;
+  let versionLabel = "";
+  if (data.diffAvailable && vAL && vBL) {
+    versionLabel = ` — A · ${vAL} → B · ${vBL}`;
+  } else if (vBL) {
+    versionLabel = ` · ${vBL}`;
+  } else if (vAL) {
+    versionLabel = ` · ${vAL}`;
+  }
+  document.getElementById("project-name").textContent = projectName + versionLabel;
 
   if (!data.nodes.length) {
     document.getElementById("loading").textContent = "無 L1 資料，請先執行分析。";
