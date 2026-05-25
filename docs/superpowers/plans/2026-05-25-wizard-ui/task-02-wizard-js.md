@@ -675,32 +675,41 @@ describe('initWizard', () => {
   });
 
   it('renders PROGRESS step list when hasApiKey=true', async () => {
-    const steps = [{ step_name: 'LLM 分析', status: 'running' }];
-    const api = {
-      getStatus: vi.fn().mockResolvedValue({
-        state: { has_snapshots: false, has_api_key: true },
-        next_actions: [],
-      }),
-      postAnalyze: vi.fn().mockResolvedValue({ job_id: 'job-abc' }),
-      getJobStatus: vi.fn().mockResolvedValue({
-        status: 'running', current_step: 'LLM 分析', steps,
-      }),
-    };
-    const { initWizard } = await import('../js/ui-wizard.js');
-    initWizard(container, api, vi.fn());
-    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
-    container.querySelector('[data-action="analyze"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_SETUP"]'));
-    container.querySelector('[data-next="setup"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_LABEL"]'));
-    container.querySelector('[data-next="label"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
-    container.querySelector('[data-submit]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PROGRESS"]'));
-    // API key mode renders step list (not agent params block)
-    expect(container.querySelector('[data-agent-params]')).toBeNull();
-    await vi.waitFor(() => container.querySelector('[data-step-status]'));
-    expect(container.querySelector('[data-step-status]')).not.toBeNull();
+    // fake timers required: setInterval(1500) must fire to get non-empty steps into DOM
+    // vi.waitFor is NOT used here because its internal polling is also frozen by fake timers
+    vi.useFakeTimers();
+    try {
+      const steps = [{ step_name: 'LLM 分析', status: 'running' }];
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: false, has_api_key: true },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn().mockResolvedValue({ job_id: 'job-abc' }),
+        getJobStatus: vi.fn().mockResolvedValue({
+          status: 'running', current_step: 'LLM 分析', steps,
+        }),
+      };
+      const { initWizard } = await import('../js/ui-wizard.js');
+      initWizard(container, api, vi.fn());
+      await Promise.resolve(); await Promise.resolve(); // flush getStatus microtask chain
+      expect(container.querySelector('[data-page="PAGE_ACTION"]')).not.toBeNull();
+      container.querySelector('[data-action="analyze"]').click();
+      expect(container.querySelector('[data-page="PAGE_SETUP"]')).not.toBeNull();
+      container.querySelector('[data-next="setup"]').click();
+      expect(container.querySelector('[data-page="PAGE_LABEL"]')).not.toBeNull();
+      container.querySelector('[data-next="label"]').click();
+      expect(container.querySelector('[data-page="PAGE_CONFIRM"]')).not.toBeNull();
+      container.querySelector('[data-submit]').click();
+      await Promise.resolve(); await Promise.resolve(); // flush postAnalyze → JOB_STARTED
+      expect(container.querySelector('[data-page="PROGRESS"]')).not.toBeNull();
+      expect(container.querySelector('[data-agent-params]')).toBeNull();
+      // Advance time to fire setInterval(1500) → getJobStatus → POLL_UPDATE → re-render with steps
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(container.querySelector('[data-step-status="running"]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders PAGE_ERROR when getStatus fails', async () => {

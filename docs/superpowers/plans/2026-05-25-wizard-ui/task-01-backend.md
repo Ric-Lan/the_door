@@ -300,7 +300,8 @@ git commit -m "feat(wizard): thread extra_ignore and snapshot_label through ASTE
 ```python
 def test_handle_post_analyze_returns_202_with_job_id(tmp_path):
     handlers = _make_handlers(tmp_path)
-    with patch.object(handlers, "_run_analyze_job"):
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
         status, body = handlers.handle_post_analyze({})
     assert status == 202
     assert "job_id" in body
@@ -360,8 +361,6 @@ def handle_post_analyze(self, body: dict) -> tuple[int, dict]:
     Returns 202 {"job_id": ...} on success, 409 if a job is already running.
     """
     extra_ignore = body.get("extra_ignore") or None
-    if extra_ignore == []:
-        extra_ignore = None
     snapshot_label = body.get("label") or None
 
     job = self._job_store.try_create_job()
