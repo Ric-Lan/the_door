@@ -188,6 +188,7 @@ Read the `Next:` block. It's the source of truth for what the project needs.
 | `the-door ui <path>` | Open the viewer workbench. | No (L2 generation in viewer needs it) |
 | `extract_structure` MCP | Agent-as-LLM: get nodes/edges/topology, then YOU produce L1. | No |
 | `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. | No |
+| `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 | No |
 | `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. | No |
 | `system_status` MCP | Same as `the-door status` but callable from agents. | No |
 
@@ -221,6 +222,29 @@ For the input/output schemas of each MCP tool see
 
 3. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
    → Returns `version_id`, `label`.
+
+### Agent-as-LLM chain (backfill source_nodes into existing snapshot)
+
+Use when a snapshot already exists but its `source_node_count` is 0 / `source_nodes` is empty.
+
+1. `extract_structure(codebase_path="./target-at-that-version")`
+   → Returns full `nodes` list with `node_id` in `ClassName.method_name` format.
+
+2. You group `nodes` by feature, producing:
+   ```json
+   {
+     "feat-cli-dispatch": ["main", "analyze_cmd", "ui_cmd"],
+     "feat-ast-extraction": ["ASTExtractor", "ASTExtractor.extract", "NodeBuilder"]
+   }
+   ```
+
+3. `snapshot_patch(codebase_path="./project", version_ref="v1.0.0", source_nodes_by_feature={...})`
+   → Returns `version_id`, `patched_features`, `skipped_features`.
+   The snapshot is updated **in-place** (same `version_id`, same `timestamp`).
+
+**Do NOT** use grep as a substitute for `extract_structure` — grep only finds top-level
+`class`/`def` and misses `ClassName.method_name` node_ids.  
+**Do NOT** edit snapshot JSON files directly — use `snapshot_patch`.
 
 ### Agent-as-LLM chain (no API key, incremental update)
 
