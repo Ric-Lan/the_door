@@ -192,6 +192,49 @@ class SnapshotStore:
         entries.sort(key=lambda e: e.timestamp, reverse=True)
         return entries
 
+    def patch_snapshot(
+        self,
+        version_ref: str,
+        source_nodes_by_feature: dict[str, list[str]],
+        analyzed_files: list[str] | None = None,
+    ) -> tuple["VersionSnapshot", list[str]]:
+        """Patch source_nodes of an existing snapshot in-place.
+
+        Resolves version_ref, updates only source_nodes/source_node_count for
+        matching features, then re-serializes via _serialize_snapshot so
+        conditional fields stay consistent.  version_id and timestamp are never
+        modified.
+
+        Returns (updated_snapshot, skipped_feature_ids).
+        Raises SnapshotNotFoundError if version_ref cannot be resolved.
+        """
+        import dataclasses
+
+        snap = self.resolve_baseline(version_ref)
+
+        new_l1 = dict(snap.l1_snapshot)
+        skipped: list[str] = []
+        for fid, nodes in source_nodes_by_feature.items():
+            if fid not in new_l1:
+                skipped.append(fid)
+                continue
+            new_l1[fid] = dataclasses.replace(
+                new_l1[fid],
+                source_nodes=tuple(nodes),
+                source_node_count=len(nodes),
+            )
+
+        kwargs: dict = {"l1_snapshot": new_l1}
+        if analyzed_files is not None:
+            kwargs["analyzed_files"] = analyzed_files
+        snap = dataclasses.replace(snap, **kwargs)
+
+        data = self._serialize_snapshot(snap)
+        file_path = self._snapshots_dir / f"{snap.version_id}.json"
+        file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        return snap, skipped
+
     def delete_snapshot(self, version_id: str) -> None:
         """Delete a snapshot JSON file by version_id.
 
