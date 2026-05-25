@@ -150,70 +150,75 @@ git commit -m "feat(wizard): thread extra_ignore through ASTExtractor.extract()"
 
 ## Task 01.3 — `run_analyze_pipeline` 傳遞 `extra_ignore` + `snapshot_label`
 
-- [ ] **Step 1: 寫失敗測試**
+- [ ] **Step 1: 寫失敗測試（兩個獨立測試，各驗一件事）**
 
 在 `test_api_handlers_analyze.py` 加：
 
 ```python
-def test_analyze_pipeline_passes_extra_ignore_and_label(tmp_path):
-    """run_analyze_pipeline with AnalyzeConfig(extra_ignore, snapshot_label)
-    calls ASTExtractor.extract with extra_ignore and create_snapshot with label."""
+def test_analyze_pipeline_passes_extra_ignore_to_extractor(tmp_path):
+    """run_analyze_pipeline calls ASTExtractor.extract with extra_ignore."""
     from the_door.models import AnalyzeConfig
     from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
 
-    config = AnalyzeConfig(
-        skip_cost_confirm=True,
-        extra_ignore=["docs/"],
-        snapshot_label="v1.0.0",
-    )
+    config = AnalyzeConfig(skip_cost_confirm=True, extra_ignore=["docs/"])
 
     with patch("the_door.core.pipeline.analyze_pipeline.ASTExtractor") as MockExtractor, \
          patch("the_door.core.pipeline.analyze_pipeline.VulnerabilityScanner"), \
-         patch("the_door.core.pipeline.analyze_pipeline.SnapshotStore") as MockStore, \
-         patch("the_door.core.pipeline.analyze_pipeline.LLMBatchProcessor"), \
+         patch("the_door.core.pipeline.analyze_pipeline.SnapshotStore"), \
          patch("the_door.core.pipeline.analyze_pipeline.ConfigManager"):
 
-        # Setup minimal mocks to avoid AttributeError
         mock_extractor_instance = MagicMock()
         mock_extractor_instance.extract.return_value = MagicMock(files=[], nodes=[], edges=[])
         MockExtractor.return_value = mock_extractor_instance
 
-        mock_store_instance = MagicMock()
-        mock_store_instance.create_snapshot.return_value = MagicMock(version_id="v1")
-        MockStore.return_value = mock_store_instance
-
         try:
             run_analyze_pipeline(tmp_path, config)
         except Exception:
-            pass  # Pipeline may fail on minimal mock, we only care about call args
+            pass  # 只關心 extract() 是否被正確呼叫
 
-        # extract() called with extra_ignore
         call_kwargs = mock_extractor_instance.extract.call_args
-        assert call_kwargs is not None
+        assert call_kwargs is not None, "extractor.extract was never called"
         passed_extra_ignore = (
             call_kwargs.kwargs.get("extra_ignore") or
             (call_kwargs.args[1] if len(call_kwargs.args) > 1 else None)
         )
         assert passed_extra_ignore == ["docs/"]
 
-        # create_snapshot() called with label="v1.0.0"
-        if mock_store_instance.create_snapshot.called:
-            snap_kwargs = mock_store_instance.create_snapshot.call_args.kwargs
-            assert snap_kwargs.get("label") == "v1.0.0"
+
+def test_create_auto_snapshot_passes_label_to_store(tmp_path):
+    """_create_auto_snapshot passes config.snapshot_label to store.create_snapshot."""
+    from the_door.core.pipeline.analyze_pipeline import _create_auto_snapshot
+    from the_door.models import AnalyzeConfig
+
+    config = AnalyzeConfig(snapshot_label="v1.0.0")
+    extraction = MagicMock(files=[], nodes=[], edges=[])
+    result = MagicMock()
+    result.l1_output.features = []
+    result.l1_output.feature_relations = []
+    scan_result = MagicMock(entries=[], db_freshness=None)
+
+    with patch("the_door.core.pipeline.analyze_pipeline.SnapshotStore") as MockStore:
+        MockStore.return_value.create_snapshot.return_value = MagicMock(version_id="v1")
+        _create_auto_snapshot(tmp_path, extraction, result, scan_result, lambda _: None, config)
+
+    kwargs = MockStore.return_value.create_snapshot.call_args.kwargs
+    assert kwargs.get("label") == "v1.0.0"
 ```
 
 - [ ] **Step 2: 確認測試失敗**
 
 ```bash
-cd the_door && pytest tests/unit/core/ui/test_api_handlers_analyze.py::test_analyze_pipeline_passes_extra_ignore_and_label -v
+cd the_door && pytest tests/unit/core/ui/test_api_handlers_analyze.py::test_analyze_pipeline_passes_extra_ignore_to_extractor tests/unit/core/ui/test_api_handlers_analyze.py::test_create_auto_snapshot_passes_label_to_store -v
 ```
-期望：FAILED — `extract()` 被呼叫時沒帶 `extra_ignore`。
+期望：2 FAILED。
+- `test_analyze_pipeline_passes_extra_ignore_to_extractor`: `extract()` 沒帶 `extra_ignore`
+- `test_create_auto_snapshot_passes_label_to_store`: `_create_auto_snapshot` 不接受 `config` 參數
 
 - [ ] **Step 3: 修改 `analyze_pipeline.py`**
 
-開啟 `the_door/src/the_door/core/pipeline/analyze_pipeline.py`。
+**3a. 修改 `extractor.extract` 呼叫**（在 `_run_pipeline_inner` 裡）：
 
-找到呼叫 `extractor.extract(...)` 的那行：
+找到：
 ```python
 ast_future = executor.submit(extractor.extract, Path(codebase_path))
 ```
@@ -222,12 +227,18 @@ ast_future = executor.submit(extractor.extract, Path(codebase_path))
 ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore)
 ```
 
-找到呼叫 `store.create_snapshot(...)` 的那行（約第 321 行），在 keyword arguments 加上：
+**3b. 修改 `_create_auto_snapshot` signature**，加入 `config` 參數：
+
+找到：
 ```python
-label=config.snapshot_label,
+def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progress):
+```
+改為：
+```python
+def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progress, config=None):
 ```
 
-完整的 `create_snapshot` 呼叫應如下（其他參數不動）：
+在 `store.create_snapshot(...)` 呼叫加上 `label`：
 ```python
 snapshot = store.create_snapshot(
     l1_snapshot=l1_snap,
@@ -236,20 +247,33 @@ snapshot = store.create_snapshot(
     commit_hash=git_commit,
     git_tags=git_tags_list,
     trigger=trigger,
-    label=config.snapshot_label,          # 新增
+    label=config.snapshot_label if config else None,   # 新增
     vulnerabilities=scan_result.entries if scan_result.entries else [],
     db_freshness=scan_result.db_freshness,
 )
 ```
 
-注意：`_run_pipeline_inner` 的 signature 改為接受完整的 `config: AnalyzeConfig`（原本已如此），確認 `config` 物件可在 `_run_snapshot_generation` 內存取。若 `_run_snapshot_generation` 是獨立函式，將 `config` 傳入。
+**3c. 更新 `_run_pipeline_inner` 的呼叫點**，傳入 `config`：
+
+找到：
+```python
+snapshot = _create_auto_snapshot(
+    codebase_path, extraction, result, scan_result, progress,
+)
+```
+改為：
+```python
+snapshot = _create_auto_snapshot(
+    codebase_path, extraction, result, scan_result, progress, config,
+)
+```
 
 - [ ] **Step 4: 確認測試通過**
 
 ```bash
-cd the_door && pytest tests/unit/core/ui/test_api_handlers_analyze.py::test_analyze_pipeline_passes_extra_ignore_and_label -v
+cd the_door && pytest tests/unit/core/ui/test_api_handlers_analyze.py::test_analyze_pipeline_passes_extra_ignore_to_extractor tests/unit/core/ui/test_api_handlers_analyze.py::test_create_auto_snapshot_passes_label_to_store -v
 ```
-期望：PASSED（或 xfail，視 mock 深度）。
+期望：2 PASSED。
 
 - [ ] **Step 5: 確認全部既有測試不破壞**
 
@@ -262,7 +286,7 @@ cd the_door && pytest tests/ -x -q 2>&1 | tail -5
 
 ```bash
 git add the_door/src/the_door/core/pipeline/analyze_pipeline.py the_door/tests/unit/core/ui/test_api_handlers_analyze.py
-git commit -m "feat(wizard): thread extra_ignore and snapshot_label through analyze_pipeline"
+git commit -m "feat(wizard): thread extra_ignore and snapshot_label through ASTExtractor and _create_auto_snapshot"
 ```
 
 ---
@@ -284,14 +308,12 @@ def test_handle_post_analyze_returns_202_with_job_id(tmp_path):
 
 def test_handle_post_analyze_passes_extra_ignore_and_label(tmp_path):
     handlers = _make_handlers(tmp_path)
-    captured = {}
-    def fake_run(job, extra_ignore, snapshot_label):
-        captured["extra_ignore"] = extra_ignore
-        captured["snapshot_label"] = snapshot_label
-    with patch.object(handlers, "_run_analyze_job", side_effect=fake_run):
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
         handlers.handle_post_analyze({"extra_ignore": ["tests/"], "label": "v1.0.0"})
-    assert captured["extra_ignore"] == ["tests/"]
-    assert captured["snapshot_label"] == "v1.0.0"
+    _, kwargs = mock_thread_cls.call_args
+    assert kwargs["args"][1] == ["tests/"]   # extra_ignore
+    assert kwargs["args"][2] == "v1.0.0"     # snapshot_label
 
 
 def test_handle_post_analyze_returns_409_when_job_running(tmp_path):
@@ -305,14 +327,12 @@ def test_handle_post_analyze_returns_409_when_job_running(tmp_path):
 
 def test_handle_post_analyze_empty_extra_ignore_becomes_none(tmp_path):
     handlers = _make_handlers(tmp_path)
-    captured = {}
-    def fake_run(job, extra_ignore, snapshot_label):
-        captured["extra_ignore"] = extra_ignore
-        captured["snapshot_label"] = snapshot_label
-    with patch.object(handlers, "_run_analyze_job", side_effect=fake_run):
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
         handlers.handle_post_analyze({"extra_ignore": [], "label": ""})
-    assert captured["extra_ignore"] is None
-    assert captured["snapshot_label"] is None
+    _, kwargs = mock_thread_cls.call_args
+    assert kwargs["args"][1] is None   # extra_ignore normalized to None
+    assert kwargs["args"][2] is None   # snapshot_label normalized to None
 ```
 
 - [ ] **Step 2: 確認測試失敗**

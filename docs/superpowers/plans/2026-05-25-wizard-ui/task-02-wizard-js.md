@@ -673,6 +673,47 @@ describe('initWizard', () => {
     expect(api.postAnalyze).not.toHaveBeenCalled();
     expect(container.querySelector('[data-agent-params]')).not.toBeNull();
   });
+
+  it('renders PROGRESS step list when hasApiKey=true', async () => {
+    const steps = [{ step_name: 'LLM 分析', status: 'running' }];
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn().mockResolvedValue({ job_id: 'job-abc' }),
+      getJobStatus: vi.fn().mockResolvedValue({
+        status: 'running', current_step: 'LLM 分析', steps,
+      }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+    container.querySelector('[data-action="analyze"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_SETUP"]'));
+    container.querySelector('[data-next="setup"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_LABEL"]'));
+    container.querySelector('[data-next="label"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
+    container.querySelector('[data-submit]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PROGRESS"]'));
+    // API key mode renders step list (not agent params block)
+    expect(container.querySelector('[data-agent-params]')).toBeNull();
+    await vi.waitFor(() => container.querySelector('[data-step-status]'));
+    expect(container.querySelector('[data-step-status]')).not.toBeNull();
+  });
+
+  it('renders PAGE_ERROR when getStatus fails', async () => {
+    const api = {
+      getStatus: vi.fn().mockRejectedValue(new Error('network fail')),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => expect(container.querySelector('[data-page="PAGE_ERROR"]')).not.toBeNull());
+    expect(container.querySelector('[data-page="PAGE_ERROR"]').textContent).toMatch(/network fail/);
+  });
 });
 ```
 

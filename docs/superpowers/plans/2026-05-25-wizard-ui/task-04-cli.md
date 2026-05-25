@@ -17,39 +17,41 @@
 ```python
 """Tests for ui_cmd wizard.html entry point."""
 from __future__ import annotations
-import threading
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
 
-def test_ui_cmd_opens_wizard_html(tmp_path):
-    """ui_cmd should open /wizard.html instead of the root URL."""
-    from the_door.cli.ui_cmd import ui_cmd
-    from click.testing import CliRunner
-
-    # Create minimal viewer dir with wizard.html
+def _setup_viewer(tmp_path):
     viewer_path = tmp_path / "viewer"
     viewer_path.mkdir()
     (viewer_path / "wizard.html").write_text("<html></html>", encoding="utf-8")
     (viewer_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    return viewer_path
 
-    opened_urls = []
 
+def test_ui_cmd_opens_wizard_html(tmp_path):
+    """ui_cmd should schedule webbrowser.open with a URL containing wizard.html."""
+    from the_door.cli.ui_cmd import ui_cmd
+    from click.testing import CliRunner
+
+    viewer_path = _setup_viewer(tmp_path)
     mock_server = MagicMock()
-    mock_server.url = f"http://127.0.0.1:19999"
-    mock_server.start.side_effect = KeyboardInterrupt  # stop immediately
+    mock_server.url = "http://127.0.0.1:19999"
+    mock_server.start.side_effect = KeyboardInterrupt
 
     with patch("the_door.cli.ui_cmd.UIServer", return_value=mock_server), \
          patch("the_door.cli.ui_cmd._resolve_viewer_dir", return_value=viewer_path), \
          patch("the_door.cli.ui_cmd.ProjectRegistry"), \
-         patch("webbrowser.open", side_effect=lambda url: opened_urls.append(url)):
+         patch("the_door.cli.ui_cmd.threading.Timer") as mock_timer:
+        mock_timer.return_value = MagicMock()
         runner = CliRunner()
-        result = runner.invoke(ui_cmd, [str(tmp_path)])
+        runner.invoke(ui_cmd, [str(tmp_path)])
 
-    assert any("wizard.html" in url for url in opened_urls), \
-        f"Expected wizard.html in opened URLs, got: {opened_urls}"
+    assert mock_timer.called, "threading.Timer was not called (no browser open scheduled)"
+    # Timer args: (delay, func, [url])
+    timer_url_arg = mock_timer.call_args.args[2][0]
+    assert "wizard.html" in timer_url_arg, f"Expected wizard.html in URL, got: {timer_url_arg}"
 
 
 def test_ui_cmd_wizard_url_contains_server_base(tmp_path):
@@ -57,12 +59,7 @@ def test_ui_cmd_wizard_url_contains_server_base(tmp_path):
     from the_door.cli.ui_cmd import ui_cmd
     from click.testing import CliRunner
 
-    viewer_path = tmp_path / "viewer"
-    viewer_path.mkdir()
-    (viewer_path / "wizard.html").write_text("<html></html>", encoding="utf-8")
-    (viewer_path / "index.html").write_text("<html></html>", encoding="utf-8")
-
-    opened_urls = []
+    viewer_path = _setup_viewer(tmp_path)
     mock_server = MagicMock()
     mock_server.url = "http://127.0.0.1:8765"
     mock_server.start.side_effect = KeyboardInterrupt
@@ -70,12 +67,15 @@ def test_ui_cmd_wizard_url_contains_server_base(tmp_path):
     with patch("the_door.cli.ui_cmd.UIServer", return_value=mock_server), \
          patch("the_door.cli.ui_cmd._resolve_viewer_dir", return_value=viewer_path), \
          patch("the_door.cli.ui_cmd.ProjectRegistry"), \
-         patch("webbrowser.open", side_effect=lambda url: opened_urls.append(url)):
+         patch("the_door.cli.ui_cmd.threading.Timer") as mock_timer:
+        mock_timer.return_value = MagicMock()
         runner = CliRunner()
         runner.invoke(ui_cmd, [str(tmp_path)])
 
-    assert any(url.startswith("http://127.0.0.1:8765") for url in opened_urls)
-    assert any("wizard.html" in url for url in opened_urls)
+    timer_url_arg = mock_timer.call_args.args[2][0]
+    assert timer_url_arg.startswith("http://127.0.0.1:8765"), \
+        f"Expected URL to start with server base, got: {timer_url_arg}"
+    assert "wizard.html" in timer_url_arg
 ```
 
 - [ ] **Step 2: 確認測試失敗**

@@ -286,14 +286,16 @@ git commit -m "feat(wizard): add wizard.css with shared CSS variable usage"
 
 - [ ] **Step 2: 手動驗證 HTML 可載入**
 
+使用真實伺服器驗證（不要用 `python -m http.server`，因為靜態伺服器無法提供 `/api/status`）：
+
 ```bash
-cd docs/frontend-local-version-viewer/viewer && python -m http.server 9999 &
+the-door ui "C:\Users\Ric\Desktop\test-targets\the-door-v105" --port 9999 --no-browser
 ```
 
-在瀏覽器開啟 `http://localhost:9999/wizard.html`。
-期望：頁面無 JS 錯誤，顯示「載入中…」。（因為沒有真實 server，`/api/status` 會失敗 → 顯示錯誤頁，這是預期行為）
+在瀏覽器手動開啟 `http://127.0.0.1:9999/wizard.html`。
+期望：頁面無 JS 錯誤，顯示 PAGE_ACTION 或 PAGE_ERROR（`/api/status` 有真實 server 回應）。
 
-終止 python server：`kill %1`
+完成後 Ctrl+C 停止伺服器。
 
 - [ ] **Step 3: Commit**
 
