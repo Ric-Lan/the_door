@@ -20,6 +20,7 @@ from the_door.mcp.tools import snapshot_write_tool
 from the_door.mcp.tools import project_list_tool
 from the_door.mcp.tools import system_status_tool
 from the_door.mcp.tools import analyze_changes_tool
+from the_door.mcp.tools import snapshot_patch_tool
 
 
 class TheDoorMCPServer:
@@ -175,6 +176,15 @@ class TheDoorMCPServer:
                     ),
                     inputSchema=analyze_changes_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="snapshot_patch",
+                    description=(
+                        "Patch source_nodes of an existing snapshot in-place without changing "
+                        "version_id or timestamp. Use after extract_structure to backfill node "
+                        "attribution for existing snapshots."
+                    ),
+                    inputSchema=snapshot_patch_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -223,6 +233,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(system_status_tool, arguments)
             elif name == "analyze_changes":
                 return await self._dispatch_tool(analyze_changes_tool, arguments)
+            elif name == "snapshot_patch":
+                return await self._dispatch_tool(snapshot_patch_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
