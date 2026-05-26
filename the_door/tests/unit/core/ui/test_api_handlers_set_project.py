@@ -62,3 +62,89 @@ def test_api_handlers_switch_project_fn_is_called(tmp_path):
     )
     handlers._switch_project_fn(tmp_path, False)
     assert called_with == [(tmp_path, False)]
+
+
+# ------------------------------------------------------------------
+# handle_post_set_project tests
+# ------------------------------------------------------------------
+
+import os
+
+
+def _make_handlers(tmp_path, switch_fn=None):
+    return APIHandlers(
+        project_root=tmp_path,
+        job_store=JobStore(),
+        switch_project_fn=switch_fn or (lambda path, force: {"status": "switched", "path": str(path)}),
+    )
+
+
+def test_set_project_returns_200_on_valid_path(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    result_path = tmp_path / "proj"
+    result_path.mkdir()
+    status, body = handlers.handle_post_set_project({"path": str(result_path)})
+    assert status == 200
+    assert body["status"] == "switched"
+
+
+def test_set_project_returns_400_on_nonexistent_path(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    status, body = handlers.handle_post_set_project({"path": str(tmp_path / "nonexistent")})
+    assert status == 400
+    assert body["status"] == "error"
+
+
+def test_set_project_returns_400_on_file_not_dir(tmp_path):
+    f = tmp_path / "file.txt"
+    f.write_text("x", encoding="utf-8")
+    handlers = _make_handlers(tmp_path)
+    status, body = handlers.handle_post_set_project({"path": str(f)})
+    assert status == 400
+    assert body["status"] == "error"
+
+
+def test_set_project_returns_400_on_empty_path(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    status, body = handlers.handle_post_set_project({"path": ""})
+    assert status == 400
+    assert body["status"] == "error"
+
+
+def test_set_project_returns_409_on_conflict(tmp_path):
+    new_path = tmp_path / "new"
+    new_path.mkdir()
+    handlers = _make_handlers(
+        tmp_path,
+        switch_fn=lambda path, force: {"status": "conflict", "active_job_id": "job-1", "message": "busy"},
+    )
+    status, body = handlers.handle_post_set_project({"path": str(new_path)})
+    assert status == 409
+    assert body["status"] == "conflict"
+    assert "active_job_id" in body
+
+
+def test_set_project_passes_force_true(tmp_path):
+    new_path = tmp_path / "new"
+    new_path.mkdir()
+    received = []
+    def capture_switch(path, force):
+        received.append(force)
+        return {"status": "switched", "path": str(path)}
+
+    handlers = _make_handlers(tmp_path, switch_fn=capture_switch)
+    handlers.handle_post_set_project({"path": str(new_path), "force": True})
+    assert received == [True]
+
+
+def test_set_project_force_defaults_to_false(tmp_path):
+    new_path = tmp_path / "new"
+    new_path.mkdir()
+    received = []
+    def capture_switch(path, force):
+        received.append(force)
+        return {"status": "switched", "path": str(path)}
+
+    handlers = _make_handlers(tmp_path, switch_fn=capture_switch)
+    handlers.handle_post_set_project({"path": str(new_path)})
+    assert received == [False]

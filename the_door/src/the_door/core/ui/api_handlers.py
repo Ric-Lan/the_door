@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import os
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -291,6 +292,39 @@ class APIHandlers:
             self._job_store.complete_job(job.job_id)
         except Exception as exc:
             self._job_store.fail_job(job.job_id, str(exc))
+
+    # ------------------------------------------------------------------
+    # POST /api/set-project
+    # ------------------------------------------------------------------
+
+    def handle_post_set_project(self, body: dict) -> tuple[int, dict]:
+        """Switch to a new project, validating the path and checking for conflicts.
+
+        Returns:
+            - (200, switched result) if success
+            - (409, conflict) if a job is running and force=False
+            - (400, error) if path is invalid
+        """
+        path_str = body.get("path", "")
+        force = bool(body.get("force", False))
+
+        if not path_str:
+            return 400, {"status": "error", "message": "路徑不存在或無法讀取"}
+
+        try:
+            path = Path(path_str)
+        except Exception:
+            return 400, {"status": "error", "message": "路徑格式無效"}
+
+        if not path.exists() or not path.is_dir() or not os.access(path, os.R_OK):
+            return 400, {"status": "error", "message": "路徑不存在或無法讀取"}
+
+        result = self._switch_project_fn(path, force)
+        if result["status"] == "switched":
+            return 200, result
+        if result["status"] == "conflict":
+            return 409, result
+        return 400, result
 
     # ------------------------------------------------------------------
     # GET /api/update/status/<job_id>
