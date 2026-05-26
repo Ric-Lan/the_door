@@ -51,9 +51,26 @@ class APIHandlers:
     No HTTP side effects — the HTTP layer (server.py) handles sending.
     """
 
-    def __init__(self, project_root: Path, job_store: JobStore) -> None:
-        self._project_root = project_root
-        self._job_store = job_store
+    def __init__(
+        self,
+        project_root: Path | None = None,
+        job_store: JobStore | None = None,
+        *,
+        project_root_fn=None,
+        job_store_fn=None,
+        switch_project_fn=None,
+    ) -> None:
+        self.__project_root_fn = project_root_fn if project_root_fn is not None else (lambda: project_root)
+        self.__job_store_fn = job_store_fn if job_store_fn is not None else (lambda: job_store)
+        self._switch_project_fn = switch_project_fn or (lambda path, force: {"status": "error", "message": "not configured"})
+
+    @property
+    def _project_root(self) -> Path:
+        return self.__project_root_fn()
+
+    @property
+    def _job_store(self) -> JobStore:
+        return self.__job_store_fn()
 
     # ------------------------------------------------------------------
     # GET /api/project
