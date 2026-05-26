@@ -65,3 +65,67 @@ def test_switch_project_api_handlers_sees_new_root(tmp_path):
     server._switch_project(new_path, force=False)
     # APIHandlers uses lambda — must return new path
     assert server._api_handlers._project_root == new_path
+
+
+# ------------------------------------------------------------------
+# /api/set-project route tests
+# ------------------------------------------------------------------
+
+import json
+import socket
+import time
+from http.client import HTTPConnection
+
+
+def _find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
+def running_server(tmp_path):
+    import threading as _threading
+    viewer_dir = tmp_path / "viewer"
+    viewer_dir.mkdir()
+    (viewer_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+    port = _find_free_port()
+    server = UIServer(project_root=tmp_path, viewer_dir=viewer_dir, port=port)
+    t = _threading.Thread(target=server.start, daemon=True)
+    t.start()
+    for _ in range(20):
+        try:
+            conn = HTTPConnection("127.0.0.1", port, timeout=1)
+            conn.request("GET", "/api/status")
+            conn.getresponse().read()
+            conn.close()
+            break
+        except Exception:
+            time.sleep(0.05)
+    yield tmp_path, port
+    server.shutdown()
+
+
+def test_post_set_project_returns_200(running_server, tmp_path):
+    project_path, port = running_server
+    new_path = tmp_path / "new_project"
+    new_path.mkdir()
+    conn = HTTPConnection("127.0.0.1", port)
+    body = json.dumps({"path": str(new_path)}).encode()
+    conn.request("POST", "/api/set-project", body=body,
+                 headers={"Content-Type": "application/json", "Content-Length": str(len(body))})
+    resp = conn.getresponse()
+    data = json.loads(resp.read())
+    conn.close()
+    assert resp.status == 200
+    assert data["status"] == "switched"
+
+
+def test_get_set_project_returns_405(running_server):
+    _, port = running_server
+    conn = HTTPConnection("127.0.0.1", port)
+    conn.request("GET", "/api/set-project")
+    resp = conn.getresponse()
+    resp.read()
+    conn.close()
+    assert resp.status == 405

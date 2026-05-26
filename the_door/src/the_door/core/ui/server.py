@@ -120,6 +120,7 @@ _API_ROUTES: dict[str, str] = {
     "/api/report/latest": "GET",
     "/api/update": "POST",
     "/api/analyze": "POST",
+    "/api/set-project": "POST",
     "/api/doubts": "GET",
     "/api/timeline": "GET",
     "/api/l1": "GET",
@@ -253,6 +254,18 @@ def _handle_post(
     allowed = _API_ROUTES.get(path)
     if allowed == "GET":
         _send_api_error(handler, 405, "method_not_allowed", "Method not allowed", path)
+        return
+
+    if path == "/api/set-project":
+        content_length = int(handler.headers.get("Content-Length", 0))
+        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
+        try:
+            body = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError:
+            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
+            return
+        status, response_body = api_handlers.handle_post_set_project(body)
+        _send_json(handler, status, response_body)
         return
 
     if path == "/api/analyze":
