@@ -92,7 +92,8 @@ def ui_cmd(project_path: str | None, port: int, no_browser: bool) -> None:
     click.echo(server.url)
 
     if not no_browser:
-        threading.Timer(0.5, webbrowser.open, [server.url]).start()
+        wizard_url = server.url.rstrip("/") + "/wizard.html"
+        threading.Timer(0.5, webbrowser.open, [wizard_url]).start()
 
     try:
         server.start()
