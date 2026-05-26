@@ -31,3 +31,53 @@ def test_ast_extractor_accepts_extra_ignore(tmp_path):
     extractor = ASTExtractor()
     result = extractor.extract(str(tmp_path), extra_ignore=["tests/"])
     assert result is not None
+
+
+def test_analyze_pipeline_passes_extra_ignore_to_extractor(tmp_path):
+    """run_analyze_pipeline calls ASTExtractor.extract with extra_ignore."""
+    from the_door.models import AnalyzeConfig
+    from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
+
+    config = AnalyzeConfig(skip_cost_confirm=True, extra_ignore=["docs/"])
+
+    with patch("the_door.core.pipeline.analyze_pipeline.ASTExtractor") as MockExtractor, \
+         patch("the_door.core.pipeline.analyze_pipeline.VulnerabilityScanner"), \
+         patch("the_door.core.pipeline.analyze_pipeline.SnapshotStore"), \
+         patch("the_door.core.pipeline.analyze_pipeline.ConfigManager"):
+
+        mock_extractor_instance = MagicMock()
+        mock_extractor_instance.extract.return_value = MagicMock(files=[], nodes=[], edges=[])
+        MockExtractor.return_value = mock_extractor_instance
+
+        try:
+            run_analyze_pipeline(tmp_path, config)
+        except Exception:
+            pass
+
+        call_kwargs = mock_extractor_instance.extract.call_args
+        assert call_kwargs is not None, "extractor.extract was never called"
+        passed_extra_ignore = (
+            call_kwargs.kwargs.get("extra_ignore") or
+            (call_kwargs.args[1] if len(call_kwargs.args) > 1 else None)
+        )
+        assert passed_extra_ignore == ["docs/"]
+
+
+def test_create_auto_snapshot_passes_label_to_store(tmp_path):
+    """_create_auto_snapshot passes config.snapshot_label to store.create_snapshot."""
+    from the_door.core.pipeline.analyze_pipeline import _create_auto_snapshot
+    from the_door.models import AnalyzeConfig
+
+    config = AnalyzeConfig(snapshot_label="v1.0.0")
+    extraction = MagicMock(files=[], nodes=[], edges=[])
+    result = MagicMock()
+    result.l1_output.features = []
+    result.l1_output.feature_relations = []
+    scan_result = MagicMock(entries=[], db_freshness=None)
+
+    with patch("the_door.core.pipeline.analyze_pipeline.SnapshotStore") as MockStore:
+        MockStore.return_value.create_snapshot.return_value = MagicMock(version_id="v1")
+        _create_auto_snapshot(tmp_path, extraction, result, scan_result, lambda _: None, config)
+
+    kwargs = MockStore.return_value.create_snapshot.call_args.kwargs
+    assert kwargs.get("label") == "v1.0.0"

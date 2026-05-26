@@ -117,7 +117,7 @@ def _run_pipeline_inner(
     scanner = VulnerabilityScanner(offline=config.offline_vuln)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        ast_future = executor.submit(extractor.extract, Path(codebase_path))
+        ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore)
         vuln_future = executor.submit(scanner.scan, Path(codebase_path))
 
         extraction = ast_future.result()
@@ -178,7 +178,7 @@ def _run_pipeline_inner(
 
     # 8. Auto-snapshot creation (git info detection)
     snapshot = _create_auto_snapshot(
-        codebase_path, extraction, result, scan_result, progress,
+        codebase_path, extraction, result, scan_result, progress, config,
     )
 
     try:
@@ -261,7 +261,7 @@ def _build_output_data(result, scan_result: ScanResult, td_config) -> dict:
     return output_data
 
 
-def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progress):
+def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progress, config=None):
     """Create an auto-snapshot with git info detection.
 
     Snapshot failure is non-fatal — returns the snapshot on success,
@@ -327,6 +327,7 @@ def _create_auto_snapshot(codebase_path, extraction, result, scan_result, progre
         trigger=trigger,
         vulnerabilities=scan_result.entries if scan_result.entries else [],
         db_freshness=scan_result.db_freshness,
+        label=config.snapshot_label if config else None,
     )
     progress(f"Snapshot saved: {snapshot.version_id[:8]}")
     return snapshot
