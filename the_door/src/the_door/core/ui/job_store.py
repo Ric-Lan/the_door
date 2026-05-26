@@ -163,3 +163,8 @@ class JobStore:
         """True if a job is currently running."""
         with self._lock:
             return self._current_job is not None
+
+    def get_running_job_id(self) -> str | None:
+        """Return the job_id of the currently running job, or None."""
+        with self._lock:
+            return self._current_job.job_id if self._current_job is not None else None
