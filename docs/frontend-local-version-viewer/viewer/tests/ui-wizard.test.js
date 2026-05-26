@@ -652,6 +652,7 @@ describe('initWizard', () => {
   });
 
   it('POLL_UPDATE with no steps from api uses empty array', async () => {
+
     vi.useFakeTimers();
     try {
       const api = {
@@ -678,5 +679,32 @@ describe('initWizard', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('switchProject state', () => {
+  it('getInitialState includes switch fields', () => {
+    const s = getInitialState();
+    expect(s.switchPath).toBe('');
+    expect(s.switchConflict).toBe(false);
+    expect(s.switchActiveJobId).toBeNull();
+  });
+
+  it('SWITCH_PATH_CHANGE updates switchPath', () => {
+    const s = transition(getInitialState(), { type: 'SWITCH_PATH_CHANGE', path: '/my/proj' });
+    expect(s.switchPath).toBe('/my/proj');
+  });
+
+  it('SWITCH_CONFLICT sets switchConflict and activeJobId', () => {
+    const s = transition(getInitialState(), { type: 'SWITCH_CONFLICT', activeJobId: 'job-1' });
+    expect(s.switchConflict).toBe(true);
+    expect(s.switchActiveJobId).toBe('job-1');
+  });
+
+  it('SWITCH_CANCEL clears switchConflict', () => {
+    const base = { ...getInitialState(), switchConflict: true, switchActiveJobId: 'job-1' };
+    const s = transition(base, { type: 'SWITCH_CANCEL' });
+    expect(s.switchConflict).toBe(false);
+    expect(s.switchActiveJobId).toBeNull();
   });
 });

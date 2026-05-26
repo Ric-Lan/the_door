@@ -15,6 +15,9 @@ export function getInitialState() {
     steps: [],
     errorMessage: null,
     pollFailCount: 0,
+    switchPath: '',
+    switchConflict: false,
+    switchActiveJobId: null,
   };
 }
 
@@ -78,6 +81,15 @@ export function transition(state, action) {
       }
       return { ...state, pollFailCount: newCount };
     }
+
+    case 'SWITCH_PATH_CHANGE':
+      return { ...state, switchPath: action.path };
+
+    case 'SWITCH_CONFLICT':
+      return { ...state, switchConflict: true, switchActiveJobId: action.activeJobId };
+
+    case 'SWITCH_CANCEL':
+      return { ...state, switchConflict: false, switchActiveJobId: null };
 
     default:
       return state;
