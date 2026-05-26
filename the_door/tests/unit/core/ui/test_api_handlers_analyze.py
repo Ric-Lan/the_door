@@ -23,3 +23,11 @@ def test_analyze_config_defaults_are_none():
     cfg = AnalyzeConfig()
     assert cfg.extra_ignore is None
     assert cfg.snapshot_label is None
+
+
+def test_ast_extractor_accepts_extra_ignore(tmp_path):
+    from the_door.core.extraction.ast_extractor import ASTExtractor
+    (tmp_path / "main.py").write_text("def hello(): pass", encoding="utf-8")
+    extractor = ASTExtractor()
+    result = extractor.extract(str(tmp_path), extra_ignore=["tests/"])
+    assert result is not None

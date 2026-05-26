@@ -107,7 +107,7 @@ class ASTExtractor:
         self._edge_builder = EdgeBuilder()
         self._warnings: list[tuple[str, str, str]] = []
 
-    def extract(self, codebase_path: str) -> ExtractionResult:
+    def extract(self, codebase_path: str, extra_ignore: list[str] | None = None) -> ExtractionResult:
         """Extract AST structure from a codebase.
 
         Parameters
@@ -136,7 +136,7 @@ class ASTExtractor:
         result = ExtractionResult()
 
         # Step 1: Discover files
-        files = self._file_discovery.discover(codebase_path)
+        files = self._file_discovery.discover(codebase_path, extra_ignore=extra_ignore or [])
         result.files = files
 
         # Step 2: Parse each file and build nodes
