@@ -249,6 +249,7 @@ snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="$
 // ─── Controller ──────────────────────────────────────────────────────────────
 export function initWizard(container, api, redirectFn = (url) => { window.location.href = url; }) {
   let state = getInitialState();
+  let activeTimer = null;
 
   function dispatch(action) {
     state = transition(state, action);
@@ -274,20 +275,28 @@ export function initWizard(container, api, redirectFn = (url) => { window.locati
   }
 
   function startPolling(jobId) {
-    const timer = setInterval(async () => {
+    if (activeTimer !== null) return;
+    activeTimer = setInterval(async () => {
       try {
         const data = await api.getJobStatus(jobId);
         dispatch({ type: 'POLL_UPDATE', status: data.status,
                    currentStep: data.current_step, steps: data.steps || [],
                    errorMessage: data.error_message });
         if (data.status === 'done') {
-          clearInterval(timer);
+          clearInterval(activeTimer);
+          activeTimer = null;
           redirectFn('/index.html');
         }
-        if (data.status === 'failed') clearInterval(timer);
+        if (data.status === 'failed') {
+          clearInterval(activeTimer);
+          activeTimer = null;
+        }
       } catch {
         dispatch({ type: 'POLL_FAIL' });
-        if (state.pollFailCount >= 3) clearInterval(timer);
+        if (state.pollFailCount >= 3) {
+          clearInterval(activeTimer);
+          activeTimer = null;
+        }
       }
     }, 1500);
   }
