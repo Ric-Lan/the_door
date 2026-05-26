@@ -12,6 +12,7 @@ All API responses include Access-Control-Allow-Origin: * header.
 from __future__ import annotations
 
 import json
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -41,7 +42,12 @@ class UIServer:
 
         # Shared state passed to request handler via closure
         self._job_store = JobStore()
-        self._api_handlers = APIHandlers(project_root=project_root, job_store=self._job_store)
+        self._switch_lock = threading.Lock()
+        self._api_handlers = APIHandlers(
+            project_root_fn=lambda: self._project_root,
+            job_store_fn=lambda: self._job_store,
+            switch_project_fn=self._switch_project,
+        )
         self._static_handler = StaticHandler(viewer_dir=viewer_dir)
 
     def start(self) -> None:
@@ -69,6 +75,33 @@ class UIServer:
         """Gracefully shut down the server."""
         if self._httpd is not None:
             self._httpd.shutdown()
+
+    def _switch_project(self, new_path: Path, force: bool) -> dict:
+        """Switch the server to a new project root.
+
+        Args:
+            new_path: The new project root path.
+            force: If True, cancel any running job and switch. If False,
+                   return conflict if a job is running.
+
+        Returns:
+            A dict with "status" key:
+            - "switched": Successfully switched to new_path
+            - "conflict": A job is running and force=False
+        """
+        with self._switch_lock:
+            running_job_id = self._job_store.get_running_job_id()
+            if running_job_id is not None:
+                if not force:
+                    return {
+                        "status": "conflict",
+                        "active_job_id": running_job_id,
+                        "message": "有進行中的分析任務，請選擇處理方式",
+                    }
+                self._job_store.fail_job(running_job_id, "switched away")
+            self._project_root = new_path
+            self._job_store = JobStore()
+            return {"status": "switched", "path": str(new_path)}
 
     @property
     def url(self) -> str:
