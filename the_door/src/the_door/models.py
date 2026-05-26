@@ -806,6 +806,8 @@ class AnalyzeConfig:
     skip_cost_confirm: bool = False
     offline_vuln: bool = False
     timeout_seconds: int = 300
+    extra_ignore: list[str] | None = None
+    snapshot_label: str | None = None
 
 
 @dataclass(frozen=True)
