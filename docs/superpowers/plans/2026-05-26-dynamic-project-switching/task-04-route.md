@@ -109,7 +109,11 @@ cd the_door && pytest tests/unit/core/ui/test_api_handlers_set_project.py -k "se
 
 - [ ] **Step 3: 實作 `handle_post_set_project`**
 
-開啟 `the_door/src/the_door/core/ui/api_handlers.py`，在 `handle_post_analyze` 之後加：
+開啟 `the_door/src/the_door/core/ui/api_handlers.py`。
+
+首先確認 `import os` 在檔案頂部的 import 區段中已存在；若無則加入。
+
+接著在 `handle_post_analyze` 之後加：
 
 ```python
 # ------------------------------------------------------------------
@@ -124,7 +128,6 @@ def handle_post_set_project(self, body: dict) -> tuple[int, dict]:
         400 {"status": "error", "message": "..."}
         409 {"status": "conflict", "active_job_id": "...", "message": "..."}
     """
-    import os
     path_str = body.get("path", "")
     force = bool(body.get("force", False))
 

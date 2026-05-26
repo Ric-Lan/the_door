@@ -58,11 +58,11 @@ def test_switch_project_force_cancels_running_job(tmp_path):
     job = server._job_store.try_create_job()
     new_path = tmp_path / "new_project"
     new_path.mkdir()
+    old_store = server._job_store
     result = server._switch_project(new_path, force=True)
     assert result["status"] == "switched"
-    # old job is now failed
-    old_store = server._api_handlers._job_store
-    # new job_store is empty (no running job)
+    # old job was failed by _switch_project; new store is empty
+    assert old_store.get_running_job_id() is None
     assert not server._job_store.has_running_job
 
 
