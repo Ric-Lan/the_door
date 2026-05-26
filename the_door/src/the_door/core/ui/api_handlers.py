@@ -227,6 +227,55 @@ class APIHandlers:
         return 202, {"job_id": job.job_id}
 
     # ------------------------------------------------------------------
+    # POST /api/analyze
+    # ------------------------------------------------------------------
+
+    def handle_post_analyze(self, body: dict) -> tuple[int, dict]:
+        extra_ignore = body.get("extra_ignore") or None
+        snapshot_label = body.get("label") or None
+
+        job = self._job_store.try_create_job()
+        if job is None:
+            return 409, self._make_error(
+                code="job_already_running",
+                message="A pipeline job is already running. Please wait for it to complete.",
+                source="handle_post_analyze",
+            )
+
+        thread = threading.Thread(
+            target=self._run_analyze_job,
+            args=(job, extra_ignore, snapshot_label),
+            daemon=True,
+        )
+        thread.start()
+
+        return 202, {"job_id": job.job_id}
+
+    def _run_analyze_job(
+        self,
+        job,
+        extra_ignore: list[str] | None,
+        snapshot_label: str | None,
+    ) -> None:
+        from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
+        from the_door.models import AnalyzeConfig
+
+        config = AnalyzeConfig(
+            skip_cost_confirm=True,
+            extra_ignore=extra_ignore,
+            snapshot_label=snapshot_label,
+        )
+        try:
+            run_analyze_pipeline(
+                self._project_root,
+                config,
+                progress_callback=job.update_step,
+            )
+            self._job_store.complete_job(job.job_id)
+        except Exception as exc:
+            self._job_store.fail_job(job.job_id, str(exc))
+
+    # ------------------------------------------------------------------
     # GET /api/update/status/<job_id>
     # ------------------------------------------------------------------
 

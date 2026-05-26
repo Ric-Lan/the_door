@@ -63,6 +63,43 @@ def test_analyze_pipeline_passes_extra_ignore_to_extractor(tmp_path):
         assert passed_extra_ignore == ["docs/"]
 
 
+def test_handle_post_analyze_returns_202_with_job_id(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
+        status, body = handlers.handle_post_analyze({})
+    assert status == 202
+    assert "job_id" in body
+
+
+def test_handle_post_analyze_passes_extra_ignore_and_label(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
+        handlers.handle_post_analyze({"extra_ignore": ["tests/"], "label": "v1.0.0"})
+    _, kwargs = mock_thread_cls.call_args
+    assert kwargs["args"][1] == ["tests/"]   # extra_ignore
+    assert kwargs["args"][2] == "v1.0.0"     # snapshot_label
+
+
+def test_handle_post_analyze_returns_409_when_job_running(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    with patch.object(handlers._job_store, "try_create_job", return_value=None):
+        status, body = handlers.handle_post_analyze({})
+    assert status == 409
+    assert body["error"]["code"] == "job_already_running"
+
+
+def test_handle_post_analyze_empty_extra_ignore_becomes_none(tmp_path):
+    handlers = _make_handlers(tmp_path)
+    with patch("the_door.core.ui.api_handlers.threading.Thread") as mock_thread_cls:
+        mock_thread_cls.return_value = MagicMock()
+        handlers.handle_post_analyze({"extra_ignore": [], "label": ""})
+    _, kwargs = mock_thread_cls.call_args
+    assert kwargs["args"][1] is None   # extra_ignore normalized to None
+    assert kwargs["args"][2] is None   # snapshot_label normalized to None
+
+
 def test_create_auto_snapshot_passes_label_to_store(tmp_path):
     """_create_auto_snapshot passes config.snapshot_label to store.create_snapshot."""
     from the_door.core.pipeline.analyze_pipeline import _create_auto_snapshot
