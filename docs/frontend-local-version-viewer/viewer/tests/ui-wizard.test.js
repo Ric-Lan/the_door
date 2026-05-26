@@ -286,6 +286,27 @@ describe('createApi', () => {
     const api = createApi(mockFetch);
     await expect(api.getJobStatus('x')).rejects.toThrow();
   });
+
+  it('setProject calls POST /api/set-project with path and force', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'switched', path: '/my/proj' }),
+    });
+    const api = createApi(mockFetch);
+    const result = await api.setProject('/my/proj', false);
+    expect(mockFetch).toHaveBeenCalledWith('/api/set-project', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '/my/proj', force: false }),
+    }));
+    expect(result.status).toBe('switched');
+  });
+
+  it('setProject throws when response not ok', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 409 });
+    const api = createApi(mockFetch);
+    await expect(api.setProject('/x', false)).rejects.toThrow();
+  });
 });
 
 describe('initWizard', () => {

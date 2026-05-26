@@ -134,6 +134,13 @@ export function createApi(fetchFn = window.fetch.bind(window)) {
     getJobStatus(jobId) {
       return fetchFn(`/api/update/status/${jobId}`).then(_check);
     },
+    setProject(path, force) {
+      return fetchFn('/api/set-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, force }),
+      }).then(_check);
+    },
   };
 }
 
