@@ -145,7 +145,7 @@ export function createApi(fetchFn = window.fetch.bind(window)) {
 }
 
 // ─── DOM renderer ────────────────────────────────────────────────────────────
-export function renderPage(container, state, dispatch, redirectFn) {
+export function renderPage(container, state, dispatch, redirectFn, api) {
   container.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.setAttribute('data-page', state.page);
@@ -178,6 +178,50 @@ export function renderPage(container, state, dispatch, redirectFn) {
           });
         }
       });
+
+      // Switch project section
+      const switchSection = document.createElement('div');
+      if (state.switchConflict) {
+        switchSection.innerHTML = `
+          <div data-switch-conflict>
+            <p>目前有進行中的分析任務</p>
+            <button data-switch-force-btn>立即切換（中斷任務）</button>
+            <button data-switch-cancel-btn>取消</button>
+          </div>
+        `;
+        switchSection.querySelector('[data-switch-force-btn]').addEventListener('click', () => {
+          api.setProject(state.switchPath, true)
+            .then(() => redirectFn('/wizard.html'))
+            .catch(err => dispatch({ type: 'STATUS_ERROR', message: String(err) }));
+        });
+        switchSection.querySelector('[data-switch-cancel-btn]').addEventListener('click', () => {
+          dispatch({ type: 'SWITCH_CANCEL' });
+        });
+      } else {
+        switchSection.innerHTML = `
+          <hr>
+          <label>切換至其他專案
+            <input type="text" data-switch-input placeholder="/absolute/path/to/project" value="${state.switchPath}">
+          </label>
+          <button data-switch-btn>切換</button>
+        `;
+        switchSection.querySelector('[data-switch-input]').addEventListener('input', e => {
+          dispatch({ type: 'SWITCH_PATH_CHANGE', path: e.target.value });
+        });
+        switchSection.querySelector('[data-switch-btn]').addEventListener('click', () => {
+          const path = switchSection.querySelector('[data-switch-input]').value;
+          api.setProject(path, false)
+            .then(result => {
+              if (result.status === 'conflict') {
+                dispatch({ type: 'SWITCH_CONFLICT', activeJobId: result.active_job_id });
+              } else {
+                redirectFn('/wizard.html');
+              }
+            })
+            .catch(err => dispatch({ type: 'STATUS_ERROR', message: String(err) }));
+        });
+      }
+      wrap.appendChild(switchSection);
       break;
 
     case 'PAGE_SETUP':
@@ -272,7 +316,7 @@ export function initWizard(container, api, redirectFn = (url) => { window.locati
 
   function dispatch(action) {
     state = transition(state, action);
-    renderPage(container, state, dispatch, redirectFn);
+    renderPage(container, state, dispatch, redirectFn, api);
     handleSideEffects(state, action);
   }
 
@@ -332,5 +376,5 @@ export function initWizard(container, api, redirectFn = (url) => { window.locati
     })
     .catch(err => dispatch({ type: 'STATUS_ERROR', message: String(err) }));
 
-  renderPage(container, state, dispatch, redirectFn);
+  renderPage(container, state, dispatch, redirectFn, api);
 }

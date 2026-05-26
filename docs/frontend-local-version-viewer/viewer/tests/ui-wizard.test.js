@@ -701,6 +701,166 @@ describe('initWizard', () => {
       vi.useRealTimers();
     }
   });
+
+  it('shows switch section in PAGE_ACTION', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_ACTION"]'));
+    expect(container.querySelector('[data-switch-input]')).not.toBeNull();
+    expect(container.querySelector('[data-switch-btn]')).not.toBeNull();
+  });
+
+  it('switch success reloads to wizard.html', async () => {
+    const redirectFn = vi.fn();
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn().mockResolvedValue({ status: 'switched', path: '/new' }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, redirectFn);
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new/path';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => expect(redirectFn).toHaveBeenCalledWith('/wizard.html'));
+  });
+
+  it('switch conflict shows conflict UI', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn().mockResolvedValue({ status: 'conflict', active_job_id: 'j1', message: 'busy' }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new/path';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-switch-conflict]'));
+  });
+
+  it('switch conflict force button calls setProject with force=true', async () => {
+    const redirectFn = vi.fn();
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn()
+        .mockResolvedValueOnce({ status: 'conflict', active_job_id: 'j1', message: 'busy' })
+        .mockResolvedValueOnce({ status: 'switched', path: '/new' }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, redirectFn);
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new/path';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-switch-force-btn]'));
+    container.querySelector('[data-switch-force-btn]').click();
+    await vi.waitFor(() => expect(redirectFn).toHaveBeenCalledWith('/wizard.html'));
+    expect(api.setProject).toHaveBeenCalledWith(expect.any(String), true);
+  });
+
+  it('switch cancel hides conflict UI', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn().mockResolvedValue({ status: 'conflict', active_job_id: 'j1', message: 'busy' }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new/path';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-switch-conflict]'));
+    container.querySelector('[data-switch-cancel-btn]').click();
+    await vi.waitFor(() => expect(container.querySelector('[data-switch-conflict]')).toBeNull());
+  });
+
+  it('switch force error dispatches STATUS_ERROR', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn()
+        .mockResolvedValueOnce({ status: 'conflict', active_job_id: 'j1', message: 'busy' })
+        .mockRejectedValueOnce(new Error('network')),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-switch-force-btn]'));
+    container.querySelector('[data-switch-force-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_ERROR"]'));
+  });
+
+  it('switch btn error dispatches STATUS_ERROR', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn().mockRejectedValue(new Error('fail')),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/new';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_ERROR"]'));
+  });
+
+  it('switch input event dispatches SWITCH_PATH_CHANGE', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    const input = container.querySelector('[data-switch-input]');
+    input.value = '/typed/path';
+    input.dispatchEvent(new Event('input'));
+    await vi.waitFor(() => {
+      const i = container.querySelector('[data-switch-input]');
+      return i && i.value === '/typed/path';
+    });
+  });
 });
 
 describe('switchProject state', () => {
