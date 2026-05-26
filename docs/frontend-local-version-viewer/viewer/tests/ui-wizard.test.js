@@ -630,7 +630,7 @@ describe('initWizard', () => {
     // Cover the `state.errorMessage || '未知錯誤'` falsy branch in renderPage directly
     const state = { ...getInitialState(), page: 'PAGE_ERROR', errorMessage: null };
     const el = document.createElement('div');
-    renderPage(el, state, () => {}, () => {});
+    renderPage(el, state, () => {}, () => {}, { setProject: vi.fn() });
     expect(el.textContent).toMatch(/未知錯誤/);
   });
 

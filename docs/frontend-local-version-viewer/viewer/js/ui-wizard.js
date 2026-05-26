@@ -201,10 +201,11 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         switchSection.innerHTML = `
           <hr>
           <label>切換至其他專案
-            <input type="text" data-switch-input placeholder="/absolute/path/to/project" value="${state.switchPath}">
+            <input type="text" data-switch-input placeholder="/absolute/path/to/project">
           </label>
           <button data-switch-btn>切換</button>
         `;
+        switchSection.querySelector('[data-switch-input]').value = state.switchPath;
         switchSection.querySelector('[data-switch-input]').addEventListener('input', e => {
           dispatch({ type: 'SWITCH_PATH_CHANGE', path: e.target.value });
         });
