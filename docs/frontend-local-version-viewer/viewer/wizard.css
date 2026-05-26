@@ -85,7 +85,7 @@
   display: block;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text-body);
+  color: var(--text);
   margin-bottom: 6px;
 }
 
@@ -132,7 +132,7 @@
   padding: 14px 16px;
   margin-bottom: 20px;
   font-size: 0.82rem;
-  color: var(--text-body);
+  color: var(--text);
 }
 
 .wizard-summary dt {
@@ -193,7 +193,7 @@
   padding: 12px 14px;
   font-family: monospace;
   font-size: 0.78rem;
-  color: var(--text-body);
+  color: var(--text);
   white-space: pre-wrap;
   margin-bottom: 16px;
   overflow-x: auto;
