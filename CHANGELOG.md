@@ -10,6 +10,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.5] — 2026-05-27
+
+### Added
+- **Dynamic Project Switching**：新增 `POST /api/set-project`，讓 UIServer 在執行期切換
+  分析目標目錄，無需重啟 server。
+  - `JobStore.get_running_job_id()` — 查詢當前執行中 job ID
+  - `APIHandlers` callable injection（backward compatible）— `project_root`/`job_store`
+    改為 callable property，支援 `project_root_fn`/`job_store_fn`/`switch_project_fn` 注入
+  - `UIServer._switch_project(new_path, force)` — thread-safe（`threading.Lock`），
+    回傳 `switched` / `conflict` / `error`
+  - `handle_post_set_project`：路徑驗證（存在、是目錄、可讀）+ 409 conflict 支援
+  - Wizard UI（`ui-wizard.js`）新增切換專案區塊：輸入框、切換按鈕、conflict 確認介面
+
+---
+
+## [1.3.1] — 2026-05-26
+
+### Added
+- **Wizard UI 入口**：`the-door ui` 改為開啟 `wizard.html` 結構化問卷，引導使用者
+  設定分析目標並觸發分析。包含 `/api/analyze` POST endpoint、`ui-wizard.js` 狀態機、
+  `wizard.html` / `wizard.css`。
+
+---
+
 ## [1.2.3] — 2026-05-24
 
 ### Added
