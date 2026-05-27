@@ -78,6 +78,33 @@ def _make_snapshot_with_l1(
     )
 
 
+def _make_snapshot_with_l1_and_detail(version_id: str = "v1") -> VersionSnapshot:
+    """Snapshot where features have confidence_reason and source_nodes populated."""
+    from the_door.models import FeatureSummary, RelationSummary
+
+    l1_snapshot = {
+        "feat-1": FeatureSummary(
+            feature_id="feat-1",
+            label="Feature One",
+            confidence="high",
+            description="First feature",
+            source_node_count=2,
+            trigger_description="使用者觸發",
+            confidence_reason="核心功能，節點明確。",
+            source_nodes=("ASTExtractor", "ASTExtractor.extract"),
+        ),
+    }
+    return VersionSnapshot(
+        version_id=version_id,
+        timestamp="2024-01-01T00:00:00Z",
+        trigger="manual",
+        label=None,
+        git_tags=[],
+        l1_snapshot=l1_snapshot,
+        feature_relations_snapshot=[],
+    )
+
+
 def _make_l2_output() -> L2Output:
     return L2Output(
         modules=[
@@ -220,6 +247,20 @@ class TestGetL1:
 
         assert status == 200
         MockStore.return_value.get_snapshot.assert_not_called()
+
+    def test_get_l1_forwards_confidence_reason_and_source_nodes(self, tmp_path):
+        """handle_get_l1 must include confidence_reason and source_nodes in each node."""
+        handlers = _make_handlers(tmp_path)
+        snapshot = _make_snapshot_with_l1_and_detail()
+
+        with patch("the_door.core.ui.api_handlers.SnapshotStore") as mock_ss:
+            mock_ss.return_value.get_latest.return_value = snapshot
+            status, body = handlers.handle_get_l1()
+
+        assert status == 200
+        node = next(n for n in body["nodes"] if n["id"] == "feat-1")
+        assert node["confidence_reason"] == "核心功能，節點明確。"
+        assert node["source_nodes"] == ["ASTExtractor", "ASTExtractor.extract"]
 
 
 # ---------------------------------------------------------------------------

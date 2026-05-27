@@ -432,6 +432,8 @@ class APIHandlers:
                     "confidence": fs.confidence,
                     "description": fs.description,
                     "trigger_description": fs.trigger_description,
+                    "confidence_reason": fs.confidence_reason,
+                    "source_nodes": list(fs.source_nodes) if fs.source_nodes else [],
                 }
                 for fid, fs in snapshot.l1_snapshot.items()
             }
