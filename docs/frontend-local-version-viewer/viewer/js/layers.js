@@ -53,6 +53,8 @@ export async function loadL1Graph(versionId = null) {
         confidence: n.confidence,
         description: n.description,
         trigger_description: n.trigger_description,
+        confidence_reason: n.confidence_reason,
+        source_nodes: n.source_nodes || [],
         source: "L1Output.features",
       })),
       stats: { feature_count: (state.l1GraphViewModel.nodes || []).length },

@@ -141,7 +141,7 @@ describe('loadL1Graph', () => {
     expect(state.layerState).toBe('L1');
     expect(state.l1Model.features).toHaveLength(2);
     expect(state.l1Model.features[0]).toEqual({
-      id: 'f1', label: 'F1', confidence: 'high', description: 'd1', trigger_description: 't1', source: 'L1Output.features',
+      id: 'f1', label: 'F1', confidence: 'high', description: 'd1', trigger_description: 't1', confidence_reason: undefined, source_nodes: [], source: 'L1Output.features',
     });
     expect(state.l1Model.stats.feature_count).toBe(2);
     expect(graph.initGraph).toHaveBeenCalledWith('graph-container', vm);
@@ -279,6 +279,48 @@ describe('loadL1Graph', () => {
     });
     await loadL1Graph();
     expect(fetchSpy.mock.calls.length).toBe(1);
+  });
+
+  it('maps confidence_reason and source_nodes from graph view model nodes', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        nodes: [
+          {
+            id: 'f1',
+            label: 'F1',
+            confidence: 'high',
+            description: 'd1',
+            trigger_description: 't1',
+            confidence_reason: '信心理由',
+            source_nodes: ['NodeA', 'NodeB'],
+          },
+        ],
+        edges: [],
+      }),
+    });
+
+    await loadL1Graph();
+
+    expect(state.l1Model.features[0].confidence_reason).toBe('信心理由');
+    expect(state.l1Model.features[0].source_nodes).toEqual(['NodeA', 'NodeB']);
+  });
+
+  it('defaults source_nodes to empty array when missing from node', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        nodes: [
+          { id: 'f1', label: 'F1', confidence: 'high', description: 'd1' },
+        ],
+        edges: [],
+      }),
+    });
+
+    await loadL1Graph();
+
+    expect(state.l1Model.features[0].source_nodes).toEqual([]);
+    expect(state.l1Model.features[0].confidence_reason).toBeUndefined();
   });
 });
 
