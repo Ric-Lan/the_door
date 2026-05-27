@@ -230,6 +230,39 @@ def test_build_l1_from_snapshot_forwards_trigger_description_when_present():
     assert vm["nodes"][0]["trigger_description"] == "Triggered on /api/foo POST request"
 
 
+def test_build_l1_graph_view_model_from_snapshot_includes_confidence_reason_and_source_nodes():
+    """build_l1_graph_view_model_from_snapshot must pass through confidence_reason and source_nodes."""
+    l1_snapshot = {
+        "feat-a": {
+            "label": "Feature A",
+            "confidence": "high",
+            "description": "desc",
+            "trigger_description": "觸發",
+            "confidence_reason": "信心理由",
+            "source_nodes": ["NodeA", "NodeB"],
+        }
+    }
+    result = build_l1_graph_view_model_from_snapshot(l1_snapshot, feature_relations_snapshot=[])
+    node = next(n for n in result["nodes"] if n["id"] == "feat-a")
+    assert node["confidence_reason"] == "信心理由"
+    assert node["source_nodes"] == ["NodeA", "NodeB"]
+
+
+def test_build_l1_graph_view_model_from_snapshot_source_nodes_defaults_to_empty_list():
+    """When source_nodes is missing from snapshot dict, node gets empty list."""
+    l1_snapshot = {
+        "feat-a": {
+            "label": "A",
+            "confidence": "high",
+            "description": "d",
+        }
+    }
+    result = build_l1_graph_view_model_from_snapshot(l1_snapshot, feature_relations_snapshot=[])
+    node = result["nodes"][0]
+    assert node["source_nodes"] == []
+    assert node["confidence_reason"] is None
+
+
 def test_build_l1_from_snapshot_dangling_edge_omitted():
     """build_l1_graph_view_model_from_snapshot omits dangling edges and records a warning."""
     l1_snapshot = {

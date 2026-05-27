@@ -112,6 +112,8 @@ def build_l1_graph_view_model_from_snapshot(
             "confidence": summary["confidence"],
             "description": summary["description"],
             "trigger_description": summary.get("trigger_description"),
+            "confidence_reason": summary.get("confidence_reason"),
+            "source_nodes": summary.get("source_nodes") or [],
         }
         for feature_id, summary in l1_snapshot.items()
     ]
