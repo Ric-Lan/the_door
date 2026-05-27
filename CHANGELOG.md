@@ -10,6 +10,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.6] — 2026-05-27
+
+### Added
+- **L1 Feature Detail Fields**：Viewer 單版本模式詳情欄新增三個欄位：
+  - `trigger_description`（觸發方式）：說明該 feature 在什麼情境下被觸發
+  - `confidence_reason`（信心理由）：說明 high/medium 信心度的依據
+  - `source_nodes`（Source Nodes）：對應的原始碼節點清單
+- **`snapshot_patch` 擴充**：`patch_snapshot()` 新增 `feature_metadata_by_feature` 參數，
+  可在不更動 `version_id` 的情況下寫入 `trigger_description` / `confidence_reason`；
+  MCP tool schema 同步更新，`source_nodes_by_feature` 移出 `required`，
+  `patched_features` 回傳值從 count integer 改為 feature ID list。
+- **Pipeline 轉發**：`handle_get_l1` → `build_l1_graph_view_model_from_snapshot` →
+  `layers.js loadL1Graph` 全路徑轉發新欄位，含防禦性預設值（`source_nodes: []`）。
+
+---
+
 ## [1.3.5] — 2026-05-27
 
 ### Added

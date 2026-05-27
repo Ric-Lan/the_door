@@ -25,6 +25,7 @@ The Door is a CLI tool + MCP Server + local UI. It reads your codebase and (with
 | Vulnerability scan | Known CVEs in dependencies, integrated into the feature diagram |
 | Feature evolution | Multi-version timeline tracking when features appeared and how often they changed |
 | Doubt tracking | Anomaly detected → flagged → assigned → resolved (with escalation on timeout) |
+| Feature detail panel | Per-feature drill-down: trigger description, confidence rationale, and source node list — visible in the viewer's single-version mode |
 | Local UI | Browser workbench, interactive diagrams, three-layer navigation (L1 → L2 → L3) |
 
 ---
@@ -112,7 +113,7 @@ the-door diff ./my-project --baseline v1.0
 the-door ui ./my-project
 ```
 
-Opens a three-panel workbench at `http://127.0.0.1:8765`: left = feature list / change list (risk-prioritized), center = interactive diagram (Cytoscape.js), right = detail panel with Before/After. Three-layer navigation: L1 feature overview → L2 module diagram → L3 source node graph.
+Opens a three-panel workbench at `http://127.0.0.1:8765`: left = feature list / change list (risk-prioritized), center = interactive diagram (Cytoscape.js), right = detail panel. Three-layer navigation: L1 feature overview → L2 module diagram → L3 source node graph. The detail panel surfaces trigger description, confidence rationale, and source nodes for each feature.
 
 ### D. Backfill a snapshot that's missing its persisted structure
 
