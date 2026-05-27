@@ -131,3 +131,98 @@ class TestPatchSnapshotSourceNodes:
         raw = json.loads(snap_file.read_text(encoding="utf-8"))
         assert "source_nodes" not in raw["l1_snapshot"]["feat-b"]
         assert "source_nodes" in raw["l1_snapshot"]["feat-a"]
+
+
+class TestPatchSnapshotFeatureMetadata:
+    def test_patch_writes_trigger_description(self, seeded):
+        snap, skipped = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={
+                "feat-a": {"trigger_description": "使用者點擊分析按鈕時觸發。"}
+            },
+        )
+        assert snap.l1_snapshot["feat-a"].trigger_description == "使用者點擊分析按鈕時觸發。"
+        assert skipped == []
+
+    def test_patch_writes_confidence_reason(self, seeded):
+        snap, skipped = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={
+                "feat-a": {"confidence_reason": "核心功能，節點明確。"}
+            },
+        )
+        assert snap.l1_snapshot["feat-a"].confidence_reason == "核心功能，節點明確。"
+        assert skipped == []
+
+    def test_patch_writes_both_metadata_fields(self, seeded):
+        snap, _ = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={
+                "feat-a": {
+                    "trigger_description": "觸發說明",
+                    "confidence_reason": "信心理由",
+                }
+            },
+        )
+        assert snap.l1_snapshot["feat-a"].trigger_description == "觸發說明"
+        assert snap.l1_snapshot["feat-a"].confidence_reason == "信心理由"
+
+    def test_patch_metadata_does_not_clear_unmentioned_features(self, seeded):
+        snap, _ = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={"feat-a": {"trigger_description": "觸發"}},
+        )
+        assert snap.l1_snapshot["feat-b"].trigger_description is None
+        assert snap.l1_snapshot["feat-b"].confidence_reason is None
+
+    def test_patch_metadata_skips_unknown_feature_ids(self, seeded):
+        snap, skipped = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={
+                "feat-a": {"trigger_description": "T"},
+                "feat-ghost": {"trigger_description": "X"},
+            },
+        )
+        assert "feat-ghost" in skipped
+        assert "feat-a" not in skipped
+
+    def test_patch_metadata_persisted_to_disk(self, seeded):
+        snap, _ = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature={
+                "feat-a": {
+                    "trigger_description": "觸發說明",
+                    "confidence_reason": "信心理由",
+                }
+            },
+        )
+        reloaded = seeded.get_snapshot(snap.version_id)
+        assert reloaded.l1_snapshot["feat-a"].trigger_description == "觸發說明"
+        assert reloaded.l1_snapshot["feat-a"].confidence_reason == "信心理由"
+
+    def test_patch_both_params_together(self, seeded):
+        """source_nodes_by_feature and feature_metadata_by_feature can be combined."""
+        snap, skipped = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={"feat-a": ["NodeA", "NodeB"]},
+            feature_metadata_by_feature={"feat-a": {"trigger_description": "T"}},
+        )
+        assert snap.l1_snapshot["feat-a"].source_nodes == ("NodeA", "NodeB")
+        assert snap.l1_snapshot["feat-a"].trigger_description == "T"
+        assert skipped == []
+
+    def test_patch_none_source_nodes_and_none_metadata_still_works(self, seeded):
+        """Both params being empty dicts is a no-op but should not error."""
+        snap, skipped = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            source_nodes_by_feature={},
+            feature_metadata_by_feature=None,
+        )
+        assert skipped == []
+        assert snap.l1_snapshot["feat-a"].source_nodes == ()

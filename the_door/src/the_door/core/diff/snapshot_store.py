@@ -195,15 +195,17 @@ class SnapshotStore:
     def patch_snapshot(
         self,
         version_ref: str,
-        source_nodes_by_feature: dict[str, list[str]],
+        source_nodes_by_feature: dict[str, list[str]] | None = None,
         analyzed_files: list[str] | None = None,
+        feature_metadata_by_feature: dict[str, dict] | None = None,
     ) -> tuple["VersionSnapshot", list[str]]:
-        """Patch source_nodes of an existing snapshot in-place.
+        """Patch an existing snapshot in-place.
 
-        Resolves version_ref, updates only source_nodes/source_node_count for
-        matching features, then re-serializes via _serialize_snapshot so
-        conditional fields stay consistent.  version_id and timestamp are never
-        modified.
+        Updates source_nodes (via source_nodes_by_feature) and/or metadata
+        fields trigger_description and confidence_reason (via feature_metadata_by_feature).
+        Both parameters are optional and independent; either can be omitted.
+
+        version_id and timestamp are never modified.
 
         Returns (updated_snapshot, skipped_feature_ids).
         Raises SnapshotNotFoundError if version_ref cannot be resolved.
@@ -214,7 +216,8 @@ class SnapshotStore:
 
         new_l1 = dict(snap.l1_snapshot)
         skipped: list[str] = []
-        for fid, nodes in source_nodes_by_feature.items():
+
+        for fid, nodes in (source_nodes_by_feature or {}).items():
             if fid not in new_l1:
                 skipped.append(fid)
                 continue
@@ -224,10 +227,23 @@ class SnapshotStore:
                 source_node_count=len(nodes),
             )
 
-        kwargs: dict = {"l1_snapshot": new_l1}
+        for fid, meta in (feature_metadata_by_feature or {}).items():
+            if fid not in new_l1:
+                if fid not in skipped:
+                    skipped.append(fid)
+                continue
+            kwargs: dict = {}
+            if "trigger_description" in meta:
+                kwargs["trigger_description"] = meta["trigger_description"]
+            if "confidence_reason" in meta:
+                kwargs["confidence_reason"] = meta["confidence_reason"]
+            if kwargs:
+                new_l1[fid] = dataclasses.replace(new_l1[fid], **kwargs)
+
+        snap_kwargs: dict = {"l1_snapshot": new_l1}
         if analyzed_files is not None:
-            kwargs["analyzed_files"] = analyzed_files
-        snap = dataclasses.replace(snap, **kwargs)
+            snap_kwargs["analyzed_files"] = analyzed_files
+        snap = dataclasses.replace(snap, **snap_kwargs)
 
         data = self._serialize_snapshot(snap)
         file_path = self._snapshots_dir / f"{snap.version_id}.json"

@@ -1,4 +1,4 @@
-"""MCP tool: snapshot_patch — update source_nodes of an existing snapshot in-place."""
+"""MCP tool: snapshot_patch — update fields of an existing snapshot in-place."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from the_door.models import SnapshotNotFoundError
 
 TOOL_SCHEMA = {
     "type": "object",
-    "required": ["codebase_path", "version_ref", "source_nodes_by_feature"],
+    "required": ["codebase_path", "version_ref"],
     "properties": {
         "codebase_path": {
             "type": "string",
@@ -26,12 +26,28 @@ TOOL_SCHEMA = {
         "source_nodes_by_feature": {
             "type": "object",
             "description": (
-                "Map of feature_id → list of node_id strings from extract_structure. "
+                "Optional. Map of feature_id → list of node_id strings from extract_structure. "
                 "Unknown feature_ids are skipped and reported in skipped_features."
             ),
             "additionalProperties": {
                 "type": "array",
                 "items": {"type": "string"},
+            },
+        },
+        "feature_metadata_by_feature": {
+            "type": "object",
+            "description": (
+                "Optional. Map of feature_id → metadata dict with optional keys "
+                "'trigger_description' and 'confidence_reason' (both strings). "
+                "Only provided keys are written; omitted keys are not cleared. "
+                "Unknown feature_ids are skipped and reported in skipped_features."
+            ),
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "trigger_description": {"type": "string"},
+                    "confidence_reason": {"type": "string"},
+                },
             },
         },
         "analyzed_files": {
@@ -44,14 +60,15 @@ TOOL_SCHEMA = {
 
 
 async def execute(arguments: dict) -> dict:
-    """Patch source_nodes of an existing snapshot without changing version_id."""
+    """Patch source_nodes and/or metadata of an existing snapshot without changing version_id."""
     codebase_path = arguments["codebase_path"]
     store = SnapshotStore(Path(codebase_path))
     try:
         snap, skipped = store.patch_snapshot(
             version_ref=arguments["version_ref"],
-            source_nodes_by_feature=arguments["source_nodes_by_feature"],
+            source_nodes_by_feature=arguments.get("source_nodes_by_feature") or {},
             analyzed_files=arguments.get("analyzed_files"),
+            feature_metadata_by_feature=arguments.get("feature_metadata_by_feature"),
         )
     except SnapshotNotFoundError as e:
         return make_error_envelope(
@@ -60,10 +77,17 @@ async def execute(arguments: dict) -> dict:
             remediation=None,
             source="snapshot_patch_tool.execute",
         )
+
+    all_input_fids = set(
+        list((arguments.get("source_nodes_by_feature") or {}).keys())
+        + list((arguments.get("feature_metadata_by_feature") or {}).keys())
+    )
+    patched = sorted(all_input_fids - set(skipped))
+
     payload = {
         "version_id": snap.version_id,
         "label": snap.label,
-        "patched_features": len(arguments["source_nodes_by_feature"]) - len(skipped),
+        "patched_features": patched,
         "skipped_features": skipped,
     }
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
