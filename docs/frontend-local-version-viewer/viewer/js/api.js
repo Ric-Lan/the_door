@@ -94,14 +94,14 @@ export async function postNote(payload) {
 export async function fetchDiffExplanation(featureId, params) {
   const qs = params instanceof URLSearchParams ? params : new URLSearchParams(params);
   const res = await fetch(
-    `${API_BASE}/api/diff-explanation/${encodeURIComponent(featureId)}?${qs.toString()}`,
+    `${API_BASE}/api/diff-explanations/${encodeURIComponent(featureId)}?${qs.toString()}`,
     { cache: "no-store" }
   );
   return res.json();
 }
 
 export async function postGenerateDiffExplanation(featureId, payload) {
-  const res = await fetch(`${API_BASE}/api/diff-explanation/${encodeURIComponent(featureId)}/generate`, {
+  const res = await fetch(`${API_BASE}/api/diff-explanations/${encodeURIComponent(featureId)}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

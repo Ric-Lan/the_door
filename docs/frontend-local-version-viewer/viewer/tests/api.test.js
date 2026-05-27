@@ -309,12 +309,12 @@ describe('api.js', () => {
   });
 
   describe('fetchDiffExplanation', () => {
-    it('calls /api/diff-explanation/<featureId> with params', async () => {
+    it('calls /api/diff-explanations/<featureId> with params', async () => {
       fetchSpy = mockFetch({ explanation: null });
       const params = new URLSearchParams({ baseline_version_id: 'v1', current_version_id: 'v2' });
       await fetchDiffExplanation('feat-1', params);
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/diff-explanation/feat-1?' + params.toString(),
+        '/api/diff-explanations/feat-1?' + params.toString(),
         { cache: 'no-store' }
       );
     });
@@ -323,7 +323,7 @@ describe('api.js', () => {
       fetchSpy = mockFetch({ explanation: null });
       await fetchDiffExplanation('feat-1', { baseline_version_id: 'v1' });
       const call = fetchSpy.mock.calls[0][0];
-      expect(call).toContain('/api/diff-explanation/feat-1?');
+      expect(call).toContain('/api/diff-explanations/feat-1?');
       expect(call).toContain('baseline_version_id=v1');
     });
 
@@ -336,11 +336,11 @@ describe('api.js', () => {
   });
 
   describe('postGenerateDiffExplanation', () => {
-    it('sends POST to /api/diff-explanation/<featureId>/generate', async () => {
+    it('sends POST to /api/diff-explanations/<featureId>/generate', async () => {
       fetchSpy = mockFetch({ job_id: 'j3' });
       const payload = { baseline_version_id: 'v1', current_version_id: 'v2' };
       await postGenerateDiffExplanation('feat-1', payload);
-      expect(fetchSpy).toHaveBeenCalledWith('/api/diff-explanation/feat-1/generate', {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/diff-explanations/feat-1/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
