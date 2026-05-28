@@ -10,6 +10,34 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] — 2026-05-28
+
+### Added
+- **Detail context mode for L1 analysis（預設啟用）**：`the-door analyze`
+  與 `the-door update` 現在預設把每個節點的完整 signature、docstring、
+  decorators / annotations、檔案路徑送給 LLM，提升非技術讀者的描述
+  品質。原有「只送 node_id」行為保留，可用 `--minimal-context` opt-out。
+- **多語言 ASTNode 充實**：`_walk_config_driven` 透過擴充後的
+  `LanguageConfig` 為 Java / Go / Rust / Ruby / PHP / C# 6 種語言抽取
+  parameters、return_type、docstring、decorators。Python 與 TypeScript /
+  JavaScript 既有 walker 不變。
+- MCP `analyze_tool` 接受 optional `context_mode` 欄位（`detail` /
+  `minimal`，預設 `detail`）。
+- L1 system prompt 新增硬性規則 5：禁止直接複製 docstring / comments /
+  decorators / signature 進 description 或 trigger_description。
+
+### Changed
+- `BatchReader` 引入共用 `_serialize_payload` helper，由 `_process_batch`、
+  `_maybe_split`、`regenerate` 共同使用。確保切批估算與實送 payload 一致。
+
+### Notes
+- Output schema 完全不變。既有 `.the-door/snapshots/` 檔案無需 migration。
+- 新模式下 token 用量會明顯上升（估算 5-15 倍）。對成本敏感的工作流可
+  加 `--minimal-context`。
+- `extract_structure` MCP tool 不受影響。
+
+---
+
 ## [1.3.6] — 2026-05-27
 
 ### Added

@@ -91,6 +91,12 @@ the-door analyze ./my-project
 
 Runs the full pipeline: AST extraction → LLM feature identification → vulnerability scan → snapshot saved automatically to `.the-door/snapshots/`. The output ends with a **`Next:`** block telling you what to do next.
 
+By default, the full node signature, docstring, and decorators are sent to the LLM for higher-quality descriptions. If you're token-constrained, add `--minimal-context` to revert to the legacy node-id-only mode:
+
+```bash
+the-door analyze ./my-project --minimal-context
+```
+
 ### B. After your source has changed (incremental — no API key needed for the diff)
 
 When you already have a baseline snapshot and just want to see what changed:
