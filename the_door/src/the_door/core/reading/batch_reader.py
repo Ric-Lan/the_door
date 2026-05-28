@@ -4,11 +4,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from the_door.core.llm.prompts import L1_SYSTEM_PROMPT
 from the_door.core.llm.response_parser import ResponseParser
 from the_door.core.reading.pruning_engine import PruningEngine
 from the_door.models import (
+    ASTNode,
     Edge,
     Feature,
     FeatureRelation,
@@ -16,6 +18,8 @@ from the_door.models import (
     StructureJSON,
     TopologyEntry,
 )
+
+_VALID_CONTEXT_MODES = ("detail", "minimal")
 
 
 MAX_BATCHES = 5
@@ -49,12 +53,19 @@ class BatchReader:
         structure: StructureJSON,
         *,
         max_context_tokens: int | None = None,
+        context_mode: Literal["detail", "minimal"] = "detail",
     ) -> None:
+        if context_mode not in _VALID_CONTEXT_MODES:
+            raise ValueError(
+                f"context_mode must be one of {_VALID_CONTEXT_MODES}, got {context_mode!r}"
+            )
         self._provider = llm_provider
         self._structure = structure
         self._parser = ResponseParser()
         self._pruning = PruningEngine(structure.edges)
         self._max_context_tokens = max_context_tokens
+        self._context_mode = context_mode
+        self._node_lookup: dict[str, ASTNode] = {n.node_id: n for n in structure.nodes}
 
     async def read(
         self,
@@ -100,7 +111,7 @@ class BatchReader:
             sub_batches = self._maybe_split(active_nodes)
 
             for sub_nodes in sub_batches:
-                features, relations, unclassified, infrastructure = await self._process_batch(
+                features, relations, unclassified, infrastructure, prompt_str = await self._process_batch(
                     sub_nodes, batch_num
                 )
                 all_features.extend(features)
@@ -113,9 +124,7 @@ class BatchReader:
                     for src_node in feat.source_nodes:
                         self._pruning.record_confidence(src_node, feat.confidence, batch_num)
 
-                total_tokens += self._provider.estimate_tokens(
-                    json.dumps([n for n in sub_nodes])
-                )
+                total_tokens += self._provider.estimate_tokens(prompt_str)
 
         # Add overflow nodes as unclassified
         all_unclassified.extend(overflow_nodes)
@@ -231,8 +240,8 @@ class BatchReader:
         if self._max_context_tokens is None:
             return [node_ids]
 
-        # Estimate payload size
-        payload_text = json.dumps(node_ids)
+        # Estimate payload size using the actual serialization path (batch_num=0 is a size-estimation placeholder)
+        payload_text = self._serialize_payload(node_ids, batch_num=0)
         estimated_tokens = self._provider.estimate_tokens(payload_text)
 
         if estimated_tokens <= self._max_context_tokens:
@@ -247,23 +256,56 @@ class BatchReader:
         right = self._maybe_split(node_ids[mid:])
         return left + right
 
+    def _build_payload(self, node_ids: list[str], batch_num: int) -> dict:
+        """Build the prompt payload dict (pre-serialization form)."""
+        if self._context_mode == "minimal":
+            return {
+                "batch": batch_num,
+                "context_mode": "minimal",
+                "nodes": list(node_ids),
+            }
+        # "detail"
+        node_dicts: list[dict] = []
+        for nid in node_ids:
+            node = self._node_lookup.get(nid)
+            if node is None:
+                continue
+            node_dicts.append({
+                "node_id": node.node_id,
+                "type": node.type,
+                "name": node.name,
+                "file": node.file,
+                "language": node.language,
+                "parameters": list(node.parameters),
+                "return_type": node.return_type,
+                "decorators": list(node.decorators),
+                "docstring": node.docstring,
+                "comments": list(node.comments),
+            })
+        return {
+            "batch": batch_num,
+            "context_mode": "detail",
+            "nodes": node_dicts,
+        }
+
+    def _serialize_payload(self, node_ids: list[str], batch_num: int) -> str:
+        """Serialize the batch payload for LLM consumption."""
+        return json.dumps(self._build_payload(node_ids, batch_num), ensure_ascii=False)
+
     async def _process_batch(
         self,
         node_ids: list[str],
         batch_num: int,
-    ) -> tuple[list[Feature], list[FeatureRelation], list[str], list[str]]:
+    ) -> tuple[list[Feature], list[FeatureRelation], list[str], list[str], str]:
         """Process a single batch of nodes via LLM call."""
-        prompt = json.dumps({
-            "batch": batch_num,
-            "nodes": node_ids,
-        })
+        prompt = self._serialize_payload(node_ids, batch_num)
 
         response = await self._provider.complete(prompt, system_prompt=L1_SYSTEM_PROMPT)
         parse_result = self._parser.parse(response)
 
         if not parse_result.success or not parse_result.data:
             # All nodes in this batch become unclassified
-            return [], [], list(node_ids), []
+            return [], [], list(node_ids), [], prompt
 
         data = parse_result.data
         features: list[Feature] = []
@@ -297,4 +339,4 @@ class BatchReader:
         unclassified = data.get("unclassified_nodes", [])
         infrastructure = data.get("infrastructure_nodes", [])
 
-        return features, relations, unclassified, infrastructure
+        return features, relations, unclassified, infrastructure, prompt
