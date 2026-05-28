@@ -189,6 +189,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"comment"}),
         doc_comment_markers=frozenset(),
         decorator_types=frozenset(),
+        scope_rules=ScopeRules(
+            import_resolution="qualified",
+            function_resolution="global",
+            method_resolution="dynamic_dispatch",
+            inheritance_resolution="mixin",
+            dynamic_markers=frozenset({"method_missing", "define_method", "send"}),
+        ),
     ),
     "php": LanguageConfig(
         function_types=frozenset({"function_definition"}),
@@ -203,6 +210,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"comment"}),
         doc_comment_markers=frozenset({"/**"}),
         decorator_types=frozenset(),
+        scope_rules=ScopeRules(
+            import_resolution="namespaced",
+            function_resolution="package_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset({"__call", "call_user_func"}),
+        ),
     ),
     "csharp": LanguageConfig(
         function_types=frozenset(),
@@ -217,6 +231,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"comment"}),
         doc_comment_markers=frozenset({"///"}),
         decorator_types=frozenset({"attribute_list"}),
+        scope_rules=ScopeRules(
+            import_resolution="namespaced",
+            function_resolution="package_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset({"dynamic"}),
+        ),
     ),
     "c": LanguageConfig(
         function_types=frozenset({"function_definition"}),

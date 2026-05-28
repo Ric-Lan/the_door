@@ -226,15 +226,56 @@ class EdgeBuilder:
     def _walk_namespaced_imports(
         self, node: TSNode, source_bytes: bytes, aliases: dict[str, str]
     ) -> None:
-        # Java: import_declaration
+        # Java: import_declaration → last segment
         if node.type == "import_declaration":
             last_name = self._extract_last_qualified_name(node)
             if last_name:
                 aliases[last_name] = last_name
-        # PHP: use_declaration (handled in Task 05 by extending this method)
-        # C#: using_directive (handled in Task 05)
+
+        # PHP: namespace_use_declaration → namespace_use_clause (per clause)
+        if node.type == "namespace_use_clause":
+            self._extract_php_use_clause(node, aliases)
+
+        # C#: using_directive
+        if node.type == "using_directive":
+            self._extract_csharp_using(node, aliases)
+
         for child in node.children:
             self._walk_namespaced_imports(child, source_bytes, aliases)
+
+    def _extract_php_use_clause(self, clause: TSNode, aliases: dict[str, str]) -> None:
+        r"""Extract PHP `use Foo\Bar [as B];` → {B (or Bar): Bar}."""
+        orig = None
+        alias = None
+        for child in clause.children:
+            if child.type in ("qualified_name", "name"):
+                text = child.text.decode("utf-8", errors="replace")
+                last_seg = text.replace("\\", ".").rstrip(".").split(".")[-1].strip()
+                if orig is None:
+                    orig = last_seg
+                else:
+                    alias = last_seg
+        if orig:
+            aliases[alias if alias else orig] = orig
+
+    def _extract_csharp_using(self, node: TSNode, aliases: dict[str, str]) -> None:
+        """Extract C# `using [Alias =] System.Linq;` → {Alias (or Linq): Linq}."""
+        # Collect named children (skip punctuation/keywords)
+        named = [c for c in node.children if c.type not in ("using", ";", "=")]
+        # Check for alias pattern: identifier "=" qualified_name
+        # In tree: 'using' identifier '=' qualified_name ';'
+        # named will be [identifier, qualified_name] when alias present
+        alias = None
+        orig = None
+        if len(named) == 2 and named[0].type == "identifier" and named[1].type in ("qualified_name", "identifier"):
+            alias = named[0].text.decode("utf-8", errors="replace")
+            text = named[1].text.decode("utf-8", errors="replace")
+            orig = text.split(".")[-1].strip()
+        elif len(named) == 1 and named[0].type in ("qualified_name", "identifier"):
+            text = named[0].text.decode("utf-8", errors="replace")
+            orig = text.split(".")[-1].strip()
+        if orig:
+            aliases[alias if alias else orig] = orig
 
     def _extract_last_qualified_name(self, node: TSNode) -> str | None:
         """Return the last identifier from a dotted/scoped name (e.g. com.example.Foo → Foo)."""
