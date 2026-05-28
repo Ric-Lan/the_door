@@ -1,0 +1,3 @@
+# Tree-sitter grammar fixtures must preserve LF endings —
+# Ruby/PHP parsers field-name lookups break with CRLF on Windows.
+the_door/tests/fixtures/multilang/** text eol=lf
