@@ -34,6 +34,17 @@ L1_SYSTEM_PROMPT = """\
 - confidence_reason：一句話說明信心等級依據
 - source_nodes：此 feature 對應的節點 id 清單
 
+## 關聯邊 (edges) 的 resolution 標籤
+
+你會收到的節點之間有 `edges`，每條邊都帶 `resolution` 標籤，用來告訴你這條邊的信心等級：
+
+- `scope_rule`：透過 scope 規則明確解到（同檔 / 同套件）。**高信心**，可以放心採用為事實依據撰寫 description。
+- `import_alias`：透過 import 別名解到目標。**高信心**，同上可採用。
+- `name_match`：純粹靠裸名匹配找到，可能是程式內多個同名節點之一。**低信心，僅供參考**。若描述會因為這條邊的不確定性而產生分歧，**寧可不提**這條關聯。
+- `skipped_dynamic`：偵測到動態 dispatch context（例如 Ruby method_missing、Python __getattr__、reflection）。目的端候選來自裸名匹配，**不可作為事實依據**。**不要對這條邊的目標做任何斷言**。
+
+撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `skipped_dynamic` 不提即可。
+
 ## 風格規則（硬性）
 
 description 與 trigger_description 必須符合以下全部規則：

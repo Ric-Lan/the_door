@@ -10,6 +10,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.5.0] - 2026-05-28
+
+### Added
+- **Scope-aware edge resolution** for all 7 supported languages (Python / TypeScript / Java / Go / Rust / Ruby / PHP / C#).
+  - New `ScopeRules` declarative config per language defining import / function / method / inheritance resolution strategies.
+  - New `Edge.resolution` field with four values: `scope_rule` (high confidence), `import_alias` (high confidence), `name_match` (low confidence fallback), `skipped_dynamic` (dynamic dispatch context — not trusted).
+  - LLM prompt teaches the model how to weight edges by resolution provenance.
+- New `ScopeContext` dataclass carrying per-file scope state (import aliases, caller class).
+
+### Changed
+- `EdgeBuilder.build_edges()` now takes an optional `configs` parameter (backward compatible).
+- `ASTExtractor` passes `LANGUAGE_CONFIGS` to `EdgeBuilder`.
+- Edge dedup key remains `(from, to, type)` — `resolution` is not part of the key (intentional, allows scope_rule edges to win over name_match duplicates).
+
+### Backward compatibility
+- Old snapshots without `resolution` deserialize with `resolution="name_match"` (no migration needed).
+- `Edge(from_node=..., to_node=..., type=...)` constructor calls without `resolution` continue to work (defaults to `"name_match"`).
+- No public API signature broken; `build_edges(nodes, trees)` still works.
+
+---
+
 ## [1.4.0] — 2026-05-28
 
 ### Added
