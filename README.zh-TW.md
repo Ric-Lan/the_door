@@ -90,6 +90,12 @@ the-door analyze ./my-project
 
 跑完整 pipeline：AST 抽取 → LLM 功能識別 → 漏洞掃描 → 自動建立快照存於 `.the-door/snapshots/`。輸出尾巴會印一個 **`Next:`** 區塊告訴你下一步。
 
+預設會把節點完整的 signature、docstring、decorators 送給 LLM 以提升描述品質。如果你 token 預算有限，加 `--minimal-context` 退回到只送 node_id 的舊模式：
+
+```bash
+the-door analyze ./my-project --minimal-context
+```
+
 ### B. 程式碼改動後（增量更新——比對不需要 API key）
 
 如果你已經有 baseline 快照、只想看「現在跟那個版本差什麼」：
