@@ -191,6 +191,34 @@ class TestExtractDocComment:
         if result is not None:
             assert "Hello" in result
 
+    def test_skip_types_traverses_through_decorator(self):
+        """preceding_line_comments with skip_types skips attribute_item."""
+        builder = NodeBuilder()
+        source = b"/// Doc comment.\n#[derive(Debug)]\nstruct Foo;"
+        _, root = _parse(source, "rust")
+        st = _find_first(root, "struct_item")
+        if st is None:
+            pytest.skip("struct not found")
+        # Without skip_types: stops at attribute_item
+        result_no_skip = builder._extract_doc_comment(
+            st,
+            strategy="preceding_line_comments",
+            types=frozenset({"line_comment", "block_comment"}),
+            markers=frozenset({"///"}),
+            skip_types=frozenset(),
+        )
+        assert result_no_skip is None  # attribute_item blocks it
+        # With skip_types: traverses through attribute_item
+        result_with_skip = builder._extract_doc_comment(
+            st,
+            strategy="preceding_line_comments",
+            types=frozenset({"line_comment", "block_comment"}),
+            markers=frozenset({"///"}),
+            skip_types=frozenset({"attribute_item"}),
+        )
+        assert result_with_skip is not None
+        assert "Doc comment" in result_with_skip
+
     def test_block_comment_strategy_java(self):
         """Java block comment strategy (preceding_block_comment)."""
         builder = NodeBuilder()
@@ -241,6 +269,72 @@ class TestExtractDocComment:
         )
         assert result is None
 
+    def test_empty_text_comment_skipped_in_preceding_line(self):
+        """Comment node with empty/whitespace text is skipped (not collected)."""
+        # Use a simple mock node that simulates an empty-text line_comment
+        class FakeSibling:
+            def __init__(self, node_type, text_bytes):
+                self.type = node_type
+                self.text = text_bytes
+                self.prev_sibling = None
+
+        empty_comment = FakeSibling("line_comment", b"")
+        fn_node = FakeSibling("function_item", b"fn foo() {}")
+        fn_node.prev_sibling = empty_comment
+
+        builder = NodeBuilder()
+        result = builder._extract_doc_comment(
+            fn_node,
+            strategy="preceding_line_comments",
+            types=frozenset({"line_comment"}),
+            markers=frozenset(),  # no filter
+        )
+        # Empty text comment should be skipped; no collected → None
+        assert result is None
+
+    def test_block_comment_whitespace_sibling_skipped(self):
+        """Whitespace-only node type is skipped in block_comment strategy."""
+        class FakeSibling:
+            def __init__(self, node_type, text_bytes):
+                self.type = node_type
+                self.text = text_bytes
+                self.prev_sibling = None
+
+        whitespace = FakeSibling("  ", b"  ")  # type with only spaces → type.strip() == ""
+        fn_node = FakeSibling("function_item", b"fn foo() {}")
+        fn_node.prev_sibling = whitespace  # whitespace before nothing
+
+        builder = NodeBuilder()
+        result = builder._extract_doc_comment(
+            fn_node,
+            strategy="preceding_block_comment",
+            types=frozenset({"block_comment"}),
+            markers=frozenset(),
+        )
+        # whitespace skipped, then no sibling → None
+        assert result is None
+
+    def test_block_comment_empty_text_returns_none(self):
+        """Block comment with empty text returns None."""
+        class FakeSibling:
+            def __init__(self, node_type, text_bytes):
+                self.type = node_type
+                self.text = text_bytes
+                self.prev_sibling = None
+
+        empty_block = FakeSibling("block_comment", b"")
+        fn_node = FakeSibling("function_item", b"fn foo() {}")
+        fn_node.prev_sibling = empty_block
+
+        builder = NodeBuilder()
+        result = builder._extract_doc_comment(
+            fn_node,
+            strategy="preceding_block_comment",
+            types=frozenset({"block_comment"}),
+            markers=frozenset(),
+        )
+        assert result is None
+
     def test_unknown_strategy_returns_none(self):
         builder = NodeBuilder()
         _, root = _parse(b"fn foo() {}", "rust")
@@ -248,7 +342,7 @@ class TestExtractDocComment:
         result = builder._extract_doc_comment(
             fn,
             strategy="nonexistent_strategy",
-            types=frozenset(),
+            types=frozenset({"line_comment"}),  # non-empty so we reach the unknown branch
             markers=frozenset(),
         )
         assert result is None  # 未知 strategy 安全 fallback

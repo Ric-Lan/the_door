@@ -412,13 +412,9 @@ class NodeBuilder:
             if type_child is not None and type_child.type in ("struct_type", "interface_type"):
                 name = self._get_name_by_field(node)
                 if name:
-                    results.append(ASTNode(
-                        node_id=f"{file_info.path}::{name}",
-                        type="class",
-                        name=name,
-                        file=file_info.path,
-                        language=file_info.language,
-                    ))
+                    results.append(
+                        self._build_enriched_node(node, cfg, file_info, "class", name)
+                    )
             return
 
         # ── Container nodes (e.g. Rust impl_item): scope but no own node ──
@@ -437,13 +433,9 @@ class NodeBuilder:
         if node.type in cfg.class_types:
             name = self._extract_name(node, file_info.language)
             if name:
-                results.append(ASTNode(
-                    node_id=f"{file_info.path}::{name}",
-                    type="class",
-                    name=name,
-                    file=file_info.path,
-                    language=file_info.language,
-                ))
+                results.append(
+                    self._build_enriched_node(node, cfg, file_info, "class", name)
+                )
                 for child in node.children:
                     self._walk_config_driven(child, file_info, results, name)
             else:
@@ -455,13 +447,9 @@ class NodeBuilder:
         if node.type in cfg.method_types and parent_class is not None:
             name = self._extract_name(node, file_info.language)
             if name:
-                results.append(ASTNode(
-                    node_id=f"{file_info.path}::{name}",
-                    type="method",
-                    name=name,
-                    file=file_info.path,
-                    language=file_info.language,
-                ))
+                results.append(
+                    self._build_enriched_node(node, cfg, file_info, "method", name)
+                )
             return
 
         # ── Orphaned method nodes (method_types but no parent class) ──────
@@ -471,31 +459,53 @@ class NodeBuilder:
         if node.type in cfg.method_types and node.type not in cfg.function_types:
             name = self._extract_name(node, file_info.language)
             if name:
-                results.append(ASTNode(
-                    node_id=f"{file_info.path}::{name}",
-                    type="method",
-                    name=name,
-                    file=file_info.path,
-                    language=file_info.language,
-                ))
+                results.append(
+                    self._build_enriched_node(node, cfg, file_info, "method", name)
+                )
             return
 
         # ── Function nodes (top-level or method_types with no parent) ─────
         if node.type in cfg.function_types:
             name = self._extract_name(node, file_info.language)
             if name:
-                results.append(ASTNode(
-                    node_id=f"{file_info.path}::{name}",
-                    type="function",
-                    name=name,
-                    file=file_info.path,
-                    language=file_info.language,
-                ))
+                results.append(
+                    self._build_enriched_node(node, cfg, file_info, "function", name)
+                )
             return
 
         # ── Recurse ───────────────────────────────────────────────────────
         for child in node.children:
             self._walk_config_driven(child, file_info, results, parent_class)
+
+    # ── Enriched-node builder (Task 03) ──────────────────────────────
+
+    def _build_enriched_node(
+        self,
+        node,
+        cfg,         # LanguageConfig
+        file_info,   # FileInfo
+        kind: str,   # "function" | "method" | "class"
+        name: str,
+    ) -> ASTNode:
+        """Build an ASTNode with all content fields populated via cfg + helpers."""
+        return ASTNode(
+            node_id=f"{file_info.path}::{name}",
+            type=kind,
+            name=name,
+            file=file_info.path,
+            language=file_info.language,
+            parameters=self._extract_parameters(node, cfg.parameters_field),
+            return_type=self._extract_return_type(node, cfg.return_type_field),
+            decorators=self._extract_decorators(node, cfg.decorator_types),
+            docstring=self._extract_doc_comment(
+                node,
+                cfg.doc_comment_strategy,
+                cfg.doc_comment_types,
+                cfg.doc_comment_markers,
+                skip_types=cfg.decorator_types,
+            ),
+            comments=[],  # generic 路徑不收 comments
+        )
 
     # ── Generic-walker extract helpers (Task 02) ──────────────────────
 
@@ -539,18 +549,29 @@ class NodeBuilder:
         Strategy: scan node's own children + preceding siblings (up to first
         non-decorator non-comment node) for nodes whose type is in
         decorator_types. Each is decoded to raw text.
+
+        Also searches inside a `modifiers` child when present (Java/C# put
+        annotations inside a modifiers wrapper node).
+
         Returns [] if decorator_types is empty.
         """
         if not decorator_types:
             return []
         result: list[str] = []
 
-        # Own children (some grammars nest attributes inside the item)
+        # Own children — direct matches and modifiers children (Java/C#)
         for child in node.children:
             if child.type in decorator_types:
                 text = child.text.decode("utf-8", errors="replace").strip()
                 if text:
                     result.append(text)
+            elif child.type == "modifiers":
+                # Java/C#: annotations are nested inside a modifiers node
+                for mod_child in child.children:
+                    if mod_child.type in decorator_types:
+                        text = mod_child.text.decode("utf-8", errors="replace").strip()
+                        if text:
+                            result.append(text)
 
         # Preceding siblings (most grammars: attributes appear as siblings before
         # the item).
@@ -576,6 +597,7 @@ class NodeBuilder:
         strategy: str | None,
         types: frozenset[str],
         markers: frozenset[str],
+        skip_types: frozenset[str] | None = None,
     ) -> str | None:
         """Extract a doc-comment string preceding the node.
 
@@ -590,14 +612,23 @@ class NodeBuilder:
         - Only sibling nodes whose type is in `types` are considered.
         - If `markers` is non-empty, only comments whose raw text (stripped)
           starts with one of the markers are kept.
+        - `skip_types`: node types to silently skip when scanning backward
+          (e.g. decorator/attribute nodes that appear between doc-comment
+          and declaration — common in Rust/C#).
         """
         if strategy is None or not types:
             return None
+        _skip = skip_types or frozenset()
 
         if strategy == "preceding_line_comments":
             collected: list[str] = []
             sibling = node.prev_sibling
-            while sibling is not None and sibling.type in types:
+            while sibling is not None and (sibling.type in types or sibling.type in _skip):
+                if sibling.type in _skip:
+                    # Skip decorator/attribute nodes silently — they sit between
+                    # doc-comment and declaration in Rust/C# etc.
+                    sibling = sibling.prev_sibling
+                    continue
                 text = sibling.text.decode("utf-8", errors="replace").strip()
                 if not text:
                     sibling = sibling.prev_sibling
