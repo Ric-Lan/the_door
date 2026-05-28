@@ -21,6 +21,16 @@ TOOL_SCHEMA = {
         "codebase_path": {"type": "string", "description": "Path to the codebase root directory"},
         "provider": {"type": "string", "description": "LLM provider override (openai/anthropic/ollama)"},
         "model": {"type": "string", "description": "Model name override"},
+        "context_mode": {
+            "type": "string",
+            "enum": ["detail", "minimal"],
+            "default": "detail",
+            "description": (
+                "LLM 接收節點資訊的詳細度。"
+                "'detail'（預設）：送節點完整 signature/docstring/decorators，翻譯品質較高。"
+                "'minimal'：只送 node_id 字串，token 用量低但翻譯品質會回到 v1.3.6 前的水準。"
+            ),
+        },
     },
 }
 
@@ -47,8 +57,14 @@ async def execute(arguments: dict) -> dict:
         topology=topo_result.entries,
     )
 
+    context_mode = arguments.get("context_mode", "detail")
+    if context_mode not in ("detail", "minimal"):
+        raise ValueError(
+            f"context_mode must be 'detail' or 'minimal', got {context_mode!r}"
+        )
+
     llm_provider = create_provider(config)
-    reader = BatchReader(llm_provider=llm_provider, structure=structure)
+    reader = BatchReader(llm_provider=llm_provider, structure=structure, context_mode=context_mode)
     from the_door.core.rendering.mermaid_renderer import build_confidence_marker
 
     result = await reader.read()
