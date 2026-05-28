@@ -170,7 +170,11 @@ def _run_pipeline_inner(
     # 6. LLM batch reading
     progress("Running batch analysis...")
     llm_provider = create_provider(td_config)
-    reader = BatchReader(llm_provider=llm_provider, structure=structure)
+    reader = BatchReader(
+        llm_provider=llm_provider,
+        structure=structure,
+        context_mode=getattr(config, "context_mode", "detail"),
+    )
     result = asyncio.run(reader.read())
 
     # 7. Build output_data dict

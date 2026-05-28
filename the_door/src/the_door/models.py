@@ -808,6 +808,7 @@ class AnalyzeConfig:
     timeout_seconds: int = 300
     extra_ignore: list[str] | None = None
     snapshot_label: str | None = None
+    context_mode: str = "detail"
 
 
 @dataclass(frozen=True)

@@ -17,7 +17,18 @@ logger = logging.getLogger(__name__)
 @click.option("--yes", "-y", is_flag=True, help="Skip cost confirmation")
 @click.option("--output", "-o", type=click.Path(), default=None, help="Output file path")
 @click.option("--offline", is_flag=True, help="Use local OSV database for vulnerability scanning")
-def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes: bool, output: str | None, offline: bool):
+@click.option(
+    "--minimal-context",
+    "minimal_context",
+    is_flag=True,
+    default=False,
+    help=(
+        "使用只送 node_id 的 prompt 模式（minimal）。預設為 detail 模式，"
+        "會把節點 signature/docstring 等完整資訊送給 LLM 以提升翻譯品質。"
+        "啟用此 flag 可節省 token，但翻譯品質會回到 v1.3.6 之前的水準。"
+    ),
+)
+def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes: bool, output: str | None, offline: bool, minimal_context: bool):
     """Run full analysis pipeline: extract → topology → batch read → validate → render."""
     from pathlib import Path
     from the_door.core.flow_guard import CheckpointOption, FlowGuard
@@ -65,6 +76,7 @@ def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes
         model=model,
         skip_cost_confirm=yes,
         offline_vuln=offline,
+        context_mode="minimal" if minimal_context else "detail",
     )
 
     progress_callback = lambda msg: click.echo(msg, err=True)
@@ -88,6 +100,7 @@ def analyze_cmd(codebase_path: str, provider: str | None, model: str | None, yes
             model=model,
             skip_cost_confirm=True,
             offline_vuln=offline,
+            context_mode="minimal" if minimal_context else "detail",
         )
         result = run_analyze_pipeline(
             Path(codebase_path),

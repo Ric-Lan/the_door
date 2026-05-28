@@ -28,6 +28,16 @@ import click
 @click.option("--yes", "-y", is_flag=True, help="跳過 LLM 成本確認")
 @click.option("-o", "--output", "output_file", type=click.Path(), default=None, help="輸出到檔案（UTF-8）")
 @click.option("--force-reanalyze", is_flag=True, help="強制重新分析（忽略既存 snapshot）")
+@click.option(
+    "--minimal-context",
+    "minimal_context",
+    is_flag=True,
+    default=False,
+    help=(
+        "使用只送 node_id 的 prompt 模式（minimal）。預設為 detail 模式。"
+        "啟用此 flag 可節省 token，但翻譯品質會回到 v1.3.6 之前的水準。"
+    ),
+)
 def update_cmd(
     path_a: str | None,
     path_b: str | None,
@@ -41,6 +51,7 @@ def update_cmd(
     yes: bool,
     output_file: str | None,
     force_reanalyze: bool,
+    minimal_context: bool,
 ):
     """執行完整的版本更新分析管線。
 
@@ -142,6 +153,7 @@ def update_cmd(
         provider=provider,
         skip_cost_confirm=yes,
         offline_vuln=offline,
+        context_mode="minimal" if minimal_context else "detail",
     )
 
     # Assemble PipelineConfig
@@ -175,6 +187,7 @@ def update_cmd(
             provider=provider,
             skip_cost_confirm=True,
             offline_vuln=offline,
+            context_mode="minimal" if minimal_context else "detail",
         )
         confirmed_config = PipelineConfig(
             old_path=old,
