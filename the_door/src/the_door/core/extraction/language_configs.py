@@ -152,6 +152,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"comment"}),
         doc_comment_markers=frozenset(),
         decorator_types=frozenset(),
+        scope_rules=ScopeRules(
+            import_resolution="module_path",
+            function_resolution="package_local_then_imports",
+            method_resolution="structural",
+            inheritance_resolution="interface_only",
+            dynamic_markers=frozenset({"reflect_value_call"}),
+        ),
     ),
     "rust": LanguageConfig(
         function_types=frozenset({"function_item"}),
@@ -164,6 +171,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"line_comment", "block_comment"}),
         doc_comment_markers=frozenset({"///", "//!"}),
         decorator_types=frozenset({"attribute_item"}),
+        scope_rules=ScopeRules(
+            import_resolution="module_path",
+            function_resolution="package_local_then_imports",
+            method_resolution="trait_dispatch",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset({"dyn_trait_call"}),
+        ),
     ),
     "ruby": LanguageConfig(
         function_types=frozenset({"method"}),

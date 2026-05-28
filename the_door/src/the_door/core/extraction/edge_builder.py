@@ -250,9 +250,70 @@ class EdgeBuilder:
         return None
 
     def _parse_module_path_imports(self, root: TSNode, source_bytes: bytes) -> dict[str, str]:
-        """Go/Rust: use/import path statements → {last_segment: last_segment}."""
-        # Implemented in Task 04
-        return {}
+        """Go (import "path") and Rust (use path::name [as alias]) → {alias: name}."""
+        aliases: dict[str, str] = {}
+        self._walk_module_path_imports(root, source_bytes, aliases)
+        return aliases
+
+    def _walk_module_path_imports(
+        self, node: TSNode, source_bytes: bytes, aliases: dict[str, str]
+    ) -> None:
+        # Go: import_spec (under import_declaration / import_spec_list)
+        if node.type == "import_spec":
+            self._extract_go_import_spec(node, aliases)
+        # Rust: use_declaration → may contain scoped_identifier / use_as_clause / scoped_use_list
+        if node.type == "use_declaration":
+            for child in node.children:
+                self._extract_rust_use_item(child, aliases)
+        for child in node.children:
+            self._walk_module_path_imports(child, source_bytes, aliases)
+
+    def _extract_go_import_spec(self, spec: TSNode, aliases: dict[str, str]) -> None:
+        alias = None
+        path = None
+        for child in spec.children:
+            if child.type == "package_identifier":
+                alias = child.text.decode("utf-8", errors="replace")
+            elif child.type in ("interpreted_string_literal", "raw_string_literal"):
+                raw = child.text.decode("utf-8", errors="replace").strip().strip('"').strip("`")
+                path = raw
+        if path:
+            last_segment = path.rstrip("/").split("/")[-1]
+            if alias:
+                aliases[alias] = last_segment
+            elif last_segment.isidentifier():
+                aliases[last_segment] = last_segment
+
+    def _extract_rust_use_item(self, node: TSNode, aliases: dict[str, str]) -> None:
+        if node.type == "scoped_identifier":
+            text = node.text.decode("utf-8", errors="replace")
+            last = text.split("::")[-1].strip()
+            if last.isidentifier():
+                aliases[last] = last
+        elif node.type == "use_as_clause":
+            orig = None
+            alias = None
+            for child in node.children:
+                if child.type == "scoped_identifier":
+                    orig = child.text.decode("utf-8", errors="replace").split("::")[-1].strip()
+                elif child.type == "identifier" and orig is not None:
+                    alias = child.text.decode("utf-8", errors="replace")
+            if orig and alias:
+                aliases[alias] = orig
+        elif node.type == "scoped_use_list":
+            for child in node.children:
+                if child.type == "use_list":
+                    for item in child.children:
+                        if item.type == "identifier":
+                            name = item.text.decode("utf-8", errors="replace")
+                            aliases[name] = name
+                        elif item.type == "use_as_clause":
+                            self._extract_rust_use_item(item, aliases)
+        elif node.type == "identifier":
+            # bare `use foo;` (rare)
+            name = node.text.decode("utf-8", errors="replace")
+            if name.isidentifier():
+                aliases[name] = name
 
     # ── resolution logic ───────────────────────────────────────────────────
 
