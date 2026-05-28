@@ -232,21 +232,25 @@ Expected: 大部分 detail-mode 測試 FAIL — 當前 regenerate 只送 source_
 
 Open `the_door/src/the_door/core/reading/batch_reader.py`. Locate `regenerate` method. Replace its prompt construction:
 
-**Strategy A** — add task/feature_id to existing payload via a small helper:
+**Strategy A** — reuse `_build_payload` (dict-level) and serialize once:
 
 ```python
     def _serialize_regenerate_payload(
         self, source_nodes: list[str], feature_id: str
     ) -> str:
-        """Serialize regenerate-task payload using context_mode."""
-        # 先取得 base payload（依 context_mode 決定 minimal/detail 形狀）
-        base = json.loads(self._serialize_payload(source_nodes, batch_num=0))
-        # 把 batch 欄位換成 task / feature_id
-        base.pop("batch", None)
-        base["task"] = "regenerate"
-        base["feature_id"] = feature_id
-        return json.dumps(base, ensure_ascii=False)
+        """Serialize regenerate-task payload using context_mode.
+
+        Uses _build_payload (dict-level) and adds task/feature_id fields
+        before a single json.dumps — no json roundtrip, no double serialize.
+        """
+        payload = self._build_payload(source_nodes, batch_num=0)
+        payload.pop("batch", None)
+        payload["task"] = "regenerate"
+        payload["feature_id"] = feature_id
+        return json.dumps(payload, ensure_ascii=False)
 ```
+
+> 此 helper 依賴 `_build_payload`（在前置任務新增的 dict-level builder）。確認該方法存在後再實作此 helper。
 
 Then in `regenerate`:
 

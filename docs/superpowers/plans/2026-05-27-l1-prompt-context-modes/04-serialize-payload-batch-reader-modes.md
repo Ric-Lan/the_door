@@ -270,51 +270,57 @@ class BatchReader:
 
 > Add `from the_door.models import ASTNode` to the imports if not present.
 
-**4b. Add `_serialize_payload`:**
+**4b. Add `_build_payload` (dict) + `_serialize_payload` (str):**
 
 ```python
+    def _build_payload(self, node_ids: list[str], batch_num: int) -> dict:
+        """Build the prompt payload as a dict (pre-serialization form).
+
+        Splitting build vs serialize means token accounting + regenerate path
+        can reuse the dict without round-tripping through json.loads().
+        """
+        if self._context_mode == "minimal":
+            return {
+                "batch": batch_num,
+                "context_mode": "minimal",
+                "nodes": list(node_ids),
+            }
+        # "detail"
+        node_dicts: list[dict] = []
+        for nid in node_ids:
+            node = self._node_lookup.get(nid)
+            if node is None:
+                # 未知 node_id：靜默跳過（與既有 minimal 行為一致 —
+                # PruningEngine 與 batch_assignment 可能提供 unknown ID）
+                continue
+            node_dicts.append({
+                "node_id": node.node_id,
+                "type": node.type,
+                "name": node.name,
+                "file": node.file,
+                "language": node.language,
+                "parameters": list(node.parameters),
+                "return_type": node.return_type,
+                "decorators": list(node.decorators),
+                "docstring": node.docstring,
+                "comments": list(node.comments),
+            })
+        return {
+            "batch": batch_num,
+            "context_mode": "detail",
+            "nodes": node_dicts,
+        }
+
     def _serialize_payload(self, node_ids: list[str], batch_num: int) -> str:
         """Serialize the batch payload for LLM consumption.
 
-        Output is the exact string passed to provider.complete() — also used
-        by _maybe_split to estimate token cost, ensuring split decisions
-        match real prompt size.
+        Output is the exact string passed to provider.complete(). Internally
+        delegates to `_build_payload` so structure is defined in one place.
         """
-        if self._context_mode == "minimal":
-            payload = {
-                "batch": batch_num,
-                "context_mode": "minimal",
-                "nodes": node_ids,
-            }
-        else:  # "detail"
-            node_dicts: list[dict] = []
-            for nid in node_ids:
-                node = self._node_lookup.get(nid)
-                if node is None:
-                    # 未知 node_id：靜默跳過（與既有 minimal 行為一致 —
-                    # PruningEngine 與 batch_assignment 可能提供 unknown ID）
-                    continue
-                node_dicts.append({
-                    "node_id": node.node_id,
-                    "type": node.type,
-                    "name": node.name,
-                    "file": node.file,
-                    "language": node.language,
-                    "parameters": list(node.parameters),
-                    "return_type": node.return_type,
-                    "decorators": list(node.decorators),
-                    "docstring": node.docstring,
-                    "comments": list(node.comments),
-                })
-            payload = {
-                "batch": batch_num,
-                "context_mode": "detail",
-                "nodes": node_dicts,
-            }
-        return json.dumps(payload, ensure_ascii=False)
+        return json.dumps(self._build_payload(node_ids, batch_num), ensure_ascii=False)
 ```
 
-**4c. Change `_process_batch` to use helper:**
+**4c. Change `_process_batch` to use helper AND keep the serialized string for token reuse:**
 
 Replace the current prompt assembly:
 
@@ -328,6 +334,20 @@ prompt = json.dumps({
 # AFTER:
 prompt = self._serialize_payload(node_ids, batch_num)
 ```
+
+And modify `_process_batch` to **return** the prompt string alongside its existing return value so `read()` can do token accounting without re-serializing. Specifically, change the signature:
+
+```python
+async def _process_batch(
+    self, node_ids: list[str], batch_num: int,
+) -> tuple[list[Feature], list[FeatureRelation], list[str], list[str], str]:
+    prompt = self._serialize_payload(node_ids, batch_num)
+    response = await self._provider.complete(prompt, system_prompt=L1_SYSTEM_PROMPT)
+    # ... existing parsing logic unchanged ...
+    return features, relations, unclassified, infrastructure, prompt
+```
+
+Callers (only `read()`) destructure the extra tuple element.
 
 **4d. Change `_maybe_split` to use helper for size estimation:**
 
@@ -343,19 +363,27 @@ payload_text = self._serialize_payload(node_ids, batch_num=0)
 estimated_tokens = self._provider.estimate_tokens(payload_text)
 ```
 
-`batch_num=0` is a placeholder for size estimation; it doesn't affect serialized length materially.
+`batch_num=0` 是大小估算的 placeholder — `batch_num` 對 JSON 長度影響只有 1-3 bytes（單一整數欄位），可忽略；但仍走 `_serialize_payload` 確保 minimal/detail 兩模式的估算路徑一致。
+
+> 此處接受 `_maybe_split` 中一次序列化（為了估算大小無可避免）。**該批次後續真正執行時 `_process_batch` 會再序列化一次** — 這 1 次重複不可消除，但避免了 spec 警告的「同批序列化多次」反模式：每批最多 2 次（split 估算 + 實送）。
 
 **4e. Update the token accounting line in `read()`:**
 
-Locate `total_tokens += self._provider.estimate_tokens(json.dumps([n for n in sub_nodes]))` and replace with:
+Locate `total_tokens += self._provider.estimate_tokens(json.dumps([n for n in sub_nodes]))` and replace with code that uses the prompt string already returned from `_process_batch`:
 
 ```python
-total_tokens += self._provider.estimate_tokens(
-    self._serialize_payload(sub_nodes, batch_num=batch_num)
-)
+# BEFORE (in read() loop body):
+features, relations, unclassified, infrastructure = await self._process_batch(sub_nodes, batch_num)
+# ...
+total_tokens += self._provider.estimate_tokens(json.dumps([n for n in sub_nodes]))
+
+# AFTER:
+features, relations, unclassified, infrastructure, prompt_str = await self._process_batch(sub_nodes, batch_num)
+# ...
+total_tokens += self._provider.estimate_tokens(prompt_str)
 ```
 
-This ensures token accounting reflects the real payload sent.
+Token accounting now reflects the **exact** payload sent to LLM and **does not re-serialize**.
 
 - [ ] **Step 5: Run new tests to verify they pass**
 

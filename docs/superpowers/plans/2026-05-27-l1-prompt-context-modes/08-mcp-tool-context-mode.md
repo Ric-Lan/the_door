@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `analyze_tool` MCP tool 的 input schema 新增 optional `context_mode` 欄位，enum 為 `["detail", "minimal"]`，預設 `"detail"`。把該值轉發給 `PipelineOrchestrator`。`extract_structure` MCP tool **不受影響**（它不呼叫 LLM）。
+**Goal:** `analyze_tool` MCP tool 的 input schema 新增 optional `context_mode` 欄位，enum `["detail", "minimal"]`，預設 `"detail"`。把該值直接傳給 `BatchReader` 建構子。`extract_structure` MCP tool **不受影響**（它不呼叫 LLM）。
 
-**Architecture:** MCP tool 接受新欄位，做 enum 驗證後傳給 orchestrator。沒指定欄位的舊 caller 自動拿到 `"detail"`，向後相容。
+**Architecture:** `analyze_tool.py` 在 line 51 直接建構 `BatchReader(llm_provider=..., structure=...)` — 不經 `PipelineOrchestrator`。本任務在該處讀取輸入字典的 `context_mode` 並作為 kwarg 傳入。沒指定 = `"detail"`，向後相容。
 
 **Tech Stack:** Python 3.11+, jsonschema-style input schema, pytest, pytest-asyncio.
 
@@ -14,20 +14,20 @@
 
 ## Background（自含）
 
-`analyze_tool` MCP tool 位於 `the_door/src/the_door/mcp/tools/analyze_tool.py`。它將 MCP 請求轉成 `PipelineOrchestrator` 呼叫並回傳結果。`PipelineOrchestrator` 在前置任務已接受 `context_mode: Literal["detail", "minimal"]` kwarg。
+`analyze_tool` MCP tool 位於 `the_door/src/the_door/mcp/tools/analyze_tool.py`。實際程式碼（前置 grep 驗證）：
 
-MCP tool 通常有一個 `TOOL_SCHEMA` 或類似 dict 宣告 input 形狀（jsonschema-flavored）。本任務在其中加入：
-
-```json
-{
-  "type": "string",
-  "enum": ["detail", "minimal"],
-  "default": "detail",
-  "description": "..."
-}
+```python
+# analyze_tool.py:51
+reader = BatchReader(llm_provider=llm_provider, structure=structure)
 ```
 
-並在 handler 函式（例如 `handle(...)`、`run(...)` 或 `__call__`）內讀取此值傳給 orchestrator。
+**重要事實**：analyze_tool **沒有**透過 `PipelineOrchestrator` 建構 `BatchReader` — 它直接 `import BatchReader` 並 instantiate。因此測試應 patch 的對象是 `BatchReader`（在 analyze_tool 模組命名空間內），不是 `PipelineOrchestrator`。
+
+`BatchReader` 已在前置任務支援 `context_mode: Literal["detail", "minimal"]`，預設 `"detail"`，非法值在 `__init__` raise `ValueError`。
+
+MCP tool 通常有：
+- `TOOL_SCHEMA`（或類似命名）：jsonschema 風格 input shape
+- handler 函式（例如 `handle(input_dict)`、`run(...)` 或 module-level function）
 
 **spec §5.3 明確規定**：`extract_structure` MCP tool **不受本任務影響** — 它只做結構抽取，不呼叫 LLM。
 
@@ -46,11 +46,14 @@ MCP tool 通常有一個 `TOOL_SCHEMA` 或類似 dict 宣告 input 形狀（json
 
 - [ ] **Step 1: Read current analyze_tool.py**
 
-Open `the_door/src/the_door/mcp/tools/analyze_tool.py` and locate:
-- `TOOL_SCHEMA` (or equivalent input schema dict)
-- Handler function（接收解析後的 input，建立 orchestrator 並執行）
+Run: `grep -n "^def \|^class \|TOOL_SCHEMA\|BatchReader" the_door/src/the_door/mcp/tools/analyze_tool.py`
 
-Record handler function signature and the orchestrator-construction call site. This informs Step 4.
+Record:
+1. Module-level constants (e.g. `TOOL_SCHEMA` or alternative name)
+2. Handler function name (e.g. `handle`, `run`, `analyze`, `__call__`)
+3. BatchReader construction call site (already confirmed at line 51 area)
+
+調整 Step 2 / Step 4 的測試 patch path 與 handler 呼叫名為實際名稱。
 
 ### Step 2 — Write failing tests
 
@@ -92,29 +95,52 @@ class TestToolSchema:
         assert "context_mode" not in required
 
 
-class TestHandlerForwarding:
-    def test_handler_passes_context_mode_to_orchestrator(self):
-        with patch("the_door.mcp.tools.analyze_tool.PipelineOrchestrator") as MockOrch:
-            instance = MockOrch.return_value
-            instance.run = MagicMock(return_value={"ok": True})
+def _stub_extraction_dependencies(monkeypatch):
+    """讓 handler 能跑到 BatchReader 建構點而不需真實 LLM / extraction。"""
+    monkeypatch.setattr(
+        analyze_tool, "ASTExtractor",
+        lambda: MagicMock(extract=MagicMock(return_value=MagicMock(
+            files=[], nodes=[], edges=[],
+        ))),
+        raising=False,
+    )
+    # 視 analyze_tool 實際 import 名稱微調以下 names
+    monkeypatch.setattr(
+        analyze_tool, "create_provider",
+        lambda *a, **kw: MagicMock(),
+        raising=False,
+    )
+
+
+class TestHandlerForwardsToBatchReader:
+    def test_handler_passes_minimal_when_input_says_minimal(self, monkeypatch):
+        _stub_extraction_dependencies(monkeypatch)
+        # Patch BatchReader 在 analyze_tool 命名空間
+        with patch.object(analyze_tool, "BatchReader") as MockBR:
+            mock_reader = MockBR.return_value
+            mock_reader.read = MagicMock(return_value=MagicMock(
+                l1_output=MagicMock(features=[], feature_relations=[],
+                                    unclassified_nodes=[], infrastructure_nodes=[]),
+            ))
             analyze_tool.handle({
                 "codebase_path": "./fixture",
                 "context_mode": "minimal",
             })
-            kwargs = MockOrch.call_args.kwargs
-            assert kwargs.get("context_mode") == "minimal"
+            assert MockBR.call_args.kwargs.get("context_mode") == "minimal"
 
-    def test_handler_defaults_to_detail_when_absent(self):
-        with patch("the_door.mcp.tools.analyze_tool.PipelineOrchestrator") as MockOrch:
-            instance = MockOrch.return_value
-            instance.run = MagicMock(return_value={"ok": True})
-            analyze_tool.handle({
-                "codebase_path": "./fixture",
-            })
-            kwargs = MockOrch.call_args.kwargs
-            assert kwargs.get("context_mode") == "detail"
+    def test_handler_defaults_to_detail_when_field_absent(self, monkeypatch):
+        _stub_extraction_dependencies(monkeypatch)
+        with patch.object(analyze_tool, "BatchReader") as MockBR:
+            mock_reader = MockBR.return_value
+            mock_reader.read = MagicMock(return_value=MagicMock(
+                l1_output=MagicMock(features=[], feature_relations=[],
+                                    unclassified_nodes=[], infrastructure_nodes=[]),
+            ))
+            analyze_tool.handle({"codebase_path": "./fixture"})
+            assert MockBR.call_args.kwargs.get("context_mode") == "detail"
 
-    def test_handler_rejects_invalid_context_mode(self):
+    def test_handler_rejects_invalid_context_mode(self, monkeypatch):
+        _stub_extraction_dependencies(monkeypatch)
         with pytest.raises((ValueError, Exception)):
             analyze_tool.handle({
                 "codebase_path": "./fixture",
@@ -122,12 +148,12 @@ class TestHandlerForwarding:
             })
 ```
 
-> **Note**: 上述測試假設 handler 名為 `handle(input_dict)`。實際 codebase 可能用 `run(...)` 或 `__call__(...)`；以實際介面對齊測試。
+> **注意**：上述測試假設 handler 名為 `handle(input_dict)`。Step 1 確認實際名後對齊。`_stub_extraction_dependencies` 中的 attribute name（`ASTExtractor`、`create_provider`）也以 analyze_tool 實際 import 命名為準；若該函式 lazy-import，需相應改變 patch path。
 
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `pytest the_door/tests/unit/mcp/tools/test_analyze_tool_context_mode.py -v`
-Expected: FAIL — schema 欠 context_mode 欄位、handler 未轉發。
+Expected: FAIL — schema 缺欄位、handler 未轉發。
 
 ### Step 3 — Implement schema + handler changes
 
@@ -152,20 +178,19 @@ TOOL_SCHEMA = {
             ),
         },
     },
-    # context_mode 不加進 required；舊 caller 自動 default detail
-    "required": [  # 既有 required 不變
+    "required": [  # 既有 required 不變，不加 context_mode
         # ...
     ],
 }
 ```
 
-- [ ] **Step 5: Update handler to read & forward context_mode**
+- [ ] **Step 5: Update handler to read & forward context_mode to BatchReader**
 
-In the handler function (e.g. `handle(input_dict)`):
+In the handler function（從 Step 1 確認的實際名）找到 BatchReader 建構點 (~line 51)。改為：
 
 ```python
 def handle(input_dict):
-    # ... existing validation / param extraction ...
+    # ... existing input parsing / setup ...
 
     context_mode = input_dict.get("context_mode", "detail")
     if context_mode not in ("detail", "minimal"):
@@ -173,21 +198,24 @@ def handle(input_dict):
             f"context_mode must be 'detail' or 'minimal', got {context_mode!r}"
         )
 
-    orchestrator = PipelineOrchestrator(
-        # ... existing kwargs ...
+    # ... existing extraction / structure build ...
+
+    reader = BatchReader(
+        llm_provider=llm_provider,
+        structure=structure,
         context_mode=context_mode,
     )
-    return orchestrator.run(...)
+    # ... existing reader.read() call ...
 ```
 
-> **Important**: 即使 orchestrator 自己也驗證 context_mode，handler 在 MCP 邊界做 explicit 驗證有兩個價值：(1) 錯誤訊息對 MCP caller 更直接；(2) schema 驗證失靈時仍能擋住非法值。**不要把驗證委派給 orchestrator 而省略此處**。
+> **Why explicit validation here**：即使 `BatchReader.__init__` 也驗證 context_mode，在 MCP 邊界做 explicit check 給 caller 更直接的錯誤訊息，並在 schema 驗證失靈時擋住非法值。違反 DRY 但安全性與可診斷性的權衡接受。
 
 - [ ] **Step 6: Run tests**
 
 Run: `pytest the_door/tests/unit/mcp/tools/test_analyze_tool_context_mode.py -v`
 Expected: ALL PASS.
 
-如某 mock patch 路徑不正確（`PipelineOrchestrator` 在 analyze_tool.py 內可能是 `from ... import as` 不同 path），就地修正 patch target。
+如某些 mock patch path 不正確（例如 `create_provider` 在 analyze_tool 內以不同名稱 import），就地修正 patch path（不改實作）。
 
 - [ ] **Step 7: Coverage check**
 
@@ -196,26 +224,24 @@ Expected: 本任務修改範圍 100% line coverage（含 `context_mode = input_d
 
 - [ ] **Step 8: Verify extract_structure unchanged**
 
-Run: `git diff the_door/src/the_door/mcp/tools/extract_structure_tool.py`
-Expected: 無變動（spec §5.3 規定）。
-
-如該檔不存在或叫不同名字，跳過此步。
+Run: `git diff the_door/src/the_door/mcp/tools/extract_structure_tool.py 2>/dev/null`（如該檔不存在 git diff 會無輸出，跳過此步）
+Expected: 無變動。
 
 - [ ] **Step 9: Full regression**
 
 Run: `pytest the_door/tests/ -x -q`
 Expected: 無新 failure。
 
-- [ ] **Step 10: Manual MCP smoke test (optional but recommended)**
+- [ ] **Step 10: Manual MCP smoke test (optional)**
 
 啟動 MCP server（背景）：
-```
+```bash
 the-door mcp-serve &
 ```
 
-用 MCP client 或 curl 送一個 `tools/call analyze_tool` 請求，帶 `"context_mode": "minimal"`，確認被接受。完成後 `kill %1` 終止 background server。
+用 MCP client 或 curl 送一個 `tools/call analyze_tool` 請求，帶 `"context_mode": "minimal"`，確認接受。完成後 `kill %1` 終止 background server。
 
-> 此步無 CI 替代，純人工驗證。若環境無法跑 MCP server，可跳過。
+> 純人工驗證。若環境無法跑 MCP server，可跳過。
 
 - [ ] **Step 11: Commit**
 
@@ -224,9 +250,9 @@ git add the_door/src/the_door/mcp/tools/analyze_tool.py the_door/tests/unit/mcp/
 git commit -m "feat(mcp): analyze_tool accepts optional context_mode input
 
 Default 'detail' for new richer-context behavior; 'minimal' opts out to
-node_id-only legacy mode. Schema-level enum validation + explicit handler
-validation at the MCP boundary. extract_structure tool unaffected
-(it does not invoke LLM)."
+node_id-only legacy mode. Forwarded directly to BatchReader (analyze_tool
+does not use PipelineOrchestrator). Schema-level enum + explicit handler
+validation at MCP boundary. extract_structure tool unaffected."
 ```
 
 ---
@@ -234,12 +260,13 @@ validation at the MCP boundary. extract_structure tool unaffected
 ## Acceptance Criteria
 
 - [ ] `analyze_tool.TOOL_SCHEMA.properties.context_mode` 存在
-- [ ] enum 為 `["detail", "minimal"]`
-- [ ] default 為 `"detail"`
+- [ ] enum = `["detail", "minimal"]`
+- [ ] default = `"detail"`
 - [ ] 不在 `required` 清單（向後相容）
 - [ ] Handler 在 input dict 缺 `context_mode` 時用 `"detail"`
-- [ ] Handler 收到非法 `context_mode` 值時 raise（不靜默通過給 orchestrator）
-- [ ] Handler 把 `context_mode` 傳給 `PipelineOrchestrator` 建構式
+- [ ] Handler 收到非法 `context_mode` 值時 raise（不靜默通過給 BatchReader）
+- [ ] Handler 把 `context_mode` 作為 kwarg 傳給 `BatchReader(...)` 建構子
+- [ ] **未引入** `PipelineOrchestrator` mock / patch — 因為 analyze_tool 不經 orchestrator
 - [ ] `extract_structure` MCP tool 未變動
 - [ ] 本任務修改範圍 100% line coverage
 - [ ] `pytest the_door/tests/` 無新增 failure

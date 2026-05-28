@@ -69,13 +69,37 @@ from the_door.core.extraction.node_builder import NodeBuilder
 
 
 def _parse(source: bytes, language: str):
-    """Parse source with the given language. Returns (tree, root_node)."""
-    # Use the same Language loading pattern as ast_extractor.py.
-    # Implementations may use tree_sitter_languages or similar; adapt as needed.
-    import tree_sitter_languages
+    """Parse source with the given language. Returns (tree, root_node).
+
+    Uses the same per-language tree_sitter_<lang> packages as
+    ``the_door/src/the_door/core/extraction/ast_extractor.py``. Do NOT
+    import ``tree_sitter_languages`` — The Door does not depend on it.
+    """
     parser = Parser()
-    lang_obj = tree_sitter_languages.get_language(language)
-    parser.set_language(lang_obj)
+    if language == "rust":
+        import tree_sitter_rust
+        lang_obj = Language(tree_sitter_rust.language())
+    elif language == "python":
+        import tree_sitter_python
+        lang_obj = Language(tree_sitter_python.language())
+    elif language == "java":
+        import tree_sitter_java
+        lang_obj = Language(tree_sitter_java.language())
+    elif language == "go":
+        import tree_sitter_go
+        lang_obj = Language(tree_sitter_go.language())
+    elif language == "ruby":
+        import tree_sitter_ruby
+        lang_obj = Language(tree_sitter_ruby.language())
+    elif language == "php":
+        import tree_sitter_php
+        lang_obj = Language(tree_sitter_php.language_php())
+    elif language == "csharp":
+        import tree_sitter_c_sharp
+        lang_obj = Language(tree_sitter_c_sharp.language())
+    else:
+        raise ValueError(f"unsupported language for parse helper: {language!r}")
+    parser.language = lang_obj
     tree = parser.parse(source)
     return tree, tree.root_node
 
@@ -317,8 +341,9 @@ Open `the_door/src/the_door/core/extraction/node_builder.py`. In the `NodeBuilde
                     result.insert(0, text)  # preserve source order
                 sibling = sibling.prev_sibling
                 continue
-            # Stop at the first non-decorator / non-whitespace sibling.
-            if sibling.type.strip() and sibling.type not in ("comment", "line_comment", "block_comment"):
+            # Stop at the first non-decorator / non-comment sibling.
+            # tree-sitter 節點型別名永遠沒有前後空白，不需要 .strip() 防呆。
+            if sibling.type not in ("comment", "line_comment", "block_comment"):
                 break
             sibling = sibling.prev_sibling
 

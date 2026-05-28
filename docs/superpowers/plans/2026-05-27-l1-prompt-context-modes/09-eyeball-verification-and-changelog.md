@@ -62,43 +62,61 @@ Confirm `C:\Users\Ric\Desktop\test-targets\the-door-v105` 存在，且該專案�
 
 ### Step 3 — Run detail vs minimal analysis
 
-- [ ] **Step 4: Analyze test-target (Python codebase) in detail mode**
+> **Labelling strategy（修正自前版幻覺）**：The Door 的 `analyze` CLI **沒有 `--label` flag**（已 grep 確認）。Snapshot label 來自 git tag（auto-snapshot creation in `analyze_pipeline.py:_create_auto_snapshot`）。本驗證採「複製 test target 到分隔目錄、每個目錄各跑一次」的策略，用目錄名區別兩次分析的 snapshot；不依賴 CLI labelling flag。
+
+- [ ] **Step 4: Prepare two isolated copies of each test target**
 
 ```bash
-the-door analyze "C:\Users\Ric\Desktop\test-targets\the-door-v105" \
-  --label v122-detail
+# Python 測試標的（v105 v1.2.2）
+cp -r "C:\Users\Ric\Desktop\test-targets\the-door-v105" \
+      "C:\Users\Ric\Desktop\test-targets\v105-detail"
+cp -r "C:\Users\Ric\Desktop\test-targets\the-door-v105" \
+      "C:\Users\Ric\Desktop\test-targets\v105-minimal"
+
+# Multilang fixture（先複製到 /tmp 或專用目錄，避開 repo 內 .the-door/ 互相干擾）
+cp -r "<repo-root>/the_door/tests/fixtures/multilang" \
+      "C:\Users\Ric\Desktop\test-targets\multilang-detail"
+cp -r "<repo-root>/the_door/tests/fixtures/multilang" \
+      "C:\Users\Ric\Desktop\test-targets\multilang-minimal"
 ```
+
+每個目錄產生獨立的 `.the-door/snapshots/`，互不干擾。
 
 > 注意：本任務需要 API key 來實際呼叫 LLM。如無 API key，跳到 Step 9 的 agent-as-LLM 替代路徑。
 
-預期輸出包含「Wrote snapshot ... labeled v122-detail」。
-
-- [ ] **Step 5: Analyze same test-target in minimal mode**
+- [ ] **Step 5: Analyze Python test-target — detail mode (default)**
 
 ```bash
-the-door analyze "C:\Users\Ric\Desktop\test-targets\the-door-v105" \
-  --minimal-context --label v122-minimal
+the-door analyze "C:\Users\Ric\Desktop\test-targets\v105-detail"
 ```
 
-預期輸出同樣完成；token 用量可比較。
+預期輸出含「Wrote snapshot ...」。記錄回傳的 `version_id`（或 snapshot 對應的 git tag / label）作為 detail 組識別碼。
 
-- [ ] **Step 6: Analyze multilang fixture in detail mode**
+- [ ] **Step 6: Analyze same test-target — minimal mode**
 
 ```bash
-the-door analyze "<repo-root>/the_door/tests/fixtures/multilang" \
-  --label multilang-detail
+the-door analyze "C:\Users\Ric\Desktop\test-targets\v105-minimal" \
+  --minimal-context
 ```
 
-- [ ] **Step 7: Analyze multilang fixture in minimal mode**
+預期完成；token 用量可從 stderr progress 訊息對比。
+
+- [ ] **Step 7: Analyze multilang fixture — detail mode**
 
 ```bash
-the-door analyze "<repo-root>/the_door/tests/fixtures/multilang" \
-  --minimal-context --label multilang-minimal
+the-door analyze "C:\Users\Ric\Desktop\test-targets\multilang-detail"
+```
+
+- [ ] **Step 8: Analyze multilang fixture — minimal mode**
+
+```bash
+the-door analyze "C:\Users\Ric\Desktop\test-targets\multilang-minimal" \
+  --minimal-context
 ```
 
 ### Step 4 — Score the outputs
 
-- [ ] **Step 8: Score 10 feature descriptions per mode**
+- [ ] **Step 9: Score 10 feature descriptions per mode**
 
 對每組（python-detail / python-minimal / multilang-detail / multilang-minimal）開啟 viewer：
 
@@ -122,17 +140,17 @@ the-door ui "C:\Users\Ric\Desktop\test-targets\the-door-v105"  # 端口預設 87
 
 把計分結果寫進 `docs/superpowers/plans/2026-05-27-l1-prompt-context-modes/09-verification-log.md`。
 
-- [ ] **Step 9: 若無 API key，用 agent-as-LLM 替代路徑**
+- [ ] **Step 10: 若無 API key，用 agent-as-LLM 替代路徑**
 
-如 step 4-7 因無 API key 失敗，改走 MCP agent-as-LLM 流程（見專案根目錄 CLAUDE.md「Agent-as-LLM chain」）：
+如 step 5-8 因無 API key 失敗，改走 MCP agent-as-LLM 流程（見專案根目錄 CLAUDE.md「Agent-as-LLM chain」）：
 
-對每個目錄跑 `extract_structure` MCP tool 取得 nodes，由執行此任務的 agent 親自產 L1 features 兩次（一次「假裝只看 node_id」、一次「使用完整 node 詳情」），用 `snapshot_write` 寫入兩個版本，再進行 Step 8 計分。
+對每個目錄跑 `extract_structure` MCP tool 取得 nodes，由執行此任務的 agent 親自產 L1 features 兩次（一次「假裝只看 node_id」、一次「使用完整 node 詳情」），用 `snapshot_write` 寫入兩個版本，再進行 Step 9 計分。
 
 > 此路徑不驗證實際 LLM 行為差異，只驗證「程式管線在兩種模式下都跑得通且產出形式正確」。完整品質驗證仍以有 API key 跑 Step 4-7 為主。
 
 ### Step 5 — Document verification result
 
-- [ ] **Step 10: Write verification log**
+- [ ] **Step 11: Write verification log**
 
 Create `docs/superpowers/plans/2026-05-27-l1-prompt-context-modes/09-verification-log.md`：
 
@@ -173,15 +191,15 @@ Verdict: detail ≤ minimal? [yes / no]
 
 填入實際數字後 commit 此檔。
 
-- [ ] **Step 11: Decision gate**
+- [ ] **Step 12: Decision gate**
 
-如果驗證結果 detail > minimal（即 detail 模式違規數更高），代表 spec §4.2 規則 5（禁止 docstring passthrough）未生效或 prompt 規則不夠強。**不要 ship**。回到 Task 05 強化 prompt 規則，再重跑 Step 4-10。
+如果驗證結果 detail > minimal（即 detail 模式違規數更高），代表 spec §4.2 規則 5（禁止 docstring passthrough）未生效或 prompt 規則不夠強。**不要 ship**。回到 Task 05 強化 prompt 規則，再重跑 Step 5-11。
 
-如果驗證結果 detail ≤ minimal，繼續 Step 12。
+如果驗證結果 detail ≤ minimal，繼續 Step 13。
 
 ### Step 6 — Update CHANGELOG and README
 
-- [ ] **Step 12: Update CHANGELOG.md**
+- [ ] **Step 13: Update CHANGELOG.md**
 
 Open `CHANGELOG.md` at repo root (or `the_door/CHANGELOG.md` if it lives under the package). Add a new entry at the top:
 
@@ -215,7 +233,7 @@ Open `CHANGELOG.md` at repo root (or `the_door/CHANGELOG.md` if it lives under t
 
 填入實際 release 日期（commit 當天）。
 
-- [ ] **Step 13: Update README.md**
+- [ ] **Step 14: Update README.md**
 
 如 `README.md` 或 `the_door/README.md` 有列 CLI flag 範例，加入 `--minimal-context` 範例。例如：
 
@@ -232,7 +250,7 @@ Open `CHANGELOG.md` at repo root (or `the_door/CHANGELOG.md` if it lives under t
 
 如 README 沒有 CLI flag 清單，本步驟可略過（CHANGELOG 已是 release notes）。
 
-- [ ] **Step 14: Update CLAUDE.md（如有跨檔說明）**
+- [ ] **Step 15: Update CLAUDE.md（如有跨檔說明）**
 
 確認 repo 根 `CLAUDE.md` 的 「Commands & MCP tool reference」表格中，`the-door analyze` / `the-door update` 不需強制更動 — 兩者皆向後相容。如有「指令選項」段落提及 flag 清單，新增 `--minimal-context` 一行。
 
@@ -240,12 +258,12 @@ Open `CHANGELOG.md` at repo root (or `the_door/CHANGELOG.md` if it lives under t
 
 ### Step 7 — Final commit
 
-- [ ] **Step 15: Run full test suite one last time**
+- [ ] **Step 16: Run full test suite one last time**
 
 Run: `pytest the_door/tests/ -q`
 Expected: 全綠。
 
-- [ ] **Step 16: Commit verification log + docs**
+- [ ] **Step 17: Commit verification log + docs**
 
 ```bash
 git add docs/superpowers/plans/2026-05-27-l1-prompt-context-modes/09-verification-log.md CHANGELOG.md README.md CLAUDE.md
