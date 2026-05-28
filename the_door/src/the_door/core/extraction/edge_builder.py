@@ -175,13 +175,79 @@ class EdgeBuilder:
 
     def _parse_es_module_imports(self, root: TSNode, source_bytes: bytes) -> dict[str, str]:
         """TypeScript/JS ES6: import { name as alias } from '...' → {alias: name}."""
-        # Implemented in Task 03
-        return {}
+        aliases: dict[str, str] = {}
+        self._walk_es_module_imports(root, source_bytes, aliases)
+        return aliases
+
+    def _walk_es_module_imports(
+        self, node: TSNode, source_bytes: bytes, aliases: dict[str, str]
+    ) -> None:
+        if node.type == "import_statement":
+            for child in node.children:
+                if child.type == "import_clause":
+                    self._extract_es_import_clause(child, aliases)
+        for child in node.children:
+            self._walk_es_module_imports(child, source_bytes, aliases)
+
+    def _extract_es_import_clause(self, clause: TSNode, aliases: dict[str, str]) -> None:
+        for child in clause.children:
+            if child.type == "identifier":
+                # Default import: import Foo from '...'
+                name = child.text.decode("utf-8", errors="replace")
+                aliases[name] = name
+            elif child.type == "named_imports":
+                for spec in child.children:
+                    if spec.type == "import_specifier":
+                        self._extract_es_import_specifier(spec, aliases)
+
+    def _extract_es_import_specifier(self, spec: TSNode, aliases: dict[str, str]) -> None:
+        identifiers = [
+            c.text.decode("utf-8", errors="replace")
+            for c in spec.children
+            if c.type == "identifier"
+        ]
+        if len(identifiers) == 1:
+            # import { name } — no alias
+            aliases[identifiers[0]] = identifiers[0]
+        elif len(identifiers) >= 2:
+            # import { name as alias } — first is original, last is alias
+            aliases[identifiers[-1]] = identifiers[0]
 
     def _parse_namespaced_imports(self, root: TSNode, source_bytes: bytes) -> dict[str, str]:
-        """Java/PHP/C#: import/use statements → {alias: name}."""
-        # Implemented in Task 03 (Java) and Task 05 (PHP/C#)
-        return {}
+        """Java/PHP/C# namespaced imports → {alias: simple_name}.
+
+        Java: import com.example.Foo → {"Foo": "Foo"}
+        PHP/C#: filled in Task 05
+        """
+        aliases: dict[str, str] = {}
+        self._walk_namespaced_imports(root, source_bytes, aliases)
+        return aliases
+
+    def _walk_namespaced_imports(
+        self, node: TSNode, source_bytes: bytes, aliases: dict[str, str]
+    ) -> None:
+        # Java: import_declaration
+        if node.type == "import_declaration":
+            last_name = self._extract_last_qualified_name(node)
+            if last_name:
+                aliases[last_name] = last_name
+        # PHP: use_declaration (handled in Task 05 by extending this method)
+        # C#: using_directive (handled in Task 05)
+        for child in node.children:
+            self._walk_namespaced_imports(child, source_bytes, aliases)
+
+    def _extract_last_qualified_name(self, node: TSNode) -> str | None:
+        """Return the last identifier from a dotted/scoped name (e.g. com.example.Foo → Foo)."""
+        text = node.text.decode("utf-8", errors="replace") if node.text else ""
+        # Strip 'import' / 'static' keywords and semicolons
+        parts = text.replace(";", "").strip().split()
+        for part in reversed(parts):
+            if part not in ("import", "static", "use", "using"):
+                segments = part.replace("::", ".").split(".")
+                last = segments[-1].strip()
+                if last and last.isidentifier():
+                    return last
+        return None
 
     def _parse_module_path_imports(self, root: TSNode, source_bytes: bytes) -> dict[str, str]:
         """Go/Rust: use/import path statements → {last_segment: last_segment}."""
@@ -429,15 +495,16 @@ class EdgeBuilder:
 
     def _collect_call_names(self, node: TSNode) -> set[str]:
         names: set[str] = set()
-        if node.type == "call":
+        # Python: call node; TypeScript/JS: call_expression node
+        if node.type in ("call", "call_expression"):
             func_node = node.children[0] if node.children else None
             if func_node:
                 if func_node.type == "identifier":
                     names.add(func_node.text.decode("utf-8", errors="replace"))
-                elif func_node.type == "attribute":
+                elif func_node.type in ("attribute", "member_expression"):
                     last_id = ""
                     for child in func_node.children:
-                        if child.type == "identifier":
+                        if child.type in ("identifier", "property_identifier"):
                             last_id = child.text.decode("utf-8", errors="replace")
                     if last_id:
                         names.add(last_id)

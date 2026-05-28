@@ -98,6 +98,32 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
             dynamic_markers=frozenset({"__getattr__", "getattr"}),
         ),
     ),
+    "typescript": LanguageConfig(
+        function_types=frozenset({"function_declaration"}),
+        method_types=frozenset({"method_definition"}),
+        class_types=frozenset({"class_declaration"}),
+        decorator_types=frozenset({"decorator"}),
+        scope_rules=ScopeRules(
+            import_resolution="es_module",
+            function_resolution="file_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset({"any_typed_call"}),
+        ),
+    ),
+    "javascript": LanguageConfig(
+        function_types=frozenset({"function_declaration"}),
+        method_types=frozenset({"method_definition"}),
+        class_types=frozenset({"class_declaration"}),
+        decorator_types=frozenset({"decorator"}),
+        scope_rules=ScopeRules(
+            import_resolution="es_module",
+            function_resolution="file_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset(),
+        ),
+    ),
     "java": LanguageConfig(
         function_types=frozenset(),
         method_types=frozenset({"method_declaration", "constructor_declaration"}),
@@ -108,6 +134,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         doc_comment_types=frozenset({"block_comment"}),
         doc_comment_markers=frozenset(),
         decorator_types=frozenset({"annotation", "marker_annotation"}),
+        scope_rules=ScopeRules(
+            import_resolution="namespaced",
+            function_resolution="package_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="single",
+            dynamic_markers=frozenset({"reflection_invoke"}),
+        ),
     ),
     "go": LanguageConfig(
         function_types=frozenset({"function_declaration"}),
