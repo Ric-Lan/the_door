@@ -9,6 +9,37 @@ full citation table.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+ImportStrategy = Literal["qualified", "namespaced", "module_path", "es_module"]
+FunctionStrategy = Literal["file_local_then_imports", "package_local_then_imports", "global"]
+MethodStrategy = Literal["class_local_then_inherited", "structural", "trait_dispatch", "dynamic_dispatch"]
+InheritanceStrategy = Literal["single", "multiple", "mixin", "interface_only"]
+
+
+@dataclass(frozen=True)
+class ScopeRules:
+    """Language-specific scope resolution rules for edge building."""
+
+    import_resolution: ImportStrategy
+    function_resolution: FunctionStrategy
+    method_resolution: MethodStrategy
+    inheritance_resolution: InheritanceStrategy
+    dynamic_markers: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass
+class ScopeContext:
+    """Runtime context passed to edge resolution logic."""
+
+    current_file: str
+    import_aliases: dict[str, str]
+    caller_class: str | None
+    caller_name: str = ""
+
+    def has_dynamic_marker(self, markers: frozenset[str]) -> bool:
+        """Return True if caller_name is in the given dynamic markers set."""
+        return bool(markers) and self.caller_name in markers
 
 
 @dataclass(frozen=True)
@@ -49,8 +80,17 @@ class LanguageConfig:
     輸出寫入 ASTNode.decorators（與 Python/TS walker 行為對齊）。
     e.g. Rust {"attribute_item"}、Java {"annotation", "marker_annotation"}。"""
 
+    scope_rules: "ScopeRules | None" = None
+    """Language-specific scope resolution rules. None = not yet configured."""
+
 
 LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
+    "python": LanguageConfig(
+        function_types=frozenset({"function_definition"}),
+        method_types=frozenset({"function_definition"}),
+        class_types=frozenset({"class_definition"}),
+        decorator_types=frozenset({"decorator"}),
+    ),
     "java": LanguageConfig(
         function_types=frozenset(),
         method_types=frozenset({"method_declaration", "constructor_declaration"}),

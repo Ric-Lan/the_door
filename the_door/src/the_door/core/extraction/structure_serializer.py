@@ -40,7 +40,7 @@ def build_structure_dict(
             for n in structure.nodes
         ],
         "edges": [
-            {"from": e.from_node, "to": e.to_node, "type": e.type}
+            {"from": e.from_node, "to": e.to_node, "type": e.type, "resolution": e.resolution}
             for e in structure.edges
         ],
         "topology": [
@@ -93,7 +93,7 @@ def parse_structure_dict(data: dict) -> StructureJSON:
         for n in data["nodes"]
     ]
     edges = [
-        Edge(from_node=e["from"], to_node=e["to"], type=e["type"])
+        Edge(from_node=e["from"], to_node=e["to"], type=e["type"], resolution=e.get("resolution", "name_match"))
         for e in data["edges"]
     ]
     topology = [

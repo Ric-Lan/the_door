@@ -125,6 +125,7 @@ class TestBuildStructureDict:
             "from": "src/a.py::Greeter",
             "to": "src/a.py::Greeter::hello",
             "type": "contains",
+            "resolution": "name_match",
         }
         assert d["topology"][0]["is_entry_point"] is True
         assert d["vulnerabilities"] == []

@@ -38,6 +38,7 @@ class Edge:
     from_node: str  # node_id
     to_node: str  # node_id
     type: str  # "calls" | "imports" | "extends" | "implements"
+    resolution: str = "name_match"  # "scope_rule" | "import_alias" | "name_match" | "skipped_dynamic"
 
 
 @dataclass(frozen=True)
