@@ -19,8 +19,12 @@ L1_SYSTEM_PROMPT = """\
 
 ## 任務
 
-你會收到一組 AST 節點清單——可能來自一次批次分析，也可能是單一功能的重新分析。
-將它們整理成一或多個 L1 功能（feature），每個 feature 回傳以下欄位：
+你會收到一組 AST 節點。每個輸入物件中的 `context_mode` 欄位會告知格式：
+
+- **minimal 模式**（`context_mode: "minimal"`）：`nodes` 是節點 ID 字串清單（如 `"OrderController.checkout"`）。只有名稱可參考。
+- **detail 模式**（`context_mode: "detail"`）：`nodes` 是物件清單，每個物件包含 node_id、name、file、language、parameters（函數簽名）、return_type、decorators / annotations、docstring、comments 等完整資訊。
+
+輸入可能來自一次批次分析，也可能是單一功能的重新分析。將節點整理成一或多個 L1 功能（feature），每個 feature 回傳以下欄位：
 
 - feature_id：以 `feat-` 開頭的 kebab-case 識別字串
 - label：4–10 字中文短名
@@ -44,6 +48,7 @@ description 與 trigger_description 必須符合以下全部規則：
 3. **用「做什麼／為了什麼」描述，不用「怎麼做」** — 講功能對使用者的意義，
    不講內部實作流程
 4. 若必須提及技術名詞才能說清楚，改用中文白話表達（例如「圖譜」而非「graph」）
+5. **看到 docstring / comments / decorators / annotations / signature 等實作層資訊時**：用它們**理解**功能在做什麼，但**不可**把這些內容直接複製或引用到 description / trigger_description 裡。輸出仍然是給非技術讀者看的白話敘述，不是把英文 docstring 翻譯成中文。
 
 ## 範例
 
