@@ -161,6 +161,26 @@ class ScopeRules:
     dynamic_markers: frozenset[str] = field(default_factory=frozenset)
 ```
 
+### 4.2.5 `ScopeContext` — 每個呼叫點的即時 scope 快照
+
+```python
+@dataclass
+class ScopeContext:
+    current_file: str
+    """正在分析的檔案相對路徑（用來判斷「同檔優先」）。"""
+
+    import_aliases: dict[str, str]
+    """alias → 原始名稱，從檔頭 import 語句解析。
+    例：from orders.validator import validate as v_order → {"v_order": "validate"}"""
+
+    caller_class: str | None
+    """呼叫點所在的 class 名稱（用於 class_local_then_inherited 查找）。
+    若呼叫點在 module-level function，為 None。"""
+```
+
+**建構時機：** `EdgeBuilder._detect_calls / _detect_extends` 每處理一個新檔案時，
+從該檔案的 tree 掃一遍 import 語句，建一個 `ScopeContext` 實例，傳給同檔所有 `_resolve()` 呼叫。
+
 ### 4.3 七語言 `ScopeRules` 對照表（W1 + W2）
 
 | 語言 | import | function | method | inheritance | dynamic_markers |
@@ -183,10 +203,14 @@ class ScopeRules:
 class Edge:
     from_node: str
     to_node: str
-    edge_type: Literal["call", "extends", "implements", "imports"]
-    # 新增欄位
+    type: str  # 保留現有欄位名與值（"calls" / "extends" / "imports" / "implements"）
+    # 本 spec 唯一新增欄位 ↓
     resolution: Literal["scope_rule", "import_alias", "name_match", "skipped_dynamic"]
 ```
+
+> **注意：** `type` 欄位名與值（`"calls"` 非 `"call"`）**維持現狀**，不改名、不改值。
+> 本 spec 只 append `resolution` 一個欄位，避免破壞 `edge_builder.py:51` dedup key、
+> 所有現有測試、及 viewer 中 `edge.type == "calls"` 的判斷。
 
 `resolution` 語意：
 - `scope_rule` — 透過 scope rules 明確解到（**高信心**）
@@ -217,11 +241,14 @@ def _resolve(
     多目標只在 name_match fallback 情境出現（裸名撞到多個候選）；
     scope_rule / import_alias 一律單目標，skipped_dynamic 無目標但保留標記邊。
     """
-    # 1. 動態 markers 檢查 — 仍走 name_match 但標 skipped_dynamic
-    if context.has_dynamic_marker(rules.dynamic_markers):
+    # 1. 動態 markers 檢查，或 method_resolution == dynamic_dispatch（Ruby 整語言等同動態）
+    #    兩者都走 name_match 候選但標 skipped_dynamic，不嘗試 scope 解析
+    is_dynamic = (
+        context.has_dynamic_marker(rules.dynamic_markers)
+        or rules.method_resolution == "dynamic_dispatch"
+    )
+    if is_dynamic:
         matches = self._name_to_ids.get(name, [])
-        # 保留所有 name_match 候選，但 resolution 標 skipped_dynamic
-        # 語意：「不嘗試 scope 解析、靠裸名找到的候選你別當真」
         return [(m, "skipped_dynamic") for m in matches]
 
     # 2. 嘗試 scope rule 解析（單目標）
@@ -397,7 +424,7 @@ W3 永遠的拒絕理由（§3）：定位不對齊。
 
 1. **Phase 0 — Schema 釘死**：`ScopeRules` dataclass + `Edge.resolution` schema + 載入向後相容
 2. **Phase 1 — Python ScopeRules 完整實作**：證明 schema 涵蓋得了真實語言（dogfood）
-3. **Phase 2 — EdgeBuilder 重寫**：generic `_resolve()` + provenance 標記 + fallback 路徑
+3. **Phase 2 — EdgeBuilder 重寫**：generic `_resolve()` + provenance 標記 + fallback 路徑；同步更新 `ast_extractor.py:194` 呼叫點，傳入語言 configs dict（`build_edges(result.nodes, trees, configs)`）
 4. **Phase 3 — TS / Java / Go / Rust / C# / PHP / Ruby**：六語言 ScopeRules 平行填入（Ruby 簡化版）
 5. **Phase 4 — LLM prompt 更新**：L1_SYSTEM_PROMPT 教 LLM 看 resolution
 6. **Phase 5 — 驗收 + CHANGELOG + README + dogfood 比對報告**
