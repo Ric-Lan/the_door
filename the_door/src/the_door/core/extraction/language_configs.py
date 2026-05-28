@@ -90,6 +90,13 @@ LANGUAGE_CONFIGS: dict[str, LanguageConfig] = {
         method_types=frozenset({"function_definition"}),
         class_types=frozenset({"class_definition"}),
         decorator_types=frozenset({"decorator"}),
+        scope_rules=ScopeRules(
+            import_resolution="qualified",
+            function_resolution="file_local_then_imports",
+            method_resolution="class_local_then_inherited",
+            inheritance_resolution="multiple",
+            dynamic_markers=frozenset({"__getattr__", "getattr"}),
+        ),
     ),
     "java": LanguageConfig(
         function_types=frozenset(),

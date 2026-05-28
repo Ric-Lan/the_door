@@ -10,6 +10,7 @@ import tree_sitter
 from the_door.core.extraction.file_discovery import FileDiscovery
 from the_door.core.extraction.node_builder import NodeBuilder
 from the_door.core.extraction.edge_builder import EdgeBuilder
+from the_door.core.extraction.language_configs import LANGUAGE_CONFIGS
 from the_door.models import ExtractionError, ExtractionResult
 
 # Language name → tree-sitter language loader
@@ -191,7 +192,7 @@ class ASTExtractor:
 
         # Step 4: Build edges
         try:
-            edges = self._edge_builder.build_edges(result.nodes, trees)
+            edges = self._edge_builder.build_edges(result.nodes, trees, configs=LANGUAGE_CONFIGS)
             result.edges = edges
         except Exception as exc:
             # Edge building failure is non-fatal — record but continue
