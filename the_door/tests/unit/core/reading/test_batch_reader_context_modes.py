@@ -147,6 +147,22 @@ class TestMaybeSplitUsesSerializedPayloadSize:
         assert "parameters" in serialized
 
 
+class TestProcessBatchFeatureRelations:
+    def test_feature_relations_parsed_when_present(self):
+        s = _build_structure()
+        response = json.dumps({
+            "features": [{"feature_id": "feat-a", "label": "A", "description": "...",
+                          "trigger_description": "...", "confidence": "high",
+                          "confidence_reason": "...", "source_nodes": ["src/foo.py::greet"]}],
+            "feature_relations": [{"from": "feat-a", "to": "feat-b", "relation": "depends_on"}],
+        })
+        provider = _build_provider(response)
+        br = BatchReader(provider, s, context_mode="minimal")
+        features, relations, _, _, _ = asyncio.run(br._process_batch(["src/foo.py::greet"], 1))
+        assert len(relations) == 1
+        assert relations[0].from_feature == "feat-a"
+
+
 class TestRegenerateNotInScope:
     """regenerate() context_mode adaptation is a later task."""
     def test_placeholder(self):

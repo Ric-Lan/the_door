@@ -150,13 +150,8 @@ class BatchReader:
         previous_result: Feature,
     ) -> RegenerateResult:
         """Re-analyze a specific feature node."""
-        # Build prompt for regeneration
-        source_nodes = previous_result.source_nodes
-        prompt = json.dumps({
-            "task": "regenerate",
-            "feature_id": feature_id,
-            "source_nodes": source_nodes,
-        })
+        source_nodes = list(previous_result.source_nodes)
+        prompt = self._serialize_regenerate_payload(source_nodes, feature_id)
 
         response = await self._provider.complete(prompt, system_prompt=L1_SYSTEM_PROMPT)
         parse_result = self._parser.parse(response)
@@ -291,6 +286,16 @@ class BatchReader:
     def _serialize_payload(self, node_ids: list[str], batch_num: int) -> str:
         """Serialize the batch payload for LLM consumption."""
         return json.dumps(self._build_payload(node_ids, batch_num), ensure_ascii=False)
+
+    def _serialize_regenerate_payload(
+        self, source_nodes: list[str], feature_id: str
+    ) -> str:
+        """Serialize regenerate-task payload, respecting context_mode."""
+        payload = self._build_payload(source_nodes, batch_num=0)
+        payload.pop("batch", None)
+        payload["task"] = "regenerate"
+        payload["feature_id"] = feature_id
+        return json.dumps(payload, ensure_ascii=False)
 
     async def _process_batch(
         self,
