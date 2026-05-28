@@ -8,7 +8,7 @@
 
 ## 1. Background
 
-The Door 透過 LLM 把 AST 節點翻譯成非技術讀者能讀懂的 L1 feature 敘述。實測 v1.3.6 翻譯品質約 80/100。瓶頸由兩個**已抽出但被丟掉 / 根本沒抽**的設計遺漏組成，必須同時解決才有完整效益。
+The Door 透過 LLM 把 AST 節點翻譯成非技術讀者能讀懂的 L1 feature 敘述。實測 v1.3.6 翻譯品質**使用者主觀評估約 80/100**（非量化指標，僅作問題嚴重度錨點）。瓶頸由兩個**已抽出但被丟掉 / 根本沒抽**的設計遺漏組成，必須同時解決才有完整效益。
 
 ### 1.1 遺漏一：prompt 只送 node_id，丟掉 ASTNode 物件
 
@@ -60,7 +60,7 @@ ASTNode(
 
 ### Goals
 - LLM 收到完整節點脈絡（signature、docstring、裝飾器/註解、檔案路徑）
-- 翻譯品質從 ~80 提升至預期 ~90+，對 LANGUAGE_CONFIGS 註冊的**所有**語言一致有效
+- 翻譯品質目標：在 §11 acceptance 規定的對比樣本中，detail 模式不劣於 minimal 模式，且對 LANGUAGE_CONFIGS 註冊的**所有**語言一致受益（非語言特定的提升）
 - 提供 `--minimal-context` CLI flag 作為 opt-out（保留原行為作為 fallback）
 - 延續 codegraph 引入的 config-driven 設計風格：`LanguageConfig` 宣告各語言詳情抽取規則，避免手寫多個重複抽取函式
 - 零 L1 output schema 變動 — Feature / FeatureSummary / snapshot 結構不動，無 migration 成本
@@ -157,24 +157,30 @@ class LanguageConfig:
         # "preceding_line_comments" | "preceding_block_comment" | None
     doc_comment_types: frozenset[str] = field(default_factory=frozenset)
         # comment node types to scan, e.g. {"line_comment", "block_comment"}
-    doc_comment_marker: str | None = None
-        # optional prefix identifying doc comments (e.g. "///" for Rust/C#)
-    annotation_types: frozenset[str] = field(default_factory=frozenset)
-        # node types treated as annotation/attribute (e.g. {"attribute_item"} for Rust)
+    doc_comment_markers: frozenset[str] = field(default_factory=frozenset)
+        # optional prefixes identifying doc comments. Empty = all matching
+        # node types are accepted; non-empty = only comments starting with
+        # one of these prefixes count. Rust uses {"///", "//!"} for outer/inner
+        # doc; C# uses {"///"}.
+    decorator_types: frozenset[str] = field(default_factory=frozenset)
+        # node types treated as decorator/annotation/attribute. Output stored
+        # in ASTNode.decorators (name aligned with Python/TS walkers, which
+        # already populate that field for @decorator syntax).
+        # e.g. {"attribute_item"} for Rust, {"annotation", "marker_annotation"} for Java.
 ```
 
 各語言對應規則（初步事實假設，實作階段以該語言 grammar 驗證並就地修正）：
 
-| 語言 | parameters_field | return_type_field | doc_comment_strategy | doc_comment_types | doc_comment_marker | annotation_types |
+| 語言 | parameters_field | return_type_field | doc_comment_strategy | doc_comment_types | doc_comment_markers | decorator_types |
 |---|---|---|---|---|---|---|
-| java | `parameters` | `type` | preceding_block_comment | `{block_comment}` | — | `{annotation, marker_annotation}` |
-| go | `parameters` | `result` | preceding_line_comments | `{comment}` | — | — |
-| rust | `parameters` | `return_type` | preceding_line_comments | `{line_comment, block_comment}` | `///` 或 `//!` | `{attribute_item}` |
-| ruby | `method_parameters` | — | preceding_line_comments | `{comment}` | — | — |
-| php | `formal_parameters` | `return_type` | preceding_block_comment | `{comment}` | `/**` | — |
-| csharp | `parameter_list` | `returns` (近似) | preceding_line_comments | `{comment}` | `///` | `{attribute_list}` |
+| java | `parameters` | `type` | preceding_block_comment | `{block_comment}` | `{}` | `{annotation, marker_annotation}` |
+| go | `parameters` | `result` | preceding_line_comments | `{comment}` | `{}` | `{}` |
+| rust | `parameters` | `return_type` | preceding_line_comments | `{line_comment, block_comment}` | `{///, //!}` | `{attribute_item}` |
+| ruby | `method_parameters` | — | preceding_line_comments | `{comment}` | `{}` | `{}` |
+| php | `formal_parameters` | `return_type` | preceding_block_comment | `{comment}` | `{/**}` | `{}` |
+| csharp | `parameter_list` | `type`(待 grammar 驗證) | preceding_line_comments | `{comment}` | `{///}` | `{attribute_list}` |
 
-> 表中 field 名稱對照 codegraph commit `5aae9c4` 與官方 tree-sitter grammar。實作階段若某 field 在實際 grammar 不正確，**就地修正對照表，不擴大設計範圍**。
+> 表中 field 名稱對照 codegraph commit `5aae9c4` 與官方 tree-sitter grammar。實作階段若某 field 在實際 grammar 不正確，**就地修正對照表，不擴大設計範圍**。csharp `return_type_field` 暫填 `type` 為猜測值，落地時以實際 grammar 修正。
 
 ### 3.5 `_walk_config_driven` 改造
 
@@ -190,18 +196,28 @@ def _build_enriched_node(node, cfg, file_info, kind, parent_class):
         language=file_info.language,
         parameters=_extract_parameters(node, cfg.parameters_field),
         return_type=_extract_return_type(node, cfg.return_type_field),
-        decorators=_extract_annotations(node, cfg.annotation_types),
+        decorators=_extract_decorators(node, cfg.decorator_types),
         docstring=_extract_doc_comment(node,
                                        cfg.doc_comment_strategy,
                                        cfg.doc_comment_types,
-                                       cfg.doc_comment_marker),
-        comments=[],   # generic 路徑暫不收一般 comments；只收 doc comment 進 docstring
+                                       cfg.doc_comment_markers),
+        comments=[],   # 見下方「generic vs Python comments 差異」說明
     )
 ```
 
-四個 `_extract_*` helper 為純函式，輸入 tree-sitter node + config 欄位，輸出對應型別。`comments` 維持 `[]` 以避免無關註解雜訊；只把 doc comment 抽進 `docstring`。
+四個 `_extract_*` helper 為純函式，輸入 tree-sitter node + config 欄位，輸出對應型別。
 
-Python 與 TypeScript 走專用 walker，**不受 §3.4 / §3.5 改動影響**（既有抽取已足夠）。
+**generic vs Python comments 的差異**：Python `_walk_python` 透過 `_collect_nearby_comments` 收集**鄰近**註解（已是 doc-comment-like 過濾）。Generic 路徑暫不引入「鄰近註解」的通用策略 — 各語言對「鄰近」定義差異大（同行 / 上一行 / 前一段空行內）—— 因此本期只把符合 doc_comment_strategy 條件的註解收進 `docstring`，`comments` 維持 `[]`。Python 維持現狀以避免回歸。「擴充 generic 路徑收集一般 comments」列入 §10 future work。
+
+**Python 與 TypeScript 既有抽取現況**（為 §1.2 「既有 walker 已足夠」的事實依據）：
+
+| Walker | parameters | return_type | decorators | docstring | comments |
+|---|---|---|---|---|---|
+| `_walk_python` / `_build_python_function` | ✅ | ✅ | ✅ | ✅ | ✅ (`_collect_nearby_comments`) |
+| `_walk_typescript` / `_build_ts_*` | ✅ | (TS 註解型別有限填) | ✅ (decorators) | ✅ (JSDoc) | (取決於 walker，現況不變動) |
+| `_walk_config_driven`（**本 spec 改造對象**） | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+Python 與 TypeScript 走專用 walker，**不受 §3.4 / §3.5 改動影響**。
 
 ### 3.6 影響範圍彙整
 
@@ -279,19 +295,27 @@ L1 output schema 不變。
 
 ### 6.1 Payload size 估算
 
+> 以下數字均為**設計階段估算（estimate）**，非量測值。估算方法：單節點 JSON 序列化後位元組數 ≈ node_id 字串長度（30-50 bytes）+ parameters 列表（50-300 bytes，視參數數量）+ docstring（0-500 bytes，視語言慣例）+ decorators/return_type（0-200 bytes）。下表為各語言群的合理上下界推估，實作後以 token-budget 測試實量校準。
+
 minimal 模式單節點約 30-50 bytes。detail 模式因語言充實程度而異：
 
-| 語言群 | 預估單節點 bytes |
+| 語言群 | 估算單節點 bytes |
 |---|---|
 | Python / TS（原本就有完整詳情） | 300-1000+ |
 | Java / C# / Rust / PHP（充實後） | 200-800 |
 | Go / Ruby（充實後，doc comment 較短） | 150-500 |
 
-整體 payload 預估膨脹 **5-15 倍**。
+整體 payload 估算膨脹 **5-15 倍**（依 codebase 的 docstring 密度而異）。
 
 ### 6.2 既有 `_maybe_split` 機制
 
-`_maybe_split` 估算 payload 大小時，必須**用實際送出去的內容**而非 node_id 字串。具體做法：`_maybe_split` 改為接收 `context_mode`，內部依模式呼叫對應的序列化函式取得真實 payload 字串後再估算 token 數。不採「把已序列化的 payload 傳入」的做法，避免上游 caller 重複序列化造成雙倍成本。
+`_maybe_split` 估算 payload 大小時，必須**用實際送出去的內容**而非 node_id 字串。
+
+**強制**：序列化邏輯收斂為單一共用 helper（位於 `batch_reader.py`，例如 `_serialize_payload(nodes, batch_num, context_mode) -> str`），由 `_process_batch` 與 `_maybe_split` 共同呼叫，不可分別實作。理由：
+- 避免雙重 `json.dumps` 浪費
+- 避免兩處序列化邏輯漂移造成 split 估算與實送 payload 不一致
+
+`_maybe_split` 接收 `context_mode` 參數，內部透過共用 helper 取得真實 payload 字串後再估算 token 數。
 
 ### 6.3 MAX_BATCHES 上限
 
@@ -390,10 +414,11 @@ Feature / FeatureSummary / L1Output / VersionSnapshot 結構完全不變。既�
 - [ ] MCP `analyze_tool` 接收 optional `context_mode`，預設 detail
 - [ ] L1_SYSTEM_PROMPT 包含「看到 docstring 不可直接複製」硬性規則
 - [ ] `_maybe_split` 基於實際 payload 大小切批，不再低估
-- [ ] `LanguageConfig` 擴充欄位（parameters_field / return_type_field / doc_comment_* / annotation_types）就位
-- [ ] `_walk_config_driven` 對 java / go / rust / ruby / php / csharp 6 種語言抽出至少 parameters + docstring（若該語言有慣例）+ annotations（若該語言有慣例）
+- [ ] `LanguageConfig` 擴充欄位（parameters_field / return_type_field / doc_comment_strategy / doc_comment_types / doc_comment_markers / decorator_types）就位
+- [ ] `_walk_config_driven` 對 java / go / rust / ruby / php / csharp 6 種語言抽出至少 parameters + docstring（若該語言有慣例）+ decorators（若該語言有 @/#[/[Attribute] 慣例）
+- [ ] 序列化共用 helper（`_serialize_payload`）存在且 `_process_batch` 與 `_maybe_split` 皆透過它取得 payload
 - [ ] 既有 batch_reader 測試以 `context_mode="minimal"` 標註維持綠燈
 - [ ] 新增 detail 模式測試覆蓋 prompt shape / split 行為 / CLI flag / MCP schema / 6 語言 ASTNode 充實度
-- [ ] Eyeball 驗收：test-target v105 v1.2.2（Python）+ 多語言 fixture 跑 detail 模式，翻譯品質主觀評估 ≥ minimal 模式
+- [ ] Eyeball 驗收（可觀察 proxy）：於 test-target v105 v1.2.2 + 多語言 fixture 各跑 detail 與 minimal 一次。由 spec 作者抽 10 個 feature description 對比，detail 模式違反 §4.2 風格規則（出現函式名 / 檔名 / API 路徑 / camelCase / 縮寫）的條目數 ≤ minimal 模式
 - [ ] Output schema 零變動，既有 snapshot 檔可直接讀取無 migration
 - [ ] CHANGELOG 與 README 更新，標示 v1.4.x 引入 detail context 模式 + 多語言 ASTNode 充實
