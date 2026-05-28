@@ -93,6 +93,34 @@ class TestRustModulePathImports:
         aliases = self.builder._parse_import_aliases(tree.root_node, src, _module_path_rules())
         assert aliases == {}
 
+    def test_scoped_use_list(self):
+        """use std::{io, fmt} — scoped_use_list branch."""
+        tree, src = _parse("rust", "use std::{io, fmt};\n")
+        aliases = self.builder._parse_import_aliases(tree.root_node, src, _module_path_rules())
+        assert "io" in aliases
+        assert "fmt" in aliases
+
+    def test_scoped_use_list_with_alias(self):
+        """use std::{Validator as V, fmt} — use_as_clause inside scoped_use_list (line 352).
+
+        The aliased item must be a scoped_identifier (e.g. crate::Validator) for the
+        alias mapping to be recorded; the plain identifier case is not handled by
+        _extract_rust_use_item for use_as_clause.  This test exercises the
+        `elif item.type == "use_as_clause"` branch via a scoped form.
+        """
+        tree, src = _parse("rust", "use crate::{orders::Validator as V, fmt};\n")
+        aliases = self.builder._parse_import_aliases(tree.root_node, src, _module_path_rules())
+        # fmt — plain identifier branch
+        assert "fmt" in aliases
+        # Validator as V — scoped_identifier orig mapped to alias
+        assert aliases.get("V") == "Validator"
+
+    def test_bare_use_identifier(self):
+        """use validator; — bare identifier under use_declaration (lines 355-357)."""
+        tree, src = _parse("rust", "use validator;\n")
+        aliases = self.builder._parse_import_aliases(tree.root_node, src, _module_path_rules())
+        assert aliases.get("validator") == "validator"
+
 
 # ── LANGUAGE_CONFIGS for go and rust ─────────────────────────────────────────
 

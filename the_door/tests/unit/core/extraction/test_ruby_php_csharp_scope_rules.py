@@ -136,3 +136,5 @@ class TestRubyPhpCsharpConfigs:
         assert cfg.scope_rules.method_resolution == "class_local_then_inherited"
         assert cfg.scope_rules.inheritance_resolution == "single"
         assert "dynamic" in cfg.scope_rules.dynamic_markers
+
+

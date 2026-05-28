@@ -106,6 +106,14 @@ class TestParseNamespacedImports:
         aliases = self.builder._parse_import_aliases(tree.root_node, src, self._rules())
         assert aliases == {}
 
+    def test_wildcard_import_skipped(self):
+        """import com.example.*; — _extract_last_qualified_name returns None (line 291)."""
+        source = "import com.example.*;\n"
+        tree, src = _parse("java", source)
+        aliases = self.builder._parse_import_aliases(tree.root_node, src, self._rules())
+        # wildcard `*` is not an identifier — nothing added
+        assert aliases == {}
+
 
 # ── LANGUAGE_CONFIGS has scope_rules for typescript and java ─────────────────
 
