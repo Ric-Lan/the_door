@@ -497,6 +497,142 @@ class NodeBuilder:
         for child in node.children:
             self._walk_config_driven(child, file_info, results, parent_class)
 
+    # ── Generic-walker extract helpers (Task 02) ──────────────────────
+
+    def _extract_parameters(self, node, parameters_field: str | None) -> list[str]:
+        """Extract parameter strings from a function/method definition node.
+
+        Returns [] if parameters_field is None or the field is absent.
+        Each parameter is returned as raw source text (utf-8 decoded).
+        """
+        if parameters_field is None:
+            return []
+        params_node = node.child_by_field_name(parameters_field)
+        if params_node is None:
+            return []
+        result: list[str] = []
+        for child in params_node.children:
+            # Skip pure punctuation (commas, parens) — they have no name and
+            # tree-sitter treats them as separate nodes.
+            if child.type in ("(", ")", ",", ";"):
+                continue
+            text = child.text.decode("utf-8", errors="replace").strip()
+            if text:
+                result.append(text)
+        return result
+
+    def _extract_return_type(self, node, return_type_field: str | None) -> str | None:
+        """Extract return-type annotation as raw text.
+
+        Returns None if return_type_field is None or the field is absent.
+        """
+        if return_type_field is None:
+            return None
+        rt_node = node.child_by_field_name(return_type_field)
+        if rt_node is None:
+            return None
+        return rt_node.text.decode("utf-8", errors="replace").strip() or None
+
+    def _extract_decorators(self, node, decorator_types: frozenset[str]) -> list[str]:
+        """Extract decorator / annotation / attribute text.
+
+        Strategy: scan node's own children + preceding siblings (up to first
+        non-decorator non-comment node) for nodes whose type is in
+        decorator_types. Each is decoded to raw text.
+        Returns [] if decorator_types is empty.
+        """
+        if not decorator_types:
+            return []
+        result: list[str] = []
+
+        # Own children (some grammars nest attributes inside the item)
+        for child in node.children:
+            if child.type in decorator_types:
+                text = child.text.decode("utf-8", errors="replace").strip()
+                if text:
+                    result.append(text)
+
+        # Preceding siblings (most grammars: attributes appear as siblings before
+        # the item).
+        sibling = node.prev_sibling
+        while sibling is not None:
+            if sibling.type in decorator_types:
+                text = sibling.text.decode("utf-8", errors="replace").strip()
+                if text:
+                    result.insert(0, text)  # preserve source order
+                sibling = sibling.prev_sibling
+                continue
+            # Stop at the first non-decorator / non-comment sibling.
+            # tree-sitter 節點型別名永遠沒有前後空白。
+            if sibling.type not in ("comment", "line_comment", "block_comment"):
+                break
+            sibling = sibling.prev_sibling
+
+        return result
+
+    def _extract_doc_comment(
+        self,
+        node,
+        strategy: str | None,
+        types: frozenset[str],
+        markers: frozenset[str],
+    ) -> str | None:
+        """Extract a doc-comment string preceding the node.
+
+        Strategy:
+        - "preceding_line_comments": gather contiguous line-comment siblings
+          immediately preceding node, in source order; join with newlines.
+        - "preceding_block_comment": take the immediately preceding block
+          comment sibling (single node).
+        - None or unknown: return None.
+
+        Filtering:
+        - Only sibling nodes whose type is in `types` are considered.
+        - If `markers` is non-empty, only comments whose raw text (stripped)
+          starts with one of the markers are kept.
+        """
+        if strategy is None or not types:
+            return None
+
+        if strategy == "preceding_line_comments":
+            collected: list[str] = []
+            sibling = node.prev_sibling
+            while sibling is not None and sibling.type in types:
+                text = sibling.text.decode("utf-8", errors="replace").strip()
+                if not text:
+                    sibling = sibling.prev_sibling
+                    continue
+                if markers and not any(text.startswith(m) for m in markers):
+                    break  # 連續性中斷 — 遇到非 doc-comment 即停止
+                # Strip marker prefix for cleaner output if present.
+                cleaned = text
+                for m in markers:
+                    if cleaned.startswith(m):
+                        cleaned = cleaned[len(m):].strip()
+                        break
+                collected.insert(0, cleaned or text)
+                sibling = sibling.prev_sibling
+            if not collected:
+                return None
+            return "\n".join(collected)
+
+        if strategy == "preceding_block_comment":
+            sibling = node.prev_sibling
+            # Skip whitespace nodes if any (most grammars don't produce them).
+            while sibling is not None and not sibling.type.strip():
+                sibling = sibling.prev_sibling
+            if sibling is None or sibling.type not in types:
+                return None
+            text = sibling.text.decode("utf-8", errors="replace").strip()
+            if not text:
+                return None
+            if markers and not any(text.startswith(m) for m in markers):
+                return None
+            return text
+
+        # Unknown strategy — safe fallback.
+        return None
+
     # ── Helpers ─────────────────────────────────────────────────────────
 
     @staticmethod
