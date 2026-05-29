@@ -10,24 +10,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.5.0] - 2026-05-28
+## [1.4.5] — 2026-05-29
 
 ### Added
 - **Scope-aware edge resolution** for all 7 supported languages (Python / TypeScript / Java / Go / Rust / Ruby / PHP / C#).
   - New `ScopeRules` declarative config per language defining import / function / method / inheritance resolution strategies.
-  - New `Edge.resolution` field with four values: `scope_rule` (high confidence), `import_alias` (high confidence), `name_match` (low confidence fallback), `skipped_dynamic` (dynamic dispatch context — not trusted).
+  - New `Edge.resolution` field with four values: `scope_rule` (high confidence), `import_alias` (high confidence), `name_match` (low-confidence fallback), `skipped_dynamic` (dynamic-dispatch context — not trusted).
   - LLM prompt teaches the model how to weight edges by resolution provenance.
 - New `ScopeContext` dataclass carrying per-file scope state (import aliases, caller class).
+- **Receiver-aware method-call resolution**：`Receiver.method()` 形式的呼叫會把 receiver 透過 import alias 或 local class 名解析回 `Class.method`，`self.method()` / `this.method()` 在 method 內也會解析回 `caller_class.method`。Chained call `a.b.c()` 採 immediate-receiver 慣例（receiver = `b`）。
+- BatchReader detail payload 現在包含 batch 內的 `edges`，讓 L1 LLM 直接看到 resolution 標籤。
 
 ### Changed
-- `EdgeBuilder.build_edges()` now takes an optional `configs` parameter (backward compatible).
-- `ASTExtractor` passes `LANGUAGE_CONFIGS` to `EdgeBuilder`.
-- Edge dedup key remains `(from, to, type)` — `resolution` is not part of the key (intentional, allows scope_rule edges to win over name_match duplicates).
+- `EdgeBuilder.build_edges()` 新增 optional `configs` 參數（向後相容）。
+- `ASTExtractor` 把 `LANGUAGE_CONFIGS` 傳給 `EdgeBuilder`。
+- Edge dedup key 維持 `(from, to, type)`；`resolution` 不入 key（讓 scope_rule 邊取代同對 name_match 重複）。
+- `_detect_imports` 產生的 import 邊 resolution 從 `name_match` 改為 `import_alias`（語意修正：import 邊定義上就是 alias-based）。
 
 ### Backward compatibility
-- Old snapshots without `resolution` deserialize with `resolution="name_match"` (no migration needed).
-- `Edge(from_node=..., to_node=..., type=...)` constructor calls without `resolution` continue to work (defaults to `"name_match"`).
-- No public API signature broken; `build_edges(nodes, trees)` still works.
+- 舊 snapshot 無 `resolution` 欄位反序列化時自動補 `"name_match"`（不需 migration）。
+- `Edge(from_node=..., to_node=..., type=...)` 不帶 `resolution` 仍可用（預設 `"name_match"`）。
+- 公開 API 簽名未破壞；`build_edges(nodes, trees)` 仍可用。
+
+### Dogfood acceptance (§7.2)
+- `the_door` 自身：name_match 28.8% / high-confidence 71.2% ✅
+- `test-targets/the-door-v105`：name_match 30.8% / high-confidence 69.2% ✅
+- 兩個 target 都過 `name_match ≤ 40%` 且 `scope_rule + import_alias ≥ 50%`。
 
 ---
 
