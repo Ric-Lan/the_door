@@ -1820,3 +1820,17 @@ h1 {
   display: block; font-size: 13px; color: var(--text); margin-bottom: 4px;
 }
 .next-actions-section li .not-analyzed-cmd { margin-top: 2px; }
+
+/* Onboarding card (FIX-4) — used by onboarding.js for empty-project welcome */
+.onboarding-card {
+  max-width: 560px; margin: 24px auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 24px 28px;
+  box-shadow: var(--shadow);
+}
+.onboarding-card h2 { font-size: 20px; margin: 0 0 4px; }
+.onboarding-card ol {
+  margin: 16px 0 0; padding-left: 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.onboarding-card li strong { display: block; font-size: 13px; margin-bottom: 4px; }

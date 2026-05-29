@@ -12,7 +12,7 @@ export function renderOnboardingCard(container, payload) {
   const list = document.createElement("ol");
   for (const action of top3) {
     const li = document.createElement("li");
-    li.innerHTML = `<strong>${action.title}</strong><pre>${action.cli_command || action.mcp_tool || action.viewer_route}</pre>`;
+    li.innerHTML = `<strong>${action.title}</strong><pre class="not-analyzed-cmd">${action.cli_command || action.mcp_tool || action.viewer_route}</pre>`;
     list.appendChild(li);
   }
   card.appendChild(list);
