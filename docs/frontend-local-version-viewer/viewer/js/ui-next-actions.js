@@ -15,6 +15,7 @@ export function appendNextActionsSection(container, feature) {
     const strong = document.createElement("strong");
     strong.textContent = action.title ?? "";
     const pre = document.createElement("pre");
+    pre.className = "not-analyzed-cmd";
     pre.textContent = action.cli_command || action.mcp_tool || action.viewer_route || "";
     li.append(strong, pre);
     list.appendChild(li);
