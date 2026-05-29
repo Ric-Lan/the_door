@@ -44,9 +44,7 @@ CLEAN_LABEL = st.text(
     max_size=60,
 ).filter(lambda s: s.strip() and not any(
     term.lower() == word.lower()
-    for term in ["Service", "Handler", "Controller", "Loader", "IoC", "Middleware",
-                 "Decorator", "Module", "Import", "Endpoint", "Router",
-                 "Provider", "Factory", "Repository", "DAO", "ORM", "SDK", "API"]
+    for term in PROHIBITED_TERMS
     for word in s.split()
 ))
 
