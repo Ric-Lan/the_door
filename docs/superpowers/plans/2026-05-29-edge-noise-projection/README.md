@@ -14,8 +14,8 @@
 
 | # | File | Goal | Layer |
 |---|---|---|---|
-| 01 | `01-resolution-enum.md` | `Edge.resolution` 新增 `name_match_ambiguous` 枚舉值 + 既有 diff 行為 regression guard | schema |
-| 02 | `02-edge-projection-pure-module.md` | `core/llm/edge_projection.py` 新檔（純函式 drop ambiguous + aggregate hint）+ unit + property test | projection |
+| 01 | `01-resolution-enum.md` | `Edge.resolution` 新增 `name_match_ambiguous` 枚舉值 + source-level guard 釘住 `core/diff/` 不引用 resolution | schema |
+| 02 | `02-edge-projection-pure-module.md` | `core/llm/edge_projection.py` 新檔（純函式 drop ambiguous + aggregate hint，無旗標）+ 10 unit + 4 property test | projection |
 | 03 | `03-edge-builder-fanout-threshold.md` | `_resolve()` Step 4 加 `FANOUT_THRESHOLD`；自動涵蓋 calls 與 extends | extraction |
 | 04 | `04-batch-reader-integration.md` | `_build_payload` detail mode 套用 projection，加 `aggregate_call_hints` payload key | reading |
 | 05 | `05-prompt-update.md` | `prompts.py` resolution 區塊改寫 + aggregate_call_hints 說明 | prompt |

@@ -3,11 +3,11 @@
 **Files:**
 - Modify: `the_door/src/the_door/models.py:41`
 - Test: `the_door/tests/unit/core/test_models_resolution.py` (new)
-- Test: `the_door/tests/integration/diff/test_resolution_change_no_diff.py` (new)
+- Test: `the_door/tests/unit/core/diff/test_diff_engine_ignores_resolution.py` (new)
 
-**Goal:** 把 `Edge.resolution` 的合法值從 4 個擴張為 5 個（加 `name_match_ambiguous`），並用 regression test 釘住「resolution 標籤變動本身不該觸發 diff 狀態變更」這個事實。
+**Goal:** 把 `Edge.resolution` 的合法值從 4 個擴張為 5 個（加 `name_match_ambiguous`），並用 source-level regression test 釘住「diff engine 從不讀取 `edge.resolution`」這個事實，避免未來有人新增 diff 模組時把 resolution 帶入比對。
 
-**Why this is small:** `Edge.resolution` 是 `str`（dataclass）不是 `Literal`，型別系統不會在執行期擋。所以實作改動只是更新 comment 註記。重點在測試。
+**Why source-level guard:** `Edge.resolution` 不參與 diff（已 grep 驗證），構造完整 `VersionSnapshot` fixture 只為了證明這點是 over-engineering。改用對 `core/diff/` 全資料夾的 source scan，未來新增 diff 模組也會被自動檢出。
 
 ---
 
@@ -45,15 +45,15 @@ def test_edge_all_known_resolutions_accepted():
         assert edge.resolution == res
 ```
 
-- [ ] **Step 2: Run test to verify it fails or passes**
+- [ ] **Step 2: Run test**
 
 Run: `cd the_door && python -m pytest tests/unit/core/test_models_resolution.py -v`
 
-Expected: PASS (resolution is `str`, no enum constraint — but the test pins behavior for the future).
+Expected: PASS (resolution is `str`, no enum constraint — but these tests pin behavior).
 
 - [ ] **Step 3: Update the comment註記 in `models.py`**
 
-Edit `the_door/src/the_door/models.py:41`:
+Edit `the_door/src/the_door/src/the_door/models.py:41` (or the closest line that defines `resolution`):
 
 ```python
     resolution: str = "name_match"  # "scope_rule" | "import_alias" | "name_match" | "name_match_ambiguous" | "skipped_dynamic"
@@ -61,77 +61,63 @@ Edit `the_door/src/the_door/models.py:41`:
 
 (Just add `| "name_match_ambiguous"` to the inline comment.)
 
-- [ ] **Step 4: Write the diff regression guard test**
+- [ ] **Step 4: Write the source-level diff regression guard**
 
-Create `the_door/tests/integration/diff/test_resolution_change_no_diff.py`:
+Create `the_door/tests/unit/core/diff/test_diff_engine_ignores_resolution.py`:
 
 ```python
-"""Changing only Edge.resolution between two snapshots must not surface
-as any diff state change — the diff engine compares feature relations,
-not edge resolution labels.
+"""Source-level guard: nothing in core/diff/ reads edge.resolution.
+
+This guarantees adding new resolution values (e.g. name_match_ambiguous)
+cannot cause spurious diff churn between snapshots.
+
+If a future diff module legitimately needs resolution, this test should
+be updated alongside a deliberate decision about bucketing strategy
+(see spec §6.4).
 """
-from the_door.core.diff.diff_engine import DiffEngine
-from the_door.models import (
-    BaselineInfo, Feature, FeatureRelation, VersionSnapshot,
-)
+from pathlib import Path
+
+import the_door
 
 
-def _make_snapshot(version_id: str, label: str) -> VersionSnapshot:
-    return VersionSnapshot(
-        version_id=version_id,
-        label=label,
-        timestamp="2026-05-29T00:00:00Z",
-        features=(
-            Feature(feature_id="feat-a", label="A", description="A",
-                    source_nodes=("n1",), source_node_count=1, confidence="high"),
-            Feature(feature_id="feat-b", label="B", description="B",
-                    source_nodes=("n2",), source_node_count=1, confidence="high"),
-        ),
-        feature_relations=(
-            FeatureRelation(from_feature="feat-a", to_feature="feat-b",
-                            relation="depends_on"),
-        ),
+DIFF_DIR = Path(the_door.__file__).resolve().parent / "core" / "diff"
+
+
+def test_core_diff_does_not_reference_edge_resolution():
+    assert DIFF_DIR.is_dir(), f"diff dir missing: {DIFF_DIR}"
+    offenders: list[str] = []
+    for py in DIFF_DIR.rglob("*.py"):
+        text = py.read_text(encoding="utf-8")
+        # Strip comments+docstrings? Too brittle. A plain substring match is
+        # the contract: no code OR comment in core/diff/ may reference
+        # edge.resolution. If someone wants to add it, they update this test.
+        if ".resolution" in text:
+            offenders.append(py.name)
+    assert offenders == [], (
+        f"core/diff modules reference .resolution: {offenders}. "
+        f"Adding resolution-aware diff requires updating spec §6.4 and this test."
     )
-
-
-def test_resolution_only_change_produces_no_edge_diff():
-    """If only edge.resolution differs but feature relations are identical,
-    diff_engine must report zero edge_diffs and zero state changes."""
-    baseline = _make_snapshot("v-baseline", "v1.4.5")
-    current = _make_snapshot("v-current", "v1.4.6")
-
-    engine = DiffEngine()
-    result = engine.compute(
-        baseline=baseline,
-        current=current,
-        baseline_info=BaselineInfo(version_id="v-baseline", label="v1.4.5"),
-        current_info=BaselineInfo(version_id="v-current", label="v1.4.6"),
-    )
-
-    assert result.edge_diffs == []
-    assert result.summary.added_count == 0
-    assert result.summary.removed_count == 0
 ```
 
 - [ ] **Step 5: Run the regression guard**
 
-Run: `cd the_door && python -m pytest tests/integration/diff/test_resolution_change_no_diff.py -v`
+Run: `cd the_door && python -m pytest tests/unit/core/diff/test_diff_engine_ignores_resolution.py -v`
 
-Expected: PASS — proves `edge.resolution` change doesn't affect diff.
+Expected: PASS — `core/diff/` 確認不引用 `.resolution`。
 
-If FAIL: stop. Diff engine reads resolution somewhere we missed. Re-grep `\.resolution\b` in `core/diff/` and reconsider before continuing.
+If FAIL: stop. 某個 diff 模組偷偷讀了 resolution，需要先決定 spec §6.4 bucket 策略再繼續。
 
 - [ ] **Step 6: Run the full test suite**
 
 Run: `cd the_door && python -m pytest 2>&1 | tail -5`
 
-Expected: 1254 passed + 2 new passed = 1256 passed (or close — count is for tracking, not exact match).
+Expected: 既有測試全 PASS，+ 4 new passed。
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add the_door/src/the_door/models.py \
         the_door/tests/unit/core/test_models_resolution.py \
-        the_door/tests/integration/diff/test_resolution_change_no_diff.py
-git commit -m "feat(edge): add name_match_ambiguous resolution value + diff regression guard"
+        the_door/tests/unit/core/diff/test_diff_engine_ignores_resolution.py
+git commit -m "feat(edge): add name_match_ambiguous resolution + diff source guard"
 ```

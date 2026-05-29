@@ -10,11 +10,23 @@
 
 ---
 
+## BatchReader 構造簽名重要說明（必讀）
+
+`BatchReader.__init__(llm_provider, structure: StructureJSON, *, max_context_tokens=None, context_mode="detail")`
+
+- 第一個 positional 是 `llm_provider`（測試中可用 `object()` 或最小 stub）
+- 第二個是 `StructureJSON`（**不是 `Structure`，沒有 `analyzed_files` 欄位**）
+- `context_mode` 是 keyword-only
+
+`StructureJSON` 真實欄位：`files / nodes / edges / topology`，僅此 4 個。
+
+---
+
 ## Design — 順序紀律
 
 ```
 detail mode _build_payload:
-  1. batch-local edge filter（既有）
+  1. batch-local edge filter（既有，line 280-291）
   2. project_edges_for_prompt(batch_edges)
   3. payload["edges"] = kept_edges
   4. payload["aggregate_call_hints"] = hints
@@ -32,24 +44,25 @@ Create `the_door/tests/integration/reading/test_batch_reader_projection.py`:
 ```python
 """BatchReader detail mode applies edge_projection at payload boundary."""
 from the_door.core.reading.batch_reader import BatchReader
-from the_door.models import ASTNode, Edge, Structure
+from the_door.models import ASTNode, Edge, StructureJSON
+
+
+class _StubProvider:
+    """Minimal LLM provider stub — _build_payload doesn't use it."""
+    pass
 
 
 def _node(node_id: str, name: str, file: str = "x.py") -> ASTNode:
-    return ASTNode(
-        node_id=node_id, type="function", name=name, file=file,
-        language="python", parameters=(),
-    )
+    return ASTNode(node_id=node_id, type="function", name=name, file=file,
+                   language="python")
 
 
-def _make_structure(nodes: list[ASTNode], edges: list[Edge]) -> Structure:
-    return Structure(
-        nodes=tuple(nodes),
-        edges=tuple(edges),
-        topology=(),
-        files=(),
-        analyzed_files=(),
-    )
+def _make_structure(nodes: list[ASTNode], edges: list[Edge]) -> StructureJSON:
+    return StructureJSON(nodes=list(nodes), edges=list(edges))
+
+
+def _reader(structure: StructureJSON, mode: str = "detail") -> BatchReader:
+    return BatchReader(_StubProvider(), structure, context_mode=mode)
 
 
 def test_detail_payload_includes_aggregate_call_hints_key():
@@ -57,46 +70,44 @@ def test_detail_payload_includes_aggregate_call_hints_key():
     nodes = [_node("caller", "caller"), _node("target", "target")]
     edges = [Edge(from_node="caller", to_node="target",
                   type="calls", resolution="scope_rule")]
-    reader = BatchReader(_make_structure(nodes, edges), context_mode="detail")
-    payload = reader._build_payload(["caller", "target"], batch_num=0)
-
+    payload = _reader(_make_structure(nodes, edges))._build_payload(
+        ["caller", "target"], batch_num=0
+    )
     assert "aggregate_call_hints" in payload
     assert payload["aggregate_call_hints"] == {}
-    # scope_rule edge survives
     assert len(payload["edges"]) == 1
     assert payload["edges"][0]["resolution"] == "scope_rule"
 
 
 def test_ambiguous_edges_dropped_and_hint_populated():
     nodes = [_node("caller", "caller")] + [
-        _node(f"target{i}", "write") for i in range(4)
+        _node(f"M{i}.write", "write") for i in range(4)
     ]
     edges = [
-        Edge(from_node="caller", to_node=f"target{i}",
+        Edge(from_node="caller", to_node=f"M{i}.write",
              type="calls", resolution="name_match_ambiguous")
         for i in range(4)
     ]
-    reader = BatchReader(_make_structure(nodes, edges), context_mode="detail")
-    node_ids = ["caller"] + [f"target{i}" for i in range(4)]
-    payload = reader._build_payload(node_ids, batch_num=0)
-
+    node_ids = ["caller"] + [f"M{i}.write" for i in range(4)]
+    payload = _reader(_make_structure(nodes, edges))._build_payload(
+        node_ids, batch_num=0
+    )
     # No ambiguous edges leaked through
     assert all(e["resolution"] != "name_match_ambiguous"
                for e in payload["edges"])
     # Caller has a hint
-    assert "caller" in payload["aggregate_call_hints"]
+    assert payload["aggregate_call_hints"] == {"caller": ["write"]}
 
 
 def test_dynamic_edges_aggregated_into_hints():
-    nodes = [_node("caller", "caller"), _node("target", "send")]
-    edges = [Edge(from_node="caller", to_node="target",
+    nodes = [_node("caller", "caller"), _node("Bus.send", "send")]
+    edges = [Edge(from_node="caller", to_node="Bus.send",
                   type="calls", resolution="skipped_dynamic")]
-    reader = BatchReader(_make_structure(nodes, edges), context_mode="detail")
-    payload = reader._build_payload(["caller", "target"], batch_num=0)
-
+    payload = _reader(_make_structure(nodes, edges))._build_payload(
+        ["caller", "Bus.send"], batch_num=0
+    )
     assert payload["edges"] == []
-    assert "caller" in payload["aggregate_call_hints"]
-    assert "send" in payload["aggregate_call_hints"]["caller"]
+    assert payload["aggregate_call_hints"] == {"caller": ["send"]}
 
 
 def test_minimal_mode_has_no_aggregate_call_hints_key():
@@ -104,35 +115,35 @@ def test_minimal_mode_has_no_aggregate_call_hints_key():
     nodes = [_node("a", "a"), _node("b", "b")]
     edges = [Edge(from_node="a", to_node="b",
                   type="calls", resolution="name_match_ambiguous")]
-    reader = BatchReader(_make_structure(nodes, edges), context_mode="minimal")
-    payload = reader._build_payload(["a", "b"], batch_num=0)
-
+    payload = _reader(_make_structure(nodes, edges), mode="minimal")._build_payload(
+        ["a", "b"], batch_num=0
+    )
     assert "aggregate_call_hints" not in payload
-    assert payload == {"batch": 0, "context_mode": "minimal", "nodes": ["a", "b"]}
+    assert payload == {"batch": 0, "context_mode": "minimal",
+                       "nodes": ["a", "b"]}
 
 
 def test_batch_local_filter_applied_before_projection():
     """Edges to nodes outside the batch are dropped first; projection
     only sees in-batch edges, so its hints only reference in-batch callers."""
     nodes = [_node("caller", "caller"),
-             _node("in_batch_tgt", "x"),
-             _node("out_of_batch_tgt", "y")]
+             _node("In.x", "x"),
+             _node("Out.y", "y")]
     edges = [
-        Edge(from_node="caller", to_node="in_batch_tgt",
+        Edge(from_node="caller", to_node="In.x",
              type="calls", resolution="name_match_ambiguous"),
-        Edge(from_node="caller", to_node="out_of_batch_tgt",
+        Edge(from_node="caller", to_node="Out.y",
              type="calls", resolution="name_match_ambiguous"),
     ]
-    reader = BatchReader(_make_structure(nodes, edges), context_mode="detail")
-    # Batch excludes "out_of_batch_tgt"
-    payload = reader._build_payload(["caller", "in_batch_tgt"], batch_num=0)
-
-    # Only the in-batch edge fed projection → only that one method name in hint
-    hint = payload["aggregate_call_hints"].get("caller", [])
-    assert len(hint) == 1  # not 2 — out-of-batch edge filtered first
+    # Batch excludes "Out.y"
+    payload = _reader(_make_structure(nodes, edges))._build_payload(
+        ["caller", "In.x"], batch_num=0
+    )
+    # Only the in-batch edge fed projection → only 'x' in hint, not 'y'
+    assert payload["aggregate_call_hints"] == {"caller": ["x"]}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify fail**
 
 Run: `cd the_door && python -m pytest tests/integration/reading/test_batch_reader_projection.py -v`
 
@@ -148,9 +159,8 @@ Edit `the_door/src/the_door/core/reading/batch_reader.py`:
 from the_door.core.llm.edge_projection import project_edges_for_prompt
 ```
 
-2. Modify `_build_payload` — find the existing return block (around line 280-297):
+2. Modify the detail mode return block (around line 280-297). Find:
 
-Find:
 ```python
         # Filter edges to those fully within this batch to bound payload size.
         batch_node_set = set(node_ids)
@@ -173,6 +183,7 @@ Find:
 ```
 
 Replace with:
+
 ```python
         # Step 1: batch-local edge filter — bound payload size.
         batch_node_set = set(node_ids)
@@ -182,12 +193,11 @@ Replace with:
                 "to": e.to_node,
                 "type": e.type,
                 "resolution": e.resolution,
-                # method_name fallback uses to_node's bare segment in projection.
             }
             for e in self._structure.edges
             if e.from_node in batch_node_set and e.to_node in batch_node_set
         ]
-        # Step 2: projection layer — drop ambiguous, aggregate dynamic into hints.
+        # Step 2: projection — drop ambiguous, aggregate dynamic into hints.
         kept_edges, aggregate_hints = project_edges_for_prompt(edge_dicts)
         return {
             "batch": batch_num,
@@ -204,7 +214,7 @@ Run: `cd the_door && python -m pytest tests/integration/reading/test_batch_reade
 
 Expected: all 5 tests PASS.
 
-- [ ] **Step 5: Run batch_reader cov to confirm no regression**
+- [ ] **Step 5: Run batch_reader coverage**
 
 Run:
 ```
@@ -213,16 +223,16 @@ cd the_door && python -m pytest tests/ \
   --cov-report=term-missing 2>&1 | tail -10
 ```
 
-Expected: cov ≥ previous level (no untested lines added).
+Expected: coverage 不退步。
 
 - [ ] **Step 6: Run full suite**
 
 Run: `cd the_door && python -m pytest 2>&1 | tail -5`
 
 Expected:
-- All previous tests pass.
-- ⚠ **Tests that assert `payload["edges"]` length/content for batches with ambiguous edges may fail.** Each such failure means projection now correctly filters them — update the test fixture or assertion. Do NOT bypass projection.
-- ⚠ Tests that assert exact payload dict equality in detail mode will see new `aggregate_call_hints` key — update expected dicts to include it.
+- 既有測試全 PASS。
+- ⚠ **Tests that assert `payload["edges"]` exact content for batches with ambiguous/dynamic edges may fail.** Each such failure = projection correctly filtered — update fixture or assertion. **Do NOT bypass projection.**
+- ⚠ Tests that assert exact payload dict equality in detail mode will see new `aggregate_call_hints` key — update expected dicts.
 
 - [ ] **Step 7: Commit**
 

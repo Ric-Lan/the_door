@@ -1,7 +1,7 @@
 # Task 03: EdgeBuilder Fanout Threshold
 
 **Files:**
-- Modify: `the_door/src/the_door/core/extraction/edge_builder.py` (Step 4 fallback in `_resolve`)
+- Modify: `the_door/src/the_door/core/extraction/edge_builder.py`（加 `FANOUT_THRESHOLD` 常數；改 `_resolve()` 兩處 fallback）
 - Test: `the_door/tests/integration/extraction/test_edge_fanout_threshold.py` (new)
 
 **Goal:** 在 `_resolve()` Step 4 fallback 加 `FANOUT_THRESHOLD` 檢查 — 候選數超過閾值時把 resolution 標 `name_match_ambiguous`。**自動同時涵蓋 calls 與 extends 邊**（`_detect_extends` 也呼叫同一個 `_resolve`）。
@@ -10,12 +10,20 @@
 
 ---
 
+## EdgeBuilder lifecycle 重要說明（必讀）
+
+`EdgeBuilder.__init__(self)` **不收任何參數**。`_name_to_ids` 與 `_node_map` 是空 dict，**只在 `build_edges(nodes, trees, configs)` 被呼叫時才填入**（見 `edge_builder.py:69-72`）。
+
+故測試 `_resolve()` 行為必須**手動 inject** lookup state，不可只 `EdgeBuilder(nodes)`（會 TypeError）也不可只 `EdgeBuilder()` 就呼 `_resolve`（lookup 空，永遠回 `[]`）。
+
+---
+
 ## Design
 
 ```python
 FANOUT_THRESHOLD = 3  # default; tuned by dogfood histogram (Task 06)
 
-# inside _resolve(), Step 4 (current):
+# _resolve() Step 4 (current ~line 410):
 matches = self._name_to_ids.get(name, [])
 return [(m, "name_match") for m in matches]
 
@@ -27,7 +35,7 @@ res = "name_match_ambiguous" if len(matches) > FANOUT_THRESHOLD else "name_match
 return [(m, res) for m in matches]
 ```
 
-**Important:** Step 1 (`skipped_dynamic` early-out at line 397) does NOT get the threshold — the projection layer (Task 02) handles dynamic fanout via aggregate hints.
+**Important:** Step 1 (`skipped_dynamic` early-out) does NOT get the threshold — projection layer (Task 02) handles dynamic fanout via aggregate hints.
 
 ---
 
@@ -36,142 +44,136 @@ return [(m, res) for m in matches]
 Create `the_door/tests/integration/extraction/test_edge_fanout_threshold.py`:
 
 ```python
-"""EdgeBuilder marks high-fanout name_match edges as name_match_ambiguous."""
-from the_door.core.extraction.edge_builder import EdgeBuilder, FANOUT_THRESHOLD
+"""EdgeBuilder marks high-fanout name_match edges as name_match_ambiguous.
+
+These tests probe `_resolve()` directly by hand-injecting the lookup
+state that `build_edges()` would normally populate. This isolates the
+threshold logic from tree-sitter parsing.
+"""
+from the_door.core.extraction.edge_builder import (
+    EdgeBuilder, FANOUT_THRESHOLD, ScopeContext,
+)
 from the_door.core.extraction.language_configs import LANGUAGE_CONFIGS
 from the_door.models import ASTNode
 
 
-def _node(node_id: str, name: str, file: str, ntype: str = "function") -> ASTNode:
-    return ASTNode(
-        node_id=node_id,
-        type=ntype,
-        name=name,
-        file=file,
-        language="python",
-        parameters=(),
+def _node(node_id: str, name: str, file: str = "x.py",
+          ntype: str = "function") -> ASTNode:
+    return ASTNode(node_id=node_id, type=ntype, name=name, file=file,
+                   language="python")
+
+
+def _builder_with(nodes: list[ASTNode]) -> EdgeBuilder:
+    """Construct an EdgeBuilder and hand-populate its lookup state.
+
+    Mirrors what `build_edges()` does at lines 69-72.
+    """
+    builder = EdgeBuilder()
+    builder._name_to_ids = {}
+    builder._node_map = {}
+    for n in nodes:
+        builder._name_to_ids.setdefault(n.name, []).append(n.node_id)
+        builder._node_map[n.node_id] = n
+    return builder
+
+
+def _ctx(current_file: str = "external.py") -> ScopeContext:
+    """Context that forces Step 4 fallback (scope_rule won't apply)."""
+    return ScopeContext(
+        current_file=current_file,
+        import_aliases={},
+        caller_class=None,
     )
+
+
+def test_threshold_default_is_three():
+    """Anchor test: dogfood (Task 06) may tune this — keep test in sync."""
+    assert FANOUT_THRESHOLD == 3
 
 
 def test_low_fanout_keeps_name_match():
     """When candidates ≤ threshold, resolution stays name_match."""
-    assert FANOUT_THRESHOLD == 3  # contract anchor for this test
     nodes = [
-        _node("a.py::caller", "caller", "a.py"),
-        _node("a.py::target1", "shared", "a.py"),
-        _node("b.py::target2", "shared", "b.py"),
-    ]
-    # 2 candidates < threshold 3 → name_match
-    builder = EdgeBuilder(nodes)
-    matches = builder._name_to_ids.get("shared", [])
-    assert len(matches) == 2
-    # Direct probe of internal _resolve to isolate the threshold logic.
-    from the_door.core.extraction.edge_builder import ScopeContext
-    ctx = ScopeContext(
-        current_file="external.py",  # forces Step 4 (scope_rule won't match)
-        import_aliases={},
-        caller_class=None,
-        caller_name=None,
-    )
+        _node("a.py::shared", "shared", "a.py"),
+        _node("b.py::shared", "shared", "b.py"),
+    ]  # 2 candidates < threshold 3
+    builder = _builder_with(nodes)
     rules = LANGUAGE_CONFIGS["python"].scope_rules
-    resolved = builder._resolve("shared", ctx, rules)
+    resolved = builder._resolve("shared", _ctx(), rules)
+    assert len(resolved) == 2
     assert all(res == "name_match" for _nid, res in resolved)
 
 
 def test_high_fanout_marks_ambiguous():
     """When candidates > threshold, resolution becomes name_match_ambiguous."""
-    # Build 4 candidates (> threshold 3)
-    nodes = [_node(f"f{i}.py::shared", "shared", f"f{i}.py") for i in range(4)]
-    nodes.append(_node("caller.py::caller", "caller", "caller.py"))
-    builder = EdgeBuilder(nodes)
-    matches = builder._name_to_ids.get("shared", [])
-    assert len(matches) == 4
-    from the_door.core.extraction.edge_builder import ScopeContext
-    ctx = ScopeContext(
-        current_file="external.py",
-        import_aliases={},
-        caller_class=None,
-        caller_name=None,
-    )
+    nodes = [_node(f"f{i}.py::shared", "shared", f"f{i}.py")
+             for i in range(4)]  # 4 > threshold 3
+    builder = _builder_with(nodes)
     rules = LANGUAGE_CONFIGS["python"].scope_rules
-    resolved = builder._resolve("shared", ctx, rules)
-    assert resolved  # 4 edges
+    resolved = builder._resolve("shared", _ctx(), rules)
+    assert len(resolved) == 4
     assert all(res == "name_match_ambiguous" for _nid, res in resolved)
 
 
 def test_dynamic_dispatch_unaffected_by_threshold():
-    """skipped_dynamic does NOT receive name_match_ambiguous — projection handles it."""
+    """skipped_dynamic does NOT receive ambiguous — projection handles it."""
     nodes = [_node(f"f{i}.py::send", "send", f"f{i}.py") for i in range(10)]
-    nodes.append(_node("caller.py::caller", "caller", "caller.py"))
-    builder = EdgeBuilder(nodes)
-    from the_door.core.extraction.edge_builder import ScopeContext
-    ctx = ScopeContext(
-        current_file="caller.py",
-        import_aliases={},
-        caller_class=None,
-        caller_name=None,
-    )
-    # Use Ruby scope_rules → method_resolution == "dynamic_dispatch"
+    builder = _builder_with(nodes)
+    # Ruby's scope_rules has method_resolution == "dynamic_dispatch"
     rules = LANGUAGE_CONFIGS["ruby"].scope_rules
-    resolved = builder._resolve("send", ctx, rules)
+    resolved = builder._resolve("send", _ctx("caller.rb"), rules)
     assert all(res == "skipped_dynamic" for _nid, res in resolved)
 
 
 def test_extends_path_also_gets_ambiguous():
     """_detect_extends calls _resolve too → threshold applies to extends edges."""
-    # 4 classes named Base across files
-    nodes = [_node(f"f{i}.py::Base", "Base", f"f{i}.py", ntype="class") for i in range(4)]
-    nodes.append(_node("child.py::Child", "Child", "child.py", ntype="class"))
-    builder = EdgeBuilder(nodes)
-    from the_door.core.extraction.edge_builder import ScopeContext
-    ctx = ScopeContext(
-        current_file="child.py",
-        import_aliases={},
-        caller_class="Child",
-        caller_name="Child",
-    )
+    nodes = [_node(f"f{i}.py::Base", "Base", f"f{i}.py", ntype="class")
+             for i in range(4)]
+    builder = _builder_with(nodes)
     rules = LANGUAGE_CONFIGS["python"].scope_rules
+    ctx = ScopeContext(current_file="child.py", import_aliases={},
+                       caller_class="Child", caller_name="Child")
     resolved = builder._resolve("Base", ctx, rules)
     assert all(res == "name_match_ambiguous" for _nid, res in resolved)
 
 
 def test_no_candidates_returns_empty():
     """Step 4 with zero candidates returns empty list (no edge)."""
-    nodes = [_node("a.py::caller", "caller", "a.py")]
-    builder = EdgeBuilder(nodes)
-    from the_door.core.extraction.edge_builder import ScopeContext
-    ctx = ScopeContext(
-        current_file="a.py",
-        import_aliases={},
-        caller_class=None,
-        caller_name=None,
-    )
+    builder = _builder_with([])
     rules = LANGUAGE_CONFIGS["python"].scope_rules
-    assert builder._resolve("nonexistent_name", ctx, rules) == []
+    assert builder._resolve("nonexistent_name", _ctx(), rules) == []
+
+
+def test_no_rules_path_also_escalates():
+    """rules=None early branch (line ~386) also escalates on high fanout."""
+    nodes = [_node(f"f{i}.py::shared", "shared", f"f{i}.py") for i in range(4)]
+    builder = _builder_with(nodes)
+    resolved = builder._resolve("shared", _ctx(), rules=None)
+    assert all(res == "name_match_ambiguous" for _nid, res in resolved)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify fail**
 
 Run: `cd the_door && python -m pytest tests/integration/extraction/test_edge_fanout_threshold.py -v`
 
-Expected: FAIL on `from ... import FANOUT_THRESHOLD` (constant not defined yet) OR FAIL on `test_high_fanout_marks_ambiguous` (still emits `name_match`).
+Expected: FAIL on `ImportError: cannot import name 'FANOUT_THRESHOLD'`.
 
-- [ ] **Step 3: Add FANOUT_THRESHOLD constant + modify `_resolve` Step 4**
+- [ ] **Step 3: Add FANOUT_THRESHOLD + modify `_resolve` two fallback branches**
 
 Edit `the_door/src/the_door/core/extraction/edge_builder.py`:
 
-1. Add module-level constant near the top of the file (after imports):
+1. **Add module-level constant** near the top of the file (after imports):
 
 ```python
 # Fanout threshold for name_match → name_match_ambiguous escalation.
 # When a bare name resolves to more than FANOUT_THRESHOLD candidates,
-# the edges are marked name_match_ambiguous so the LLM prompt projection
-# layer can drop them and fold the call into an aggregate hint instead.
-# Default 3; tunable via dogfood histogram analysis (see plan task 06).
+# edges are marked name_match_ambiguous so the prompt projection layer
+# can drop them and fold the call into a caller-level aggregate hint.
+# Default 3; tunable via dogfood histogram analysis (plan task 06).
 FANOUT_THRESHOLD = 3
 ```
 
-2. Modify `_resolve` Step 4 fallback (current lines ~410-412):
+2. **Modify `_resolve` Step 4 fallback** (current lines ~410-412):
 
 Find:
 ```python
@@ -190,7 +192,7 @@ Replace with:
         return [(m, res) for m in matches]
 ```
 
-3. Also modify the no-rules early branch (current line ~386-389):
+3. **Modify the no-rules early branch** (current lines ~386-389):
 
 Find:
 ```python
@@ -211,13 +213,13 @@ Replace with:
             return [(m, res) for m in matches]
 ```
 
-- [ ] **Step 4: Run integration test to verify it passes**
+- [ ] **Step 4: Run integration tests to verify pass**
 
 Run: `cd the_door && python -m pytest tests/integration/extraction/test_edge_fanout_threshold.py -v`
 
-Expected: all 5 tests PASS.
+Expected: all 7 tests PASS.
 
-- [ ] **Step 5: Run edge_builder cov to confirm 100%**
+- [ ] **Step 5: Run edge_builder coverage**
 
 Run:
 ```
@@ -226,16 +228,15 @@ cd the_door && python -m pytest tests/ \
   --cov-report=term-missing 2>&1 | tail -20
 ```
 
-Expected: `edge_builder.py` 100% coverage maintained. If any uncovered lines belong to the new branches, add targeted tests inline.
+Expected: `edge_builder.py` 100% coverage maintained.
 
-- [ ] **Step 6: Run full suite — confirm no regressions**
+- [ ] **Step 6: Run full suite**
 
 Run: `cd the_door && python -m pytest 2>&1 | tail -5`
 
 Expected:
-- Existing tests pass.
-- ⚠ **Some pre-existing tests that assert edges have `resolution == "name_match"` may now see `name_match_ambiguous`** for high-fanout cases. If so, the test was relying on incidental fanout — update the assertion to accept either value, or restructure the fixture to produce only ≤ 3 candidates.
-- Treat each such failure as a deliberate review point: was the test pinning resolution exact-match, or fanout count? Adjust accordingly. Do NOT lower `FANOUT_THRESHOLD` to avoid the failure.
+- 既有測試全 PASS。
+- ⚠ **某些 pre-existing 測試若 assert edges 為 `name_match` 而其 fixture 候選數 > 3**，現在會看到 `name_match_ambiguous`。每次失敗都當作 review point：測試是否在驗證 resolution exact-match 或在驗證 fanout 計數？更新 assertion 或縮小 fixture，**不要降低 `FANOUT_THRESHOLD`**。
 
 - [ ] **Step 7: Commit**
 

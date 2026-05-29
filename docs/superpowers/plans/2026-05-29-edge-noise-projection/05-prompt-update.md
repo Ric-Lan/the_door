@@ -19,13 +19,13 @@ Create `the_door/tests/unit/core/llm/test_prompt_resolution_section.py`:
 from the_door.core.llm.prompts import L1_FEATURE_EXTRACTION_PROMPT
 
 
-def test_prompt_mentions_name_match_ambiguous_is_not_in_input():
-    """Prompt should NOT list name_match_ambiguous as a label LLM will see,
-    because projection drops it before payload reaches the LLM."""
-    text = L1_FEATURE_EXTRACTION_PROMPT.lower()
-    # The label is internal; it should not appear in the LLM-facing prompt
-    # (projection removes it before serialization).
-    assert "name_match_ambiguous" not in text
+def test_prompt_does_not_list_ambiguous_as_per_edge_label():
+    """The prompt may explain ambiguous-edges-are-aggregated in prose,
+    but must NOT include name_match_ambiguous as a bulleted per-edge label
+    the LLM is told to interpret. Heuristic: it shouldn't appear with
+    backtick formatting like other per-edge labels (`scope_rule` etc.)."""
+    text = L1_FEATURE_EXTRACTION_PROMPT
+    assert "`name_match_ambiguous`" not in text
 
 
 def test_prompt_explains_aggregate_call_hints():
