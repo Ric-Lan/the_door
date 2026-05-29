@@ -16,7 +16,10 @@ from the_door.models import ASTNode, Edge
 # When a bare name resolves to more than FANOUT_THRESHOLD candidates,
 # edges are marked name_match_ambiguous so the prompt projection layer
 # can drop them and fold the call into a caller-level aggregate hint.
-# Default 3; tunable via dogfood histogram analysis (plan task 06).
+# Tuned by dogfood histogram on the_door + v105 (2026-05-30):
+#   main repo  p75=1 p90=1, v105 p75=1 p90=1 → both well below 3.
+#   Decision rule: p75 ≤ 3 and p90 ≤ 5 → keep FANOUT_THRESHOLD = 3.
+#   Drop rates: main 5.3%, v105 7.2% — healthy noise reduction.
 FANOUT_THRESHOLD = 3
 
 

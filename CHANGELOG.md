@@ -10,6 +10,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.4.6 — 2026-05-30
+
+### Edge noise projection (post-v1.4.5 增量)
+
+- **`Edge.resolution` 加 `name_match_ambiguous` 枚舉值**：高 fanout（候選 > N）的裸名匹配標為 ambiguous
+- **新增 `core/llm/edge_projection.py` 純函式投影層**：drop ambiguous + 把 `skipped_dynamic` 邊聚合成 `aggregate_call_hints`
+- **BatchReader detail mode payload 加 `aggregate_call_hints` 欄位**；minimal mode 不變
+- **L1 prompt 教 LLM 看 hint 但不可寫成依賴**
+
+#### Dogfood §7.2 驗收
+
+| Target | 投影前邊數 | 投影後邊數 | drop% | callers with hints |
+|---|---|---|---|---|
+| `the_door/src/the_door` | 2044 | 1935 | 5.3% | 18 |
+| `test-targets/the-door-v105` | 3413 | 3167 | 7.2% | 47 |
+
+`FANOUT_THRESHOLD = 3`（由 dogfood histogram p75/p90 分佈決定：兩 repo p75=1 p90=1，均遠低於門檻，維持預設值）
+
+#### 向後相容
+
+- 既有 snapshot 反序列化不報錯
+- source-level guard 釘住 `core/diff/` 不引用 `edge.resolution`，新枚舉值不會造成 diff 假 churn
+- viewer 不需要改動
+
+---
+
 ## [1.4.5] — 2026-05-29
 
 ### Added

@@ -27,6 +27,7 @@ The Door is a CLI tool + MCP Server + local UI. It reads your codebase and (with
 | Doubt tracking | Anomaly detected → flagged → assigned → resolved (with escalation on timeout) |
 | Feature detail panel | Per-feature drill-down: trigger description, confidence rationale, and source node list — visible in the viewer's single-version mode |
 | Scope-aware edges | Cross-file relations carry a `resolution` tag (`scope_rule` / `import_alias` / `name_match` / `skipped_dynamic`) so the LLM can weight high- vs low-confidence edges instead of treating all name matches equally |
+| **Edge noise projection** | LLM 收到的邊已過濾高 fanout 噪音，動態 dispatch 邊聚合成 caller 級 hint；snapshot 與 viewer 仍保留完整事實。 |
 | Local UI | Browser workbench, interactive diagrams, three-layer navigation (L1 → L2 → L3) |
 
 ---
