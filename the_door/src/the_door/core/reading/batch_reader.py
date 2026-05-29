@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from the_door.core.llm.edge_projection import project_edges_for_prompt
 from the_door.core.llm.prompts import L1_SYSTEM_PROMPT
 from the_door.core.llm.response_parser import ResponseParser
 from the_door.core.reading.pruning_engine import PruningEngine
@@ -277,7 +278,7 @@ class BatchReader:
                 "docstring": node.docstring,
                 "comments": list(node.comments),
             })
-        # Filter edges to those fully within this batch to bound payload size.
+        # Step 1: batch-local edge filter — bound payload size.
         batch_node_set = set(node_ids)
         edge_dicts = [
             {
@@ -289,11 +290,14 @@ class BatchReader:
             for e in self._structure.edges
             if e.from_node in batch_node_set and e.to_node in batch_node_set
         ]
+        # Step 2: projection — drop ambiguous, aggregate dynamic into hints.
+        kept_edges, aggregate_hints = project_edges_for_prompt(edge_dicts)
         return {
             "batch": batch_num,
             "context_mode": "detail",
             "nodes": node_dicts,
-            "edges": edge_dicts,
+            "edges": kept_edges,
+            "aggregate_call_hints": aggregate_hints,
         }
 
     def _serialize_payload(self, node_ids: list[str], batch_num: int) -> str:
