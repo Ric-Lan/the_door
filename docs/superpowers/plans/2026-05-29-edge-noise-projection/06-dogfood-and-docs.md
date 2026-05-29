@@ -148,7 +148,7 @@ Decision rule:
 FANOUT_THRESHOLD = <final value>
 ```
 
-並同步更新 `tests/integration/extraction/test_edge_fanout_threshold.py` 內 `test_threshold_default_is_three` 的 assertion 數值，與相關 fixture 的候選數使其仍能驗證 low → name_match、high → ambiguous 的兩段語意。
+並同步更新 `tests/integration/test_edge_fanout_threshold.py` 內 `test_threshold_default_is_three` 的 assertion 數值，與相關 fixture 的候選數使其仍能驗證 low → name_match、high → ambiguous 的兩段語意。
 
 - [ ] **Step 5: Re-run full suite**
 
@@ -219,7 +219,7 @@ Expected: 全 GREEN。
 ```bash
 git add scripts/dogfood_edge_projection_report.py \
         the_door/src/the_door/core/extraction/edge_builder.py \
-        the_door/tests/integration/extraction/test_edge_fanout_threshold.py \
+        the_door/tests/integration/test_edge_fanout_threshold.py \
         CHANGELOG.md README.md README.zh-TW.md
 git commit -m "docs(v1.4.6): edge noise projection + dogfood report + CHANGELOG"
 ```

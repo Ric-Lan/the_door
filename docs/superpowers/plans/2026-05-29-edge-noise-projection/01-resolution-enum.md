@@ -53,7 +53,7 @@ Expected: PASS (resolution is `str`, no enum constraint — but these tests pin 
 
 - [ ] **Step 3: Update the comment註記 in `models.py`**
 
-Edit `the_door/src/the_door/src/the_door/models.py:41` (or the closest line that defines `resolution`):
+Edit `the_door/src/the_door/models.py:41` (or the closest line that defines `resolution`):
 
 ```python
     resolution: str = "name_match"  # "scope_rule" | "import_alias" | "name_match" | "name_match_ambiguous" | "skipped_dynamic"

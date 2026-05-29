@@ -2,7 +2,7 @@
 
 **Files:**
 - Modify: `the_door/src/the_door/core/extraction/edge_builder.py`（加 `FANOUT_THRESHOLD` 常數；改 `_resolve()` 兩處 fallback）
-- Test: `the_door/tests/integration/extraction/test_edge_fanout_threshold.py` (new)
+- Test: `the_door/tests/integration/test_edge_fanout_threshold.py` (new)
 
 **Goal:** 在 `_resolve()` Step 4 fallback 加 `FANOUT_THRESHOLD` 檢查 — 候選數超過閾值時把 resolution 標 `name_match_ambiguous`。**自動同時涵蓋 calls 與 extends 邊**（`_detect_extends` 也呼叫同一個 `_resolve`）。
 
@@ -41,7 +41,7 @@ return [(m, res) for m in matches]
 
 - [ ] **Step 1: Write the failing integration test**
 
-Create `the_door/tests/integration/extraction/test_edge_fanout_threshold.py`:
+Create `the_door/tests/integration/test_edge_fanout_threshold.py`:
 
 ```python
 """EdgeBuilder marks high-fanout name_match edges as name_match_ambiguous.
@@ -154,7 +154,7 @@ def test_no_rules_path_also_escalates():
 
 - [ ] **Step 2: Run test to verify fail**
 
-Run: `cd the_door && python -m pytest tests/integration/extraction/test_edge_fanout_threshold.py -v`
+Run: `cd the_door && python -m pytest tests/integration/test_edge_fanout_threshold.py -v`
 
 Expected: FAIL on `ImportError: cannot import name 'FANOUT_THRESHOLD'`.
 
@@ -215,7 +215,7 @@ Replace with:
 
 - [ ] **Step 4: Run integration tests to verify pass**
 
-Run: `cd the_door && python -m pytest tests/integration/extraction/test_edge_fanout_threshold.py -v`
+Run: `cd the_door && python -m pytest tests/integration/test_edge_fanout_threshold.py -v`
 
 Expected: all 7 tests PASS.
 
@@ -242,6 +242,6 @@ Expected:
 
 ```bash
 git add the_door/src/the_door/core/extraction/edge_builder.py \
-        the_door/tests/integration/extraction/test_edge_fanout_threshold.py
+        the_door/tests/integration/test_edge_fanout_threshold.py
 git commit -m "feat(edge): FANOUT_THRESHOLD escalates high-fanout name_match → ambiguous"
 ```

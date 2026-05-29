@@ -2,7 +2,7 @@
 
 **Files:**
 - Modify: `the_door/src/the_door/core/reading/batch_reader.py` (`_build_payload` detail mode)
-- Test: `the_door/tests/integration/reading/test_batch_reader_projection.py` (new)
+- Test: `the_door/tests/integration/test_batch_reader_projection.py` (new)
 
 **Goal:** 在 `BatchReader._build_payload` detail mode 出口呼叫 `project_edges_for_prompt`，把 ambiguous + dynamic 邊聚合成 `aggregate_call_hints` payload 欄位。minimal mode 不變。
 
@@ -39,7 +39,7 @@ minimal mode payload 不變 — 不含 `aggregate_call_hints` key。
 
 - [ ] **Step 1: Write the failing integration test**
 
-Create `the_door/tests/integration/reading/test_batch_reader_projection.py`:
+Create `the_door/tests/integration/test_batch_reader_projection.py`:
 
 ```python
 """BatchReader detail mode applies edge_projection at payload boundary."""
@@ -145,7 +145,7 @@ def test_batch_local_filter_applied_before_projection():
 
 - [ ] **Step 2: Run test to verify fail**
 
-Run: `cd the_door && python -m pytest tests/integration/reading/test_batch_reader_projection.py -v`
+Run: `cd the_door && python -m pytest tests/integration/test_batch_reader_projection.py -v`
 
 Expected: FAIL — `aggregate_call_hints` key missing from payload.
 
@@ -210,7 +210,7 @@ Replace with:
 
 - [ ] **Step 4: Run integration tests to verify pass**
 
-Run: `cd the_door && python -m pytest tests/integration/reading/test_batch_reader_projection.py -v`
+Run: `cd the_door && python -m pytest tests/integration/test_batch_reader_projection.py -v`
 
 Expected: all 5 tests PASS.
 
@@ -238,6 +238,6 @@ Expected:
 
 ```bash
 git add the_door/src/the_door/core/reading/batch_reader.py \
-        the_door/tests/integration/reading/test_batch_reader_projection.py
+        the_door/tests/integration/test_batch_reader_projection.py
 git commit -m "feat(reading): apply edge projection at detail-mode payload boundary"
 ```
