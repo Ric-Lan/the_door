@@ -1,6 +1,7 @@
 """Edge builder module — scope-aware call/import/extends relationship detection."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from tree_sitter import Node as TSNode
 
 from the_door.core.extraction.language_configs import (
@@ -10,6 +11,22 @@ from the_door.core.extraction.language_configs import (
     ScopeRules,
 )
 from the_door.models import ASTNode, Edge
+
+
+@dataclass(frozen=True)
+class CallSite:
+    """A single call site extracted from a function body.
+
+    receiver : str | None
+        The object or class the method is called on (e.g. ``"FlowGuard"`` for
+        ``FlowGuard.check()`` or ``"self"``/``"this"`` for instance calls).
+        ``None`` for bare function calls (e.g. ``foo()``).
+    method : str
+        The bare method or function name being called.
+    """
+
+    receiver: str | None
+    method: str
 
 
 class EdgeBuilder:
@@ -441,6 +458,126 @@ class EdgeBuilder:
 
     # ── detection methods ──────────────────────────────────────────────────
 
+    def _local_class_names(self, file_path: str) -> set[str]:
+        """Return the set of class names defined in *file_path* (from node_map)."""
+        return {
+            n.name
+            for n in self._node_map.values()
+            if n.file == file_path and n.type == "class"
+        }
+
+    def _find_method_in_file(self, method: str, file_path: str) -> str | None:
+        """Return the first node_id for *method* that lives in *file_path*.
+
+        Used for self/this calls and local-class calls — both target a node in
+        the same file as the caller.
+        """
+        candidates = self._name_to_ids.get(method, [])
+        for nid in candidates:
+            node = self._node_map.get(nid)
+            if node is not None and node.file == file_path:
+                return nid
+        return None
+
+    def _find_method_by_class_in_import_aliases(
+        self, original_class: str, method: str
+    ) -> str | None:
+        """Return the first node_id for *method* whose containing class name
+        matches *original_class*.
+
+        Strategy: look up all candidates for *method*, then return the first
+        whose node_id bare segment ends with ``{original_class}.{method}`` (if
+        the extractor uses the ``ClassName.method`` format), OR whose *file*
+        contains a class node named *original_class* (for extractors that use
+        bare method names).
+
+        We try the suffix-match first (works for hand-built test node_ids),
+        then fall back to the file-contains-class check (works for real
+        extractions where node_id = ``file.py::method``).
+        """
+        suffix = f"{original_class}.{method}"
+        candidates = self._name_to_ids.get(method, [])
+        # Pass 1: exact suffix match (handles test fixtures / future ClassName.method format)
+        for nid in candidates:
+            bare = nid.rsplit("::", 1)[-1] if "::" in nid else nid
+            if bare == suffix:
+                return nid
+        # Pass 2: find which candidates have original_class as a class node in same file
+        # Build a set of files that define original_class
+        class_files: set[str] = {
+            n.file
+            for n in self._node_map.values()
+            if n.type == "class" and n.name == original_class
+        }
+        if not class_files:
+            return None
+        for nid in candidates:
+            node = self._node_map.get(nid)
+            if node is not None and node.file in class_files:
+                return nid
+        return None
+
+    def _resolve_call_site(
+        self,
+        site: CallSite,
+        context: ScopeContext,
+        rules: ScopeRules | None,
+        node_id_set: set[str],
+        local_classes: set[str],
+    ) -> list[tuple[str, str]]:
+        """Resolve a CallSite to (node_id, resolution) pairs.
+
+        Receiver-aware path (tried before falling back to bare-name _resolve):
+
+        1. ``self``/``this`` + caller_class known →
+           find method in same file → ``scope_rule``.
+        2. Receiver is a local class defined in the current file →
+           find method in same file → ``scope_rule``.
+        3. Receiver in import_aliases →
+           find method in class's file → ``import_alias``.
+        4. Fallback: bare-name ``_resolve(method, context, rules)``.
+        """
+        receiver = site.receiver
+        method = site.method
+
+        # Dynamic dispatch short-circuit (rules take priority over receiver logic)
+        if rules is not None:
+            is_dynamic = (
+                context.has_dynamic_marker(rules.dynamic_markers)
+                or rules.method_resolution == "dynamic_dispatch"
+            )
+            if is_dynamic:
+                matches = self._name_to_ids.get(method, [])
+                return [(m, "skipped_dynamic") for m in matches]
+
+        if receiver is not None:
+            # --- self / this call ---
+            if receiver in ("self", "this") and context.caller_class is not None:
+                nid = self._find_method_in_file(method, context.current_file)
+                if nid is not None and nid in node_id_set:
+                    return [(nid, "scope_rule")]
+                # Target not found (e.g. inherited method not extracted) →
+                # fall through to bare-name resolve so we don't silently drop.
+
+            # --- local-class call  (e.g. LocalClass.method()) ---
+            elif receiver in local_classes:
+                nid = self._find_method_in_file(method, context.current_file)
+                if nid is not None and nid in node_id_set:
+                    return [(nid, "scope_rule")]
+
+            # --- imported-name call (e.g. Validator.check()) ---
+            elif rules is not None and receiver in context.import_aliases:
+                original = context.import_aliases[receiver]
+                nid = self._find_method_by_class_in_import_aliases(original, method)
+                if nid is not None and nid in node_id_set:
+                    return [(nid, "import_alias")]
+
+        # Fallback: bare-name resolution (preserves existing behavior)
+        if rules is not None:
+            return self._resolve(method, context, rules)
+        candidates = self._name_to_ids.get(method, [])
+        return [(c, "name_match") for c in candidates]
+
     def _detect_calls(
         self,
         root: TSNode,
@@ -450,6 +587,9 @@ class EdgeBuilder:
         base_ctx: ScopeContext,
         rules: ScopeRules | None,
     ) -> None:
+        # Pre-compute local class names for receiver-aware resolution.
+        local_classes = self._local_class_names(base_ctx.current_file)
+
         for node in file_nodes:
             if node.type == "class":
                 continue
@@ -476,13 +616,11 @@ class EdgeBuilder:
                 caller_class=derived_class,
                 caller_name=node.name,
             )
-            called_names = self._collect_call_names(body)
-            for called_name in called_names:
-                if rules is not None:
-                    resolved = self._resolve(called_name, call_ctx, rules)
-                else:
-                    candidates = self._name_to_ids.get(called_name, [])
-                    resolved = [(c, "name_match") for c in candidates]
+            call_sites = self._collect_call_sites(body)
+            for site in call_sites:
+                resolved = self._resolve_call_site(
+                    site, call_ctx, rules, node_id_set, local_classes
+                )
                 for target_id, res_type in resolved:
                     if target_id != node.node_id and target_id in node_id_set:
                         edges.append(
@@ -557,7 +695,10 @@ class EdgeBuilder:
                                         from_node=src_node.node_id,
                                         to_node=target_id,
                                         type="imports",
-                                        resolution="name_match",
+                                        # import edges are resolved via the import
+                                        # statement itself — use import_alias to
+                                        # distinguish from bare name_match fallback.
+                                        resolution="import_alias",
                                     )
                                 )
                                 break
@@ -595,24 +736,79 @@ class EdgeBuilder:
                     return True
         return False
 
-    def _collect_call_names(self, node: TSNode) -> set[str]:
-        names: set[str] = set()
+    @staticmethod
+    def _last_identifier(node: TSNode) -> str | None:
+        """Return the last identifier in a (possibly nested) attribute/member chain.
+
+        For ``a.b`` (attribute with children [identifier(a), ".", identifier(b)])
+        returns ``"b"``.  For a bare identifier returns the identifier text.
+        Returns ``None`` if no identifier is found.
+        """
+        if node.type in ("identifier", "property_identifier"):
+            return node.text.decode("utf-8", errors="replace")
+        # Traverse children right-to-left to find the last identifier.
+        for child in reversed(node.children):
+            result = EdgeBuilder._last_identifier(child)
+            if result is not None:
+                return result
+        return None
+
+    def _collect_call_sites(self, node: TSNode) -> list[CallSite]:
+        """Collect all call sites in *node*'s subtree as ``CallSite`` objects.
+
+        For bare calls ``foo()`` → ``CallSite(receiver=None, method="foo")``.
+        For attribute/member calls ``obj.method()`` →
+        ``CallSite(receiver="obj", method="method")``.
+        For chained calls ``a.b.c()`` we use the *immediate* receiver (``b``),
+        following the convention that the last qualifier is the most specific
+        class context available at the call site.
+        """
+        sites: list[CallSite] = []
         # Python: call node; TypeScript/JS: call_expression node
         if node.type in ("call", "call_expression"):
             func_node = node.children[0] if node.children else None
             if func_node:
                 if func_node.type == "identifier":
-                    names.add(func_node.text.decode("utf-8", errors="replace"))
+                    sites.append(CallSite(
+                        receiver=None,
+                        method=func_node.text.decode("utf-8", errors="replace"),
+                    ))
                 elif func_node.type in ("attribute", "member_expression"):
-                    last_id = ""
-                    for child in func_node.children:
-                        if child.type in ("identifier", "property_identifier"):
-                            last_id = child.text.decode("utf-8", errors="replace")
-                    if last_id:
-                        names.add(last_id)
+                    # For ``obj.method()`` the attribute children are
+                    # [receiver_node, ".", identifier(method)].
+                    # ``receiver_node`` may itself be a nested attribute for chains
+                    # like ``a.b.c()`` — in that case we want the *last* identifier
+                    # of the receiver node (i.e. ``"b"``), which is the immediate
+                    # receiver of the method call.
+                    method: str | None = None
+                    receiver: str | None = None
+                    # Last identifier-or-property_identifier direct child is method.
+                    direct_ids = [
+                        c for c in func_node.children
+                        if c.type in ("identifier", "property_identifier")
+                    ]
+                    if direct_ids:
+                        method = direct_ids[-1].text.decode("utf-8", errors="replace")
+                        # Receiver node is the sibling just before the last ".".
+                        # For ``a.b.c``: children = [attribute(a.b), ".", identifier(c)]
+                        # → receiver_node = attribute(a.b) → last_identifier = "b".
+                        # For ``obj.method``: children = [identifier(obj), ".", identifier(method)]
+                        # → receiver_node = identifier(obj) → last_identifier = "obj".
+                        non_dot_children = [
+                            c for c in func_node.children if c.type != "."
+                        ]
+                        if len(non_dot_children) >= 2:
+                            receiver_node = non_dot_children[-2]
+                            receiver = EdgeBuilder._last_identifier(receiver_node)
+                    if method:
+                        sites.append(CallSite(receiver=receiver, method=method))
         for child in node.children:
-            names.update(self._collect_call_names(child))
-        return names
+            sites.extend(self._collect_call_sites(child))
+        return sites
+
+    def _collect_call_names(self, node: TSNode) -> set[str]:
+        """Return bare method names from all call sites (backward-compat helper)."""
+        return {site.method for site in self._collect_call_sites(node)}
 
     def _extract_base_classes(self, class_node: TSNode) -> list[str]:
         bases: list[str] = []
