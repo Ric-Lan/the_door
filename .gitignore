@@ -136,3 +136,13 @@ scripts/integration-test/data/
 
 # Local MCP config (contains machine-specific paths)
 .mcp.json
+
+# Local historical planning / design scratch (kept on disk, not tracked)
+.claude/plans/
+design/
+docs/frontend-local-version-viewer/_planning/
+docs/frontend-local-version-viewer/intent-inference-spec.md
+
+# Frontend viewer build/test artifacts
+docs/frontend-local-version-viewer/viewer/coverage/
+docs/frontend-local-version-viewer/viewer/node_modules/
