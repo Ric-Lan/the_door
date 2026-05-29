@@ -149,6 +149,7 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
   container.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.setAttribute('data-page', state.page);
+  wrap.className = 'wizard-card';
 
   switch (state.page) {
     case 'LOADING':
@@ -159,14 +160,32 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       if (!state.hasSnapshots) {
         wrap.innerHTML = `
           <h2>歡迎使用 The Door</h2>
-          <button data-action="analyze">首次分析此專案</button>
-          <button data-action="view" disabled>查看快照（尚無資料）</button>
+          <p class="wizard-subtitle">首次使用，從分析此專案開始。</p>
+          <div class="wizard-options">
+            <button class="wizard-option-btn" data-action="analyze">
+              <strong>首次分析此專案</strong>
+              <span>掃描原始碼，建立第一份結構快照。</span>
+            </button>
+            <button class="wizard-option-btn" data-action="view" disabled>
+              <strong>查看快照</strong>
+              <span>尚無資料。</span>
+            </button>
+          </div>
         `;
       } else {
         wrap.innerHTML = `
           <h2>選擇操作</h2>
-          <button data-action="update">更新分析（重新跑）</button>
-          <button data-action="view">直接查看現有快照</button>
+          <p class="wizard-subtitle">偵測到既有快照，選擇下一步。</p>
+          <div class="wizard-options">
+            <button class="wizard-option-btn" data-action="update">
+              <strong>更新分析</strong>
+              <span>重新掃描原始碼，產生新版本快照。</span>
+            </button>
+            <button class="wizard-option-btn" data-action="view">
+              <strong>查看現有快照</strong>
+              <span>直接進入 Viewer，不重新分析。</span>
+            </button>
+          </div>
         `;
       }
       wrap.querySelectorAll('[data-action]').forEach(btn => {
@@ -183,9 +202,9 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       const switchSection = document.createElement('div');
       if (state.switchConflict) {
         switchSection.innerHTML = `
-          <div data-switch-conflict>
+          <div data-switch-conflict class="wizard-error-box">
             <p>目前有進行中的分析任務</p>
-            <button data-switch-force-btn>立即切換（中斷任務）</button>
+            <button class="wizard-btn-primary" data-switch-force-btn>立即切換（中斷任務）</button>
             <button data-switch-cancel-btn>取消</button>
           </div>
         `;
@@ -199,11 +218,11 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         });
       } else {
         switchSection.innerHTML = `
-          <hr>
-          <label>切換至其他專案
+          <div class="wizard-field">
+            <label>切換至其他專案</label>
             <input type="text" data-switch-input placeholder="/absolute/path/to/project">
-          </label>
-          <button data-switch-btn>切換</button>
+          </div>
+          <button class="wizard-btn-primary" data-switch-btn>切換</button>
         `;
         switchSection.querySelector('[data-switch-input]').value = state.switchPath;
         switchSection.querySelector('[data-switch-input]').addEventListener('input', e => {
@@ -228,11 +247,12 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
     case 'PAGE_SETUP':
       wrap.innerHTML = `
         <h2>設定分析範圍</h2>
-        <p>偵測到 ${state.fileCount} 個源碼檔案。</p>
-        <label>排除目錄（逗號分隔，選填）：
+        <p class="wizard-subtitle">偵測到 ${state.fileCount} 個源碼檔案。</p>
+        <div class="wizard-field">
+          <label>排除目錄（逗號分隔，選填）</label>
           <input type="text" data-excludes placeholder="tests/, docs/" value="${state.excludesRaw}">
-        </label>
-        <button data-next="setup">下一步</button>
+        </div>
+        <button class="wizard-btn-primary" data-next="setup">下一步</button>
       `;
       wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
         const raw = wrap.querySelector('[data-excludes]').value;
@@ -243,10 +263,11 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
     case 'PAGE_LABEL':
       wrap.innerHTML = `
         <h2>快照標籤</h2>
-        <label>版本標籤（選填）：
+        <div class="wizard-field">
+          <label>版本標籤（選填）</label>
           <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
-        </label>
-        <button data-next="label">下一步</button>
+        </div>
+        <button class="wizard-btn-primary" data-next="label">下一步</button>
       `;
       wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
         const lbl = wrap.querySelector('[data-label]').value;
@@ -258,9 +279,11 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       const mode = state.hasApiKey ? 'API key 模式' : 'Agent 模式（無 API key）';
       wrap.innerHTML = `
         <h2>確認送出</h2>
-        <p>操作：${state.action}</p>
-        <p>模式：${mode}</p>
-        <button data-submit>確認送出</button>
+        <dl class="wizard-summary">
+          <dt>操作</dt><dd>${state.action}</dd>
+          <dt>模式</dt><dd>${mode}</dd>
+        </dl>
+        <button class="wizard-btn-primary" data-submit>確認送出</button>
       `;
       wrap.querySelector('[data-submit]').addEventListener('click', () => {
         dispatch({ type: 'SUBMIT' });
@@ -276,24 +299,28 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       if (!state.hasApiKey) {
         wrap.innerHTML = `
           <h2>Agent 模式 — 複製以下指令給 Claude</h2>
-          <pre data-agent-params>extract_structure(codebase_path="${state.projectPath}")
+          <pre class="wizard-agent-params" data-agent-params>extract_structure(codebase_path="${state.projectPath}")
 snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="${state.label || 'v1.0.0'}")</pre>
-          <button data-copy>複製</button>
-          <button data-done>我已讓 agent 執行完畢，進入 Viewer</button>
+          <button class="wizard-btn-copy" data-copy>複製</button>
+          <button class="wizard-btn-primary" data-done>我已讓 agent 執行完畢，進入 Viewer</button>
         `;
         wrap.querySelector('[data-copy]').addEventListener('click', () => {
           navigator.clipboard.writeText(wrap.querySelector('[data-agent-params]').textContent);
         });
         wrap.querySelector('[data-done]').addEventListener('click', () => redirectFn('/index.html'));
       } else {
+        const idx = stepIndexForCurrentStep(state.steps, state.currentStep);
         const stepItems = state.steps.map((s, i) => {
-          const idx = stepIndexForCurrentStep(state.steps, state.currentStep);
-          const cls = i < idx ? 'done' : i === idx ? 'running' : 'pending';
-          return `<li data-step-status="${cls}">${s.step_name}</li>`;
+          const cls  = i < idx ? 'done' : i === idx ? 'running' : 'pending';
+          const icon = cls === 'done' ? '✓' : cls === 'running' ? '◐' : '○';
+          return `<li class="wizard-step" data-step-status="${cls}">`
+               + `<span class="wizard-step-icon">${icon}</span>${s.step_name}</li>`;
         }).join('');
+        const fallback = '<li class="wizard-step" data-step-status="pending">'
+          + '<span class="wizard-step-icon">○</span>初始化中…</li>';
         wrap.innerHTML = `
           <h2>分析進行中</h2>
-          <ul>${stepItems || '<li data-step-status="pending">初始化中…</li>'}</ul>
+          <ul class="wizard-steps">${stepItems || fallback}</ul>
         `;
       }
       break;
@@ -301,8 +328,8 @@ snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="$
     case 'PAGE_ERROR':
       wrap.innerHTML = `
         <h2>發生錯誤</h2>
-        <p>${state.errorMessage || '未知錯誤'}</p>
-        <a href="/index.html">前往 Viewer</a>
+        <div class="wizard-error-box">${state.errorMessage || '未知錯誤'}</div>
+        <a class="wizard-btn-primary" href="/index.html">前往 Viewer</a>
       `;
       break;
   }

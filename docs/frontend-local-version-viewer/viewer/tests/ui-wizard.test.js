@@ -350,6 +350,262 @@ describe('initWizard', () => {
     await vi.waitFor(() => expect(container.querySelector('[data-page="PAGE_ACTION"]')).not.toBeNull());
   });
 
+  it('PAGE_ACTION has snapshots: option buttons use wizard-option-btn class with strong+span', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: true, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="update"]'));
+    expect(container.querySelector('.wizard-card')).not.toBeNull();
+    expect(container.querySelector('.wizard-subtitle')).not.toBeNull();
+    expect(container.querySelector('.wizard-options')).not.toBeNull();
+    const updateBtn = container.querySelector('[data-action="update"]');
+    expect(updateBtn.classList.contains('wizard-option-btn')).toBe(true);
+    expect(updateBtn.querySelector('strong')).not.toBeNull();
+    expect(updateBtn.querySelector('span')).not.toBeNull();
+  });
+
+  it('PAGE_ACTION no snapshots: analyze + view buttons use wizard-option-btn', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+    expect(container.querySelector('[data-action="analyze"]').classList.contains('wizard-option-btn')).toBe(true);
+    expect(container.querySelector('[data-action="view"]').classList.contains('wizard-option-btn')).toBe(true);
+  });
+
+  it('switch section uses wizard-field + wizard-btn-primary and no <hr>', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    expect(container.querySelector('hr')).toBeNull();
+    expect(container.querySelector('.wizard-field')).not.toBeNull();
+    expect(container.querySelector('[data-switch-btn]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('switch conflict uses wizard-error-box and wizard-btn-primary', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn().mockResolvedValue({ status: 'conflict', active_job_id: 'j1', message: 'busy' }),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-switch-input]'));
+    container.querySelector('[data-switch-input]').value = '/x';
+    container.querySelector('[data-switch-btn]').click();
+    await vi.waitFor(() => container.querySelector('[data-switch-conflict]'));
+    expect(container.querySelector('.wizard-error-box')).not.toBeNull();
+    expect(container.querySelector('[data-switch-force-btn]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('PAGE_SETUP uses wizard-field + wizard-btn-primary + wizard-subtitle', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true, file_count: 42 },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+    container.querySelector('[data-action="analyze"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_SETUP"]'));
+    expect(container.querySelector('.wizard-field')).not.toBeNull();
+    expect(container.querySelector('.wizard-subtitle')).not.toBeNull();
+    expect(container.querySelector('[data-next="setup"]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('PAGE_LABEL uses wizard-field + wizard-btn-primary', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+    container.querySelector('[data-action="analyze"]').click();
+    container.querySelector('[data-next="setup"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_LABEL"]'));
+    expect(container.querySelector('.wizard-field')).not.toBeNull();
+    expect(container.querySelector('[data-next="label"]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('PAGE_CONFIRM uses wizard-summary dl/dt/dd + wizard-btn-primary', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: true, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+      setProject: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="update"]'));
+    container.querySelector('[data-action="update"]').click();
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
+    const dl = container.querySelector('dl.wizard-summary');
+    expect(dl).not.toBeNull();
+    expect(dl.querySelectorAll('dt').length).toBe(2);
+    expect(dl.querySelectorAll('dd').length).toBe(2);
+    expect(container.querySelector('[data-submit]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('PROGRESS step list uses wizard-steps + wizard-step + wizard-step-icon', async () => {
+    vi.useFakeTimers();
+    try {
+      const steps = [
+        { step_name: '探索', status: 'done' },
+        { step_name: 'LLM', status: 'running' },
+        { step_name: '寫入', status: 'pending' },
+      ];
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: false, has_api_key: true },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn().mockResolvedValue({ job_id: 'j' }),
+        getJobStatus: vi.fn().mockResolvedValue({
+          status: 'running', current_step: 'LLM', steps,
+        }),
+      };
+      const { initWizard } = await import('../js/ui-wizard.js');
+      initWizard(container, api, vi.fn());
+      await Promise.resolve(); await Promise.resolve();
+      container.querySelector('[data-action="analyze"]').click();
+      container.querySelector('[data-next="setup"]').click();
+      container.querySelector('[data-next="label"]').click();
+      container.querySelector('[data-submit]').click();
+      await Promise.resolve(); await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(container.querySelector('ul.wizard-steps')).not.toBeNull();
+      const items = container.querySelectorAll('li.wizard-step');
+      expect(items.length).toBe(3);
+      // Icons: ✓ for done, ◐ for running, ○ for pending
+      expect(items[0].querySelector('.wizard-step-icon').textContent).toBe('✓');
+      expect(items[1].querySelector('.wizard-step-icon').textContent).toBe('◐');
+      expect(items[2].querySelector('.wizard-step-icon').textContent).toBe('○');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('PROGRESS fallback (no steps) uses wizard-step with pending icon ○', async () => {
+    vi.useFakeTimers();
+    try {
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: false, has_api_key: true },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn().mockResolvedValue({ job_id: 'j' }),
+        getJobStatus: vi.fn().mockResolvedValue({
+          status: 'running', current_step: null, steps: undefined,
+        }),
+      };
+      const { initWizard } = await import('../js/ui-wizard.js');
+      initWizard(container, api, vi.fn());
+      await Promise.resolve(); await Promise.resolve();
+      container.querySelector('[data-action="analyze"]').click();
+      container.querySelector('[data-next="setup"]').click();
+      container.querySelector('[data-next="label"]').click();
+      container.querySelector('[data-submit]').click();
+      await Promise.resolve(); await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1500);
+      const fallbackItem = container.querySelector('li.wizard-step[data-step-status="pending"]');
+      expect(fallbackItem).not.toBeNull();
+      expect(fallbackItem.querySelector('.wizard-step-icon').textContent).toBe('○');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('agent mode pre uses wizard-agent-params; copy uses wizard-btn-copy; done uses wizard-btn-primary', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: false },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+    container.querySelector('[data-action="analyze"]').click();
+    container.querySelector('[data-next="setup"]').click();
+    container.querySelector('[data-next="label"]').click();
+    container.querySelector('[data-submit]').click();
+    await vi.waitFor(() => container.querySelector('[data-agent-params]'));
+    expect(container.querySelector('[data-agent-params]').classList.contains('wizard-agent-params')).toBe(true);
+    expect(container.querySelector('[data-copy]').classList.contains('wizard-btn-copy')).toBe(true);
+    expect(container.querySelector('[data-done]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('PAGE_ERROR uses wizard-error-box and link uses wizard-btn-primary', async () => {
+    const api = {
+      getStatus: vi.fn().mockRejectedValue(new Error('boom')),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => expect(container.querySelector('[data-page="PAGE_ERROR"]')).not.toBeNull());
+    expect(container.querySelector('.wizard-error-box')).not.toBeNull();
+    expect(container.querySelector('a[href="/index.html"]').classList.contains('wizard-btn-primary')).toBe(true);
+  });
+
+  it('every rendered page wraps in .wizard-card', async () => {
+    const api = {
+      getStatus: vi.fn().mockResolvedValue({
+        state: { has_snapshots: false, has_api_key: true },
+        next_actions: [],
+      }),
+      postAnalyze: vi.fn(),
+      getJobStatus: vi.fn(),
+    };
+    const { initWizard } = await import('../js/ui-wizard.js');
+    initWizard(container, api, vi.fn());
+    await vi.waitFor(() => container.querySelector('[data-page]'));
+    expect(container.querySelector('[data-page].wizard-card')).not.toBeNull();
+  });
+
   it('calls redirectFn with /index.html when view is selected', async () => {
     const api = {
       getStatus: vi.fn().mockResolvedValue({
