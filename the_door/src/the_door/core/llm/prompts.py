@@ -40,10 +40,29 @@ L1_SYSTEM_PROMPT = """\
 
 - `scope_rule`：透過 scope 規則明確解到（同檔 / 同套件）。**高信心**，可以放心採用為事實依據撰寫 description。
 - `import_alias`：透過 import 別名解到目標。**高信心**，同上可採用。
-- `name_match`：純粹靠裸名匹配找到，可能是程式內多個同名節點之一。**低信心，僅供參考**。若描述會因為這條邊的不確定性而產生分歧，**寧可不提**這條關聯。
-- `skipped_dynamic`：偵測到動態 dispatch context（例如 Ruby method_missing、Python __getattr__、reflection）。目的端候選來自裸名匹配，**不可作為事實依據**。**不要對這條邊的目標做任何斷言**。
+- `name_match`：裸名匹配找到，候選數已在低門檻內。**低信心**，撰寫 description 時持保守態度，若會造成模糊就不要提。
 
-撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `skipped_dynamic` 不提即可。
+你不會在 `edges` 內看到「高候選量裸名匹配」或「動態 dispatch」邊 — 它們已在輸入端被聚合成 `aggregate_call_hints` 欄位。
+
+## `aggregate_call_hints` 欄位
+
+payload 內額外提供：
+
+```
+"aggregate_call_hints": {
+  "feat-x-caller-node-id": ["write", "get", "handle"]
+}
+```
+
+這代表 caller 端呼叫了若干「無法精確定位的方法名」（包含高 fanout 與動態 dispatch 來源）。
+
+撰寫 description 時的紀律：
+- **不可** 把 hint 內的方法名當成「呼叫了某 feature」的依據
+- **不可** 因為 hint 內有某方法名，就在 `feature_relations` 加上 `depends_on`
+- 若 description 必須提到，限定為「執行了一些（寫入 / 讀取 / 處理）動作」這種泛稱
+- 寧可不提，不要勉強寫出帶有不確定性的依賴敘述
+
+撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `aggregate_call_hints` 不寫成依賴。
 
 ## 風格規則（硬性）
 
