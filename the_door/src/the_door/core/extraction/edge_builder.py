@@ -12,6 +12,13 @@ from the_door.core.extraction.language_configs import (
 )
 from the_door.models import ASTNode, Edge
 
+# Fanout threshold for name_match → name_match_ambiguous escalation.
+# When a bare name resolves to more than FANOUT_THRESHOLD candidates,
+# edges are marked name_match_ambiguous so the prompt projection layer
+# can drop them and fold the call into a caller-level aggregate hint.
+# Default 3; tunable via dogfood histogram analysis (plan task 06).
+FANOUT_THRESHOLD = 3
+
 
 @dataclass(frozen=True)
 class CallSite:
@@ -384,9 +391,12 @@ class EdgeBuilder:
         Multiple results only occur in the name_match / skipped_dynamic fallback path.
         """
         if rules is None:
-            # No scope rules configured → pure name_match fallback
+            # No scope rules configured → pure name_match fallback (with fanout escalation)
             matches = self._name_to_ids.get(name, [])
-            return [(m, "name_match") for m in matches]
+            if not matches:
+                return []
+            res = "name_match_ambiguous" if len(matches) > FANOUT_THRESHOLD else "name_match"
+            return [(m, res) for m in matches]
 
         # Step 1: Dynamic dispatch check
         is_dynamic = (
@@ -407,9 +417,12 @@ class EdgeBuilder:
         if aliased:
             return [(aliased, "import_alias")]
 
-        # Step 4: Fallback — name_match (keep all candidates, low confidence)
+        # Step 4: Fallback — name_match, escalated to ambiguous on high fanout.
         matches = self._name_to_ids.get(name, [])
-        return [(m, "name_match") for m in matches]
+        if not matches:
+            return []
+        res = "name_match_ambiguous" if len(matches) > FANOUT_THRESHOLD else "name_match"
+        return [(m, res) for m in matches]
 
     def _resolve_by_scope(
         self, name: str, context: ScopeContext, rules: ScopeRules
