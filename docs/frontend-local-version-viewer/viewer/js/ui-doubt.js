@@ -17,7 +17,7 @@ export function statusBadge(status) {
  * @param {object} doubt
  */
 export function renderDoubtDetail(container, doubt) {
-  if (!doubt) { container.innerHTML = '<p class="no-selection">請選擇一個疑義項目。</p>'; return; }
+  if (!doubt) { container.innerHTML = '<p class="empty-state">請選擇一個疑義項目。</p>'; return; }
   const badge = statusBadge(doubt.status);
   container.innerHTML = `
     <div class="doubt-detail">
