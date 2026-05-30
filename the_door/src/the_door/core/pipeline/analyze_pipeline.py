@@ -17,6 +17,7 @@ from pathlib import Path
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.extraction.file_discovery import FileDiscovery
+from the_door.core.pipeline.progress_reporter import NoOpProgressReporter, ProgressReporter
 from the_door.core.extraction.structure_serializer import write_versioned_structure
 from the_door.core.llm.config_manager import ConfigManager
 from the_door.core.llm.provider import create_provider
@@ -48,6 +49,7 @@ def run_analyze_pipeline(
     config: AnalyzeConfig,
     *,
     progress_callback: Callable[[str], None] | None = None,
+    reporter: ProgressReporter | None = None,
 ) -> AnalyzeResult:
     """Execute the full analysis pipeline.
 
@@ -78,9 +80,10 @@ def run_analyze_pipeline(
         When estimated cost exceeds threshold and ``skip_cost_confirm`` is False.
     """
     progress = progress_callback or _noop_progress
+    rep = reporter or NoOpProgressReporter()
 
     try:
-        return _run_pipeline_inner(codebase_path, config, progress)
+        return _run_pipeline_inner(codebase_path, config, progress, rep)
     except (AnalyzeError, CostConfirmationRequired):
         raise
     except Exception as exc:
@@ -91,6 +94,7 @@ def _run_pipeline_inner(
     codebase_path: Path,
     config: AnalyzeConfig,
     progress: Callable[[str], None],
+    reporter: ProgressReporter,
 ) -> AnalyzeResult:
     """Inner implementation — separated so the outer function can wrap exceptions."""
 
@@ -116,8 +120,12 @@ def _run_pipeline_inner(
     extractor = ASTExtractor()
     scanner = VulnerabilityScanner(offline=config.offline_vuln)
 
+    # Set file total for reporter before extraction
+    file_count = len(FileDiscovery().discover(str(codebase_path), config.extra_ignore or []))
+    reporter.set_total(file_count, root="new")
+
     with ThreadPoolExecutor(max_workers=2) as executor:
-        ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore)
+        ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore, reporter=reporter)
         vuln_future = executor.submit(scanner.scan, Path(codebase_path))
 
         extraction = ast_future.result()
@@ -174,6 +182,7 @@ def _run_pipeline_inner(
         llm_provider=llm_provider,
         structure=structure,
         context_mode=getattr(config, "context_mode", "detail"),
+        reporter=reporter,
     )
     result = asyncio.run(reader.read())
 

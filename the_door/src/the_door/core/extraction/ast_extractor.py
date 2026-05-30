@@ -108,7 +108,7 @@ class ASTExtractor:
         self._edge_builder = EdgeBuilder()
         self._warnings: list[tuple[str, str, str]] = []
 
-    def extract(self, codebase_path: str, extra_ignore: list[str] | None = None) -> ExtractionResult:
+    def extract(self, codebase_path: str, extra_ignore: list[str] | None = None, *, reporter=None) -> ExtractionResult:
         """Extract AST structure from a codebase.
 
         Parameters
@@ -144,6 +144,8 @@ class ASTExtractor:
         trees: dict[str, tuple] = {}  # file_path → (tree, source_bytes)
 
         for file_info in files:
+            if reporter is not None:
+                reporter.report_file(file_info.path)
             file_path = root / file_info.path
             parser = _get_parser(file_info.language)
             if parser is None:

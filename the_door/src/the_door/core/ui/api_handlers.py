@@ -45,6 +45,30 @@ from the_door.models import PipelineConfig
 _VALID_LAYERS = {"l1", "l2", "l3"}
 
 
+def _make_analyze_progress_adapter(job):
+    """Per-request closure that wraps run_analyze_pipeline messages into
+    PipelineOrchestrator-compatible [步驟 N/6] format. See spec §5.1."""
+    sent_skipped = False
+    def adapter(msg: str) -> None:
+        nonlocal sent_skipped
+        if not sent_skipped:
+            job.update_step("[步驟 1/6] ⊘ analyze_old （已跳過：首次分析無舊版）")
+            job.update_step("[步驟 3/6] ⊘ diff （已跳過：首次分析無舊版）")
+            job.update_step("[步驟 4/6] ⊘ scope_verify （已跳過：首次分析無 scope）")
+            sent_skipped = True
+        if msg.startswith("Extracting structure from"):
+            job.update_step("[步驟 2/6] 正在執行：analyze_new...")
+            return
+        if msg.startswith("Snapshot saved:"):
+            job.update_step("[步驟 2/6] ✓ analyze_new （耗時 0.0s）")
+            job.update_step("[步驟 5/6] ✓ timeline （耗時 0.0s）")
+            job.update_step("[步驟 6/6] ✓ report （耗時 0.0s）")
+            return
+        # Provider:, Structure JSON persisted to ..., Running batch analysis ...
+        # → swallowed (step 2 stays running, file-level progress via reporter)
+    return adapter
+
+
 class APIHandlers:
     """Business logic layer for all 7 API endpoints.
 
@@ -276,6 +300,7 @@ class APIHandlers:
         snapshot_label: str | None,
     ) -> None:
         from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
+        from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
         from the_door.models import AnalyzeConfig
 
         config = AnalyzeConfig(
@@ -283,11 +308,14 @@ class APIHandlers:
             extra_ignore=extra_ignore,
             snapshot_label=snapshot_label,
         )
+        adapter = _make_analyze_progress_adapter(job)
+        reporter = NoOpProgressReporter()
         try:
             run_analyze_pipeline(
                 self._project_root,
                 config,
-                progress_callback=job.update_step,
+                progress_callback=adapter,
+                reporter=reporter,
             )
             self._job_store.complete_job(job.job_id)
         except Exception as exc:
@@ -1051,8 +1079,10 @@ class APIHandlers:
     ) -> None:
         """Background thread: run pipeline, persist report, update job status."""
         try:
+            from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
             config = PipelineConfig(old_path=old_path, new_path=new_path, output_language=output_language)
-            result = PipelineOrchestrator().run(config, progress_callback=job.update_step)
+            reporter = NoOpProgressReporter()
+            result = PipelineOrchestrator().run(config, progress_callback=job.update_step, reporter=reporter)
             report = ReportRenderer().render_json(result)
             self._persist_report(report)
             self._job_store.complete_job(job.job_id)

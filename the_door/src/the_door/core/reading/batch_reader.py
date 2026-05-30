@@ -55,6 +55,7 @@ class BatchReader:
         *,
         max_context_tokens: int | None = None,
         context_mode: Literal["detail", "minimal"] = "detail",
+        reporter=None,
     ) -> None:
         if context_mode not in _VALID_CONTEXT_MODES:
             raise ValueError(
@@ -67,6 +68,8 @@ class BatchReader:
         self._max_context_tokens = max_context_tokens
         self._context_mode = context_mode
         self._node_lookup: dict[str, ASTNode] = {n.node_id: n for n in structure.nodes}
+        from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+        self._reporter = reporter or NoOpProgressReporter()
 
     async def read(
         self,

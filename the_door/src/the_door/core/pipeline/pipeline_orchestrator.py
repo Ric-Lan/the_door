@@ -36,6 +36,7 @@ from the_door.core.pipeline.analyze_pipeline import (
     run_analyze_pipeline,
     validate_snapshot_fingerprint,
 )
+from the_door.core.pipeline.progress_reporter import NoOpProgressReporter, ProgressReporter
 from the_door.core.scope.scope_verifier import (
     ScopeVerifier,
     parse_scope_definition,
@@ -103,6 +104,7 @@ class PipelineOrchestrator:
         config: PipelineConfig,
         *,
         progress_callback: Callable[[str], None] | None = None,
+        reporter: ProgressReporter | None = None,
     ) -> PipelineResult:
         """Execute the full version update pipeline.
 
@@ -124,6 +126,7 @@ class PipelineOrchestrator:
             Path validation failures (non-existent, not directory, same path).
         """
         progress = progress_callback or _noop_progress
+        rep = reporter or NoOpProgressReporter()
 
         # ── Path validation ──────────────────────────────────────────
         self._validate_paths(config)
@@ -171,7 +174,7 @@ class PipelineOrchestrator:
             step_num = 1
             progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：analyze_old...")
             step, old_analyze_result = self._run_analyze_step(
-                config.old_path, "analyze_old", config,
+                config.old_path, "analyze_old", config, reporter=rep,
             )
             steps.append(step)
             self._report_step_done(progress, step_num, step)
@@ -199,7 +202,7 @@ class PipelineOrchestrator:
             step_num = 2
             progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：analyze_new...")
             step, new_analyze_result = self._run_analyze_step(
-                config.new_path, "analyze_new", config,
+                config.new_path, "analyze_new", config, reporter=rep,
             )
             steps.append(step)
             self._report_step_done(progress, step_num, step)
@@ -322,6 +325,8 @@ class PipelineOrchestrator:
         path: Path,
         step_name: str,
         config: PipelineConfig,
+        *,
+        reporter: ProgressReporter | None = None,
     ) -> tuple[PipelineStep, AnalyzeResult | None]:
         """Execute an analyze step with fingerprint caching.
 
@@ -352,10 +357,12 @@ class PipelineOrchestrator:
                     return step, cached
 
             # Run full analysis
+            rep = reporter or NoOpProgressReporter()
             result = run_analyze_pipeline(
                 path,
                 config.analyze_config,
                 progress_callback=None,  # orchestrator handles progress
+                reporter=rep,
             )
 
             # Save fingerprint
