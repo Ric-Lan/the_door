@@ -1,0 +1,394 @@
+# Task 6 — PROGRESS phasebar + steplist + 即時 feed
+
+**Goal:** PROGRESS（API 模式）case 改為 phasebar + 完整 6-step steplist + 即時 feed；新增 `phaseStatus` 純函式；polling 回呼裡實作 `appendPlLine` 與 `updateCount`；消費 §1b 後端 `progress.*` payload。
+
+**Dependencies:** task 4（shell + state）+ task 1b（payload contract）+ task 2（shared CSS）。
+
+**Files:**
+- Create: `docs/frontend-local-version-viewer/viewer/js/phase-status.js`（純函式）
+- Modify: `docs/frontend-local-version-viewer/viewer/js/ui-wizard.js`（PROGRESS case + startPolling 內 appendPlLine）
+- Create: `docs/frontend-local-version-viewer/viewer/tests/wizard-phasebar.test.js`
+- Create: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js`
+
+---
+
+- [ ] **Step 1: Failing test for phaseStatus pure function**
+
+Path: `docs/frontend-local-version-viewer/viewer/tests/wizard-phasebar.test.js`
+
+```js
+import { describe, it, expect } from 'vitest';
+import { phaseStatus, PHASE_BUCKETS, STEP_LABELS } from '../js/phase-status.js';
+
+const EXPLORE = PHASE_BUCKETS.find(b => b.id === 'explore');
+const ANALYZE = PHASE_BUCKETS.find(b => b.id === 'analyze');
+const REPORT  = PHASE_BUCKETS.find(b => b.id === 'report');
+
+describe('PHASE_BUCKETS shape (spec §5.3)', () => {
+  it('has 3 buckets explore/analyze/report', () => {
+    expect(PHASE_BUCKETS.map(b => b.id)).toEqual(['explore', 'analyze', 'report']);
+  });
+  it('explore owns analyze_old + analyze_new', () => {
+    expect(EXPLORE.steps).toEqual(['analyze_old', 'analyze_new']);
+  });
+  it('analyze owns diff + scope_verify', () => {
+    expect(ANALYZE.steps).toEqual(['diff', 'scope_verify']);
+  });
+  it('report owns timeline + report', () => {
+    expect(REPORT.steps).toEqual(['timeline', 'report']);
+  });
+});
+
+describe('phaseStatus()', () => {
+  it('returns pending when no owned step in list', () => {
+    expect(phaseStatus(EXPLORE, [], null)).toBe('pending');
+  });
+
+  it('returns active when any owned step is running', () => {
+    expect(phaseStatus(EXPLORE,
+      [{ step_name: 'analyze_new', status: 'running' }], null)).toBe('active');
+  });
+
+  it('returns active when currentStep is in bucket (even if no running)', () => {
+    expect(phaseStatus(EXPLORE,
+      [{ step_name: 'analyze_new', status: 'pending' }], 'analyze_new')).toBe('active');
+  });
+
+  it('returns done when all owned steps completed', () => {
+    expect(phaseStatus(REPORT, [
+      { step_name: 'timeline', status: 'completed' },
+      { step_name: 'report',   status: 'completed' },
+    ], null)).toBe('done');
+  });
+
+  it('returns done when all owned steps skipped (首次分析 explore bucket)', () => {
+    expect(phaseStatus(ANALYZE, [
+      { step_name: 'diff',         status: 'skipped' },
+      { step_name: 'scope_verify', status: 'skipped' },
+    ], null)).toBe('done');
+  });
+
+  it('returns done when mix of completed + skipped (首次 explore bucket)', () => {
+    expect(phaseStatus(EXPLORE, [
+      { step_name: 'analyze_old', status: 'skipped' },
+      { step_name: 'analyze_new', status: 'completed' },
+    ], null)).toBe('done');
+  });
+
+  it('returns failed when any owned step failed (overrides done/active)', () => {
+    expect(phaseStatus(REPORT, [
+      { step_name: 'timeline', status: 'completed' },
+      { step_name: 'report',   status: 'failed' },
+    ], null)).toBe('failed');
+  });
+
+  it('failed beats running (active) — design原則 1 不可造假進度', () => {
+    expect(phaseStatus(EXPLORE, [
+      { step_name: 'analyze_old', status: 'failed' },
+      { step_name: 'analyze_new', status: 'running' },
+    ], 'analyze_new')).toBe('failed');
+  });
+
+  it('returns pending when partial completion (missing owned step)', () => {
+    expect(phaseStatus(EXPLORE,
+      [{ step_name: 'analyze_old', status: 'completed' }], null)).toBe('pending');
+  });
+});
+
+describe('STEP_LABELS map', () => {
+  it('has all 6 canonical step labels', () => {
+    expect(Object.keys(STEP_LABELS).sort()).toEqual([
+      'analyze_new', 'analyze_old', 'diff', 'report', 'scope_verify', 'timeline',
+    ]);
+  });
+  it('falls back to raw step_name for unknown keys (via labelFor)', () => {
+    // labelFor exported alongside
+    const { labelFor } = require('../js/phase-status.js'); // eslint-disable-line
+    expect(labelFor('mystery_step')).toBe('mystery_step');
+  });
+});
+```
+
+(If `require` not supported in vitest config, use dynamic `import()` or restructure to top-level import.)
+
+- [ ] **Step 2: Run, verify FAIL (module not found)**
+
+```bash
+cd docs/frontend-local-version-viewer/viewer
+npm test -- tests/wizard-phasebar.test.js
+```
+
+- [ ] **Step 3: Implement `phase-status.js`**
+
+Path: `docs/frontend-local-version-viewer/viewer/js/phase-status.js`
+
+```js
+// Pure helpers for PROGRESS phasebar (spec §5.3).
+// No DOM access — safe for unit tests under jsdom or node.
+
+export const PHASE_BUCKETS = [
+  { id: 'explore', label: '探索結構', steps: ['analyze_old', 'analyze_new'] },
+  { id: 'analyze', label: '比對與驗核', steps: ['diff', 'scope_verify'] },
+  { id: 'report',  label: '產出快照',   steps: ['timeline', 'report'] },
+];
+
+export const STEP_LABELS = {
+  analyze_old:  '分析舊版',
+  analyze_new:  '分析新版',
+  diff:         '比對差異',
+  scope_verify: '範圍驗核',
+  timeline:     '時間軸',
+  report:       '產生報告',
+};
+
+export function labelFor(step_name) {
+  return STEP_LABELS[step_name] ?? step_name;
+}
+
+/**
+ * Returns 'done' | 'active' | 'pending' | 'failed' for a bucket.
+ * 'failed' has highest priority (spec §0.4 第 1 條：不可造假進度).
+ */
+export function phaseStatus(bucket, steps, currentStep) {
+  const owned = steps.filter(s => bucket.steps.includes(s.step_name));
+  if (owned.length === 0) return 'pending';
+  if (owned.some(s => s.status === 'failed')) return 'failed';
+  const hasRunning = owned.some(s => s.status === 'running');
+  const currentInBucket = currentStep && bucket.steps.includes(currentStep);
+  if (hasRunning || currentInBucket) return 'active';
+  const allEnded = bucket.steps.every(name => {
+    const s = owned.find(x => x.step_name === name);
+    return s && (s.status === 'completed' || s.status === 'skipped');
+  });
+  return allEnded ? 'done' : 'pending';
+}
+```
+
+- [ ] **Step 4: Run phasebar tests, verify PASS**
+
+```bash
+npm test -- tests/wizard-phasebar.test.js
+```
+Expected: 14 pass.
+
+- [ ] **Step 5: Failing test for PROGRESS DOM + feed**
+
+Path: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js`
+
+```js
+import { describe, it, expect, beforeEach } from 'vitest';
+import { renderPage, getInitialState } from '../js/ui-wizard.js';
+
+function mountProgress(stateOverrides = {}) {
+  const c = document.createElement('div');
+  document.body.appendChild(c);
+  renderPage(c, {
+    ...getInitialState(),
+    page: 'PROGRESS',
+    hasApiKey: true,
+    steps: stateOverrides.steps || [],
+    currentStep: stateOverrides.currentStep ?? null,
+    progress: stateOverrides.progress ?? null,
+    ...stateOverrides,
+  }, () => {}, () => {}, {});
+  return c;
+}
+
+describe('PROGRESS phasebar + steplist (spec §4.2 ⓕ, §5.3)', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('renders 3 phase buckets', () => {
+    const c = mountProgress();
+    expect(c.querySelectorAll('.wizard-phasebar .wizard-phase').length).toBe(3);
+  });
+
+  it('renders 6 steplist rows (all 6 canonical steps)', () => {
+    const c = mountProgress({
+      steps: ['analyze_old', 'analyze_new', 'diff', 'scope_verify', 'timeline', 'report']
+        .map(n => ({ step_name: n, status: 'pending' })),
+    });
+    expect(c.querySelectorAll('.wizard-steplist .wizard-sl-row').length).toBe(6);
+  });
+
+  it('steplist row has data-step-status reflecting status', () => {
+    const c = mountProgress({
+      steps: [{ step_name: 'analyze_new', status: 'running' }],
+    });
+    const row = c.querySelector('.wizard-sl-row');
+    expect(row.getAttribute('data-step-status')).toBe('running');
+  });
+
+  it('hides .wizard-prog-live when progress is null', () => {
+    const c = mountProgress({ progress: null });
+    expect(c.querySelector('.wizard-prog-live')).toBeNull();
+  });
+
+  it('renders .wizard-prog-live when progress is set', () => {
+    const c = mountProgress({
+      progress: { files_done: 5, files_total: 10, current_file: 'a.py', current_root: 'new' },
+    });
+    expect(c.querySelector('.wizard-prog-live')).not.toBeNull();
+    expect(c.querySelector('.wizard-pl-count').textContent).toMatch(/5\s*\/\s*10/);
+  });
+});
+
+describe('appendPlLine helper (spec §5.4)', () => {
+  it('limits feed to 20 lines max', async () => {
+    const { appendPlLine } = await import('../js/ui-wizard.js');
+    const c = mountProgress({
+      progress: { files_done: 0, files_total: 100, current_file: 'x.py', current_root: 'new' },
+    });
+    const feed = c.querySelector('.wizard-pl-feed');
+    expect(feed).not.toBeNull();
+    for (let i = 0; i < 25; i++) appendPlLine(`file${i}.py`);
+    expect(feed.querySelectorAll('.wizard-pl-line').length).toBeLessThanOrEqual(20);
+  });
+
+  it('is a no-op when feed element absent', async () => {
+    document.body.innerHTML = '';
+    const { appendPlLine } = await import('../js/ui-wizard.js');
+    expect(() => appendPlLine('x.py')).not.toThrow();
+  });
+});
+```
+
+- [ ] **Step 6: Patch ui-wizard.js PROGRESS case**
+
+In `renderPage` `case 'PROGRESS':` block — replace the existing `else { ... }` (API-mode) branch with:
+
+```js
+} else {
+  // API mode: phasebar + steplist + prog-live (spec §4.2 ⓕ, §5.3, §5.4)
+  const STEPS_CANONICAL = ['analyze_old', 'analyze_new', 'diff', 'scope_verify', 'timeline', 'report'];
+  const stepsByName = new Map((state.steps || []).map(s => [s.step_name, s]));
+  const fullSteps = STEPS_CANONICAL.map(name => stepsByName.get(name) || { step_name: name, status: 'pending' });
+
+  const phasebarHTML = PHASE_BUCKETS.map(bucket => {
+    const st = phaseStatus(bucket, fullSteps, state.currentStep);
+    const icon = st === 'done' ? '✓ ' : st === 'failed' ? '✗ ' : '';
+    return `<div class="wizard-phase ${st}"><div class="track"><div class="fill"></div></div><div class="pl">${icon}${bucket.label}</div></div>`;
+  }).join('');
+
+  const rowsHTML = fullSteps.map(s => {
+    const icon = s.status === 'completed' ? '✓'
+      : s.status === 'failed'  ? '✗'
+      : s.status === 'skipped' ? '⊘'
+      : s.status === 'running' ? '<span class="wizard-spin"></span>'
+      : '○';
+    const dur = s.duration_ms != null ? `${(s.duration_ms / 1000).toFixed(1)}s` : '';
+    return `<div class="wizard-sl-row ${s.status}" data-step-status="${s.status}">
+      <span class="si">${icon}</span><span class="sn">${labelFor(s.step_name)}</span><span class="dur">${dur}</span>
+    </div>`;
+  }).join('');
+
+  const progLiveHTML = state.progress ? `
+    <div class="wizard-prog-live">
+      <div class="wizard-pl-head">
+        <span class="wizard-pl-dot"></span>
+        正在分析 <span class="wizard-pl-count">${state.progress.files_done} / ${state.progress.files_total}</span> 個檔案
+      </div>
+      <div class="wizard-pl-feed"></div>
+    </div>` : '';
+
+  wrap.innerHTML = `
+    <h2>分析進行中</h2>
+    <div class="wizard-phasebar">${phasebarHTML}</div>
+    <div class="wizard-steplist">${rowsHTML}</div>
+    ${progLiveHTML}
+  `;
+}
+```
+
+Add imports at top of `ui-wizard.js`:
+
+```js
+import { PHASE_BUCKETS, phaseStatus, labelFor } from './phase-status.js';
+```
+
+- [ ] **Step 7: Add `appendPlLine` + `updateProgressCount` helpers**
+
+In `ui-wizard.js`, before `initWizard`, add and export:
+
+```js
+export function appendPlLine(filePath) {
+  const feed = document.querySelector('.wizard-pl-feed');
+  if (!feed) return;
+  const line = document.createElement('div');
+  line.className = 'wizard-pl-line';
+  line.textContent = filePath;
+  feed.appendChild(line);
+  while (feed.children.length > 20) feed.removeChild(feed.firstChild);
+}
+
+export function updateProgressCount(done, total) {
+  const cnt = document.querySelector('.wizard-pl-count');
+  if (cnt) cnt.textContent = `${done} / ${total}`;
+}
+```
+
+- [ ] **Step 8: Wire polling to consume `data.progress`**
+
+In `startPolling` (inside `initWizard`), patch the inner `setInterval` callback:
+
+```js
+const data = await api.getJobStatus(jobId);
+dispatch({ type: 'POLL_UPDATE', status: data.status,
+           currentStep: data.current_step, steps: data.steps || [],
+           errorMessage: data.error_message, progress: data.progress });
+// Live feed (bypass full rerender for stutter-free append)
+if (data.progress && data.progress.current_file) {
+  appendPlLine(data.progress.current_file);
+  updateProgressCount(data.progress.files_done, data.progress.files_total);
+}
+```
+
+Also extend `POLL_UPDATE` case in `transition`:
+
+```js
+case 'POLL_UPDATE': {
+  if (action.status === 'failed') { /* existing */ }
+  return {
+    ...state,
+    jobStatus: action.status,
+    currentStep: action.currentStep,
+    steps: action.steps,
+    progress: action.progress ?? state.progress,  // NEW
+  };
+}
+```
+
+And `getInitialState()` add `progress: null,`.
+
+- [ ] **Step 9: Run all task 6 tests, verify PASS**
+
+```bash
+npm test -- tests/wizard-phasebar.test.js tests/wizard-progress-feed.test.js
+```
+Expected: all pass.
+
+- [ ] **Step 10: Run full JS suite + coverage**
+
+```bash
+npm test
+npm run test:coverage -- js/phase-status.js
+```
+Expected: all pass; `phase-status.js` 100% line + branch.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add docs/frontend-local-version-viewer/viewer/js/phase-status.js \
+        docs/frontend-local-version-viewer/viewer/js/ui-wizard.js \
+        docs/frontend-local-version-viewer/viewer/tests/wizard-phasebar.test.js \
+        docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js
+git commit -m "feat(wizard): PROGRESS phasebar + steplist + 即時 feed
+
+新增 js/phase-status.js（PHASE_BUCKETS / STEP_LABELS / phaseStatus / labelFor 純函式）。
+ui-wizard.js PROGRESS API 模式 case 改 phasebar + 完整 6-step steplist + 即時 feed
+（消費後端 progress.* payload）。failed step 優先於 active/done，符合不可造假進度原則。
+新增 appendPlLine / updateProgressCount + POLL_UPDATE state 加 progress 欄位。
+
+spec §4.2 ⓕ / §5.3 / §5.4。
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
+```
