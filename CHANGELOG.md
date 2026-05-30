@@ -10,6 +10,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.5.1 — 2026-05-30
+
+### Fixed
+- **Wizard visual port (first pass)**: PAGE_ACTION/SETUP/LABEL/CONFIRM 補上 prototype 視覺層 — eyebrow（每頁皆有）、27px hero heading、lede prose、icon-card 選項 (`.opt > .ico + .tx + .arrow`)、switch-zone 一列式 footer (`.sz-label` + `.switch-row`)、summary 4 row（操作/排除目錄/版本標籤/執行模式）。Icon library `I = {scan/refresh/eye/arrow/info/warn/lines/clock}` 移植進 `ui-wizard.js`。Legacy `.wizard-card` bordered framing 在 `.wizard-shell` 內被中和（border/box-shadow/max-width neutralised）讓 `.wizard-screen` 全幅顯示。Pre-existing FIX-1~5 + 老 test-asserted class 名（`.wizard-option-btn` / `.wizard-eyebrow` / `.wizard-mode-note` 等）保留並列以維持 853 JS 測試綠燈。佈局尚未 100% 對齊 prototype（rail 寬度、screen padding、選項卡片間距仍有差異），待後續 spec 重新撰寫後再迭代。
+
+---
+
 ## v1.5.0 — 2026-05-30
 
 ### Added
