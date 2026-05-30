@@ -21,6 +21,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **`errorOriginPage` state 欄位**: PAGE_ERROR rail stage 由 origin 推回，避免 STATUS_ERROR 在 LOADING 階段被誤顯示為「分析中」（spec §4.1）
 
 ### Changed
+- 新增共用前端模組 `viewer/js/progress-view.js`（`renderProgressInnerHTML` / `appendPlLine` / `updateProgressCount`）+ `viewer/js/phase-status.js`（`phaseStatus` 4-way + `PHASE_BUCKETS` + `STEP_LABELS`）— 精靈 PAGE_PROGRESS 與 modal `renderPipelineProgress` 共用同一 render 路徑（spec §7 一致化）
 - `styles.css` 加 11 個 Part 2 token（terminal / radius / rail 系列）+ 共用進度區（`/* Progress (shared) */`）
 - `wizard.css` 加 shell + rail + screen 動畫 + mode-note + ghost button + agent-* + transient；字體 token (`--font-sans` / `--font-mono`) 限定 `.wizard-shell` 後代 scope（不入 styles.css :root 避免 7 處 fallback regression）
 - `wizard.html` 移除 `.wizard-root` wrapper（雙欄自滿版）
