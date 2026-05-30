@@ -11,6 +11,9 @@ import {
 } from '../js/ui-modal.js';
 import { state } from '../js/state.js';
 import { els } from '../js/dom.js';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function resetState() {
   state.projectStatus = null;
@@ -109,77 +112,99 @@ describe('showModalError', () => {
 
 // ── renderPipelineProgress ────────────────────────────────────────
 
-describe('renderPipelineProgress', () => {
-  it('sets currentStep text when current_step is provided', () => {
-    renderPipelineProgress({ current_step: 'parse', steps: [] });
-    expect(els.currentStep.textContent).toBe('執行中：parse');
+describe('renderPipelineProgress new design (spec §7)', () => {
+  let savedBodyHTML;
+
+  beforeEach(() => {
+    savedBodyHTML = document.body.innerHTML;
+    document.body.innerHTML = `
+      <div id="pipeline-progress" class="pipeline-progress">
+        <div class="progress-header">
+          <span class="progress-title">正在分析…</span>
+          <span id="current-step" class="current-step"></span>
+        </div>
+        <ul id="steps-list" class="steps-list"></ul>
+      </div>
+    `;
   });
 
-  it('sets empty string when current_step is falsy', () => {
-    renderPipelineProgress({ current_step: null, steps: [] });
-    expect(els.currentStep.textContent).toBe('');
+  afterEach(() => {
+    document.body.innerHTML = savedBodyHTML;
   });
 
-  it('renders empty list when steps array is empty', () => {
-    renderPipelineProgress({ current_step: null, steps: [] });
-    expect(els.stepsList.children.length).toBe(0);
-  });
-
-  it('uses empty array when steps is null — || [] branch', () => {
-    renderPipelineProgress({ current_step: null, steps: null });
-    expect(els.stepsList.children.length).toBe(0);
-  });
-
-  it('renders completed step with ✓ and duration', () => {
+  it('renders 3 phase buckets inside #pipeline-progress', () => {
     renderPipelineProgress({
-      current_step: null,
-      steps: [{ status: 'completed', step_name: 'parse', duration_ms: 2500 }],
+      status: 'running',
+      current_step: 'analyze_new',
+      steps: [{ step_name: 'analyze_new', status: 'running' }],
+      progress: null,
     });
-    const li = els.stepsList.children[0];
-    expect(li.className).toBe('step-item step-completed');
-    expect(li.textContent).toContain('✓');
-    expect(li.textContent).toContain('parse');
-    expect(li.textContent).toContain('2.5s');
+    expect(document.querySelectorAll('#pipeline-progress .wizard-phasebar .wizard-phase').length).toBe(3);
   });
 
-  it('renders completed step without duration when duration_ms is null', () => {
+  it('renders 6 steplist rows', () => {
     renderPipelineProgress({
+      status: 'running',
       current_step: null,
-      steps: [{ status: 'completed', step_name: 'parse', duration_ms: null }],
+      steps: ['analyze_old','analyze_new','diff','scope_verify','timeline','report']
+        .map(n => ({ step_name: n, status: 'pending' })),
+      progress: null,
     });
-    const li = els.stepsList.children[0];
-    expect(li.textContent).not.toContain('s)');
+    expect(document.querySelectorAll('#pipeline-progress .wizard-steplist .wizard-sl-row').length).toBe(6);
   });
 
-  it('renders failed step with ✗ and error span', () => {
+  it('shows .wizard-prog-live when progress dict set', () => {
     renderPipelineProgress({
-      current_step: null,
-      steps: [{ status: 'failed', step_name: 'analyze', duration_ms: null, error_message: 'timeout' }],
+      status: 'running',
+      current_step: 'analyze_new',
+      steps: [{ step_name: 'analyze_new', status: 'running' }],
+      progress: { files_done: 12, files_total: 100, current_file: 'x.py', current_root: 'new' },
     });
-    const li = els.stepsList.children[0];
-    expect(li.className).toBe('step-item step-failed');
-    expect(li.textContent).toContain('✗');
-    const errSpan = li.querySelector('.step-error');
-    expect(errSpan).not.toBeNull();
-    expect(errSpan.textContent).toContain('timeout');
+    expect(document.querySelector('.wizard-prog-live')).not.toBeNull();
+    expect(document.querySelector('.wizard-pl-count').textContent).toMatch(/12\s*\/\s*100/);
   });
 
-  it('renders pending/other step with ⊘', () => {
+  it('hides .wizard-prog-live when progress is null', () => {
     renderPipelineProgress({
-      current_step: null,
-      steps: [{ status: 'pending', step_name: 'snapshot', duration_ms: null }],
+      status: 'running',
+      current_step: 'analyze_new',
+      steps: [{ step_name: 'analyze_new', status: 'running' }],
+      progress: null,
     });
-    const li = els.stepsList.children[0];
-    expect(li.textContent).toContain('⊘');
+    expect(document.querySelector('.wizard-prog-live')).toBeNull();
   });
 
-  it('does not add error span when error_message is absent', () => {
+  it('failed step shows .wizard-sl-row.failed', () => {
     renderPipelineProgress({
+      status: 'failed',
       current_step: null,
-      steps: [{ status: 'completed', step_name: 'parse', duration_ms: 100 }],
+      steps: [{ step_name: 'analyze_new', status: 'failed', error_message: 'boom' }],
+      progress: null,
     });
-    const li = els.stepsList.children[0];
-    expect(li.querySelector('.step-error')).toBeNull();
+    expect(document.querySelector('.wizard-sl-row.failed')).not.toBeNull();
+  });
+
+  it('no longer renders old .step-item chips', () => {
+    renderPipelineProgress({
+      status: 'running',
+      current_step: 'analyze_new',
+      steps: [{ step_name: 'analyze_new', status: 'running' }],
+      progress: null,
+    });
+    expect(document.querySelectorAll('.step-item').length).toBe(0);
+  });
+});
+
+describe('styles.css chips cleanup (spec §7.1)', () => {
+  it('removes 6 .step-* chips rules', () => {
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(resolve(dir, '../styles.css'), 'utf8');
+    expect(css).not.toMatch(/\.step-item\s*{/);
+    expect(css).not.toMatch(/\.step-completed\s*{/);
+    expect(css).not.toMatch(/\.step-failed\s*{/);
+    expect(css).not.toMatch(/\.step-skipped\s*{/);
+    expect(css).not.toMatch(/\.step-error\s*{/);
+    expect(css).not.toMatch(/\.steps-list\s*{/);
   });
 });
 

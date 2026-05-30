@@ -1,6 +1,8 @@
 import { state } from './state.js';
 import { els } from './dom.js';
 import * as api from './api.js';
+import { labelFor } from './phase-status.js';
+import { renderProgressInnerHTML, appendPlLine } from './progress-view.js';
 
 export function showUpdateModal() {
   const projectPath = state.projectStatus?.project_path || "";
@@ -31,24 +33,21 @@ export function showModalError(message) {
 }
 
 export function renderPipelineProgress(job) {
-  els.currentStep.textContent = job.current_step ? "執行中：" + job.current_step : "";
+  const container = document.getElementById('pipeline-progress');
+  if (!container) return;
+  els.currentStep.textContent = job.current_step ? '執行中：' + labelFor(job.current_step) : '';
 
-  const list = els.stepsList;
-  list.textContent = "";
-  (job.steps || []).forEach((step) => {
-    const li = document.createElement("li");
-    li.className = "step-item step-" + step.status;
-    const sym = step.status === "completed" ? "✓" : step.status === "failed" ? "✗" : "⊘";
-    const dur = step.duration_ms != null ? " (" + (step.duration_ms / 1000).toFixed(1) + "s)" : "";
-    li.textContent = sym + " " + step.step_name + dur;
-    if (step.error_message) {
-      const err = document.createElement("span");
-      err.className = "step-error";
-      err.textContent = " — " + step.error_message;
-      li.appendChild(err);
-    }
-    list.appendChild(li);
+  const stepsListEl = document.getElementById('steps-list');
+  const newDiv = document.createElement('div');
+  newDiv.id = 'steps-list';
+  newDiv.innerHTML = renderProgressInnerHTML({
+    steps: job.steps,
+    currentStep: job.current_step,
+    progress: job.progress,
   });
+  stepsListEl.replaceWith(newDiv);
+  // Update cached reference.
+  els.stepsList = document.getElementById('steps-list');
 }
 
 export function startPolling(jobId, callbacks = {}) {
@@ -83,6 +82,9 @@ export async function pollJobStatus(jobId, callbacks = {}) {
   try {
     const job = await api.fetchJobStatus(jobId);
     renderPipelineProgress(job);
+    if (job.progress && job.progress.current_file) {
+      appendPlLine(job.progress.current_file, document.getElementById('pipeline-progress'));
+    }
     if (job.status === "completed") {
       stopPolling();
       els.pipelineProgress.hidden = true;

@@ -856,32 +856,6 @@ h1 {
   font-size: 12px;
 }
 
-.steps-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.step-item {
-  padding: 3px 8px;
-  border-radius: 3px;
-  font-size: 12px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.step-completed { border-color: var(--added-border); background: var(--added-bg); }
-.step-failed    { border-color: var(--removed-border); background: var(--removed-bg); }
-.step-skipped   { color: var(--muted); }
-
-.step-error {
-  color: var(--danger);
-  font-size: 11px;
-}
-
 /* ── Progress (shared by wizard + viewer modal, spec §7.2) ── */
 .wizard-phasebar {
   display: flex;
