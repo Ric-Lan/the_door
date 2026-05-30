@@ -1119,6 +1119,66 @@ describe('initWizard', () => {
   });
 });
 
+describe('PAGE_ACTION mode-note (spec §4.2 ⓐ)', () => {
+  function mount(hasApiKey, hasSnapshots) {
+    const c = document.createElement('div');
+    renderPage(c, { ...getInitialState(), page: 'PAGE_ACTION', hasApiKey, hasSnapshots },
+      () => {}, () => {}, { setProject: () => Promise.resolve({}) });
+    return c;
+  }
+
+  it('renders .wizard-eyebrow with step 1 label', () => {
+    const c = mount(true, false);
+    const eb = c.querySelector('.wizard-eyebrow');
+    expect(eb).not.toBeNull();
+    expect(eb.textContent).toMatch(/步驟 1/);
+  });
+
+  it('renders .wizard-mode-note.api when hasApiKey=true', () => {
+    const c = mount(true, false);
+    const n = c.querySelector('.wizard-mode-note');
+    expect(n).not.toBeNull();
+    expect(n.classList.contains('api')).toBe(true);
+    expect(n.classList.contains('agent')).toBe(false);
+    expect(n.querySelector('.mn-badge').textContent).toMatch(/API/);
+  });
+
+  it('renders .wizard-mode-note.agent when hasApiKey=false', () => {
+    const c = mount(false, false);
+    const n = c.querySelector('.wizard-mode-note');
+    expect(n.classList.contains('agent')).toBe(true);
+    expect(n.classList.contains('api')).toBe(false);
+    expect(n.querySelector('.mn-badge').textContent).toMatch(/Agent/);
+  });
+
+  it('mode-note appears in both has_snapshots=true and =false branches', () => {
+    expect(mount(true, true).querySelector('.wizard-mode-note')).not.toBeNull();
+    expect(mount(true, false).querySelector('.wizard-mode-note')).not.toBeNull();
+  });
+});
+
+describe('PAGE_CONFIRM mode badge (spec §4.2 ⓓ)', () => {
+  function mount(hasApiKey) {
+    const c = document.createElement('div');
+    renderPage(c, { ...getInitialState(), page: 'PAGE_CONFIRM', hasApiKey, action: 'analyze' },
+      () => {}, () => {}, {});
+    return c;
+  }
+  it('badge has .wizard-mode-badge.api when hasApiKey=true', () => {
+    const c = mount(true);
+    const b = c.querySelector('.wizard-mode-badge');
+    expect(b).not.toBeNull();
+    expect(b.classList.contains('api')).toBe(true);
+    expect(b.textContent).toMatch(/API/);
+  });
+  it('badge has .wizard-mode-badge.agent when hasApiKey=false', () => {
+    const c = mount(false);
+    const b = c.querySelector('.wizard-mode-badge');
+    expect(b.classList.contains('agent')).toBe(true);
+    expect(b.textContent).toMatch(/Agent/);
+  });
+});
+
 describe('switchProject state', () => {
   it('getInitialState includes switch fields', () => {
     const s = getInitialState();

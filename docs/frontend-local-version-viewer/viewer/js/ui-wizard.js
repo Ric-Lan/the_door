@@ -224,9 +224,21 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       wrap.innerHTML = '<p>載入中…</p>';
       break;
 
-    case 'PAGE_ACTION':
+    case 'PAGE_ACTION': {
+      const modeNoteCls = state.hasApiKey ? 'api' : 'agent';
+      const modeBadge   = state.hasApiKey ? '● API key 模式' : '◐ Agent 模式';
+      const modeText    = state.hasApiKey
+        ? '偵測到 API key — 分析會在本機自動執行，完成後直接進入 Viewer。'
+        : '未偵測到 API key — 將以 Agent 模式產生 MCP 指令，交由你的 coding agent 執行。';
+      const eyebrowAndNote = `
+  <p class="wizard-eyebrow">步驟 1 / 開始</p>
+  <div class="wizard-mode-note ${modeNoteCls}">
+    <span class="mn-badge">${modeBadge}</span>
+    <span>${modeText}</span>
+  </div>
+`;
       if (!state.hasSnapshots) {
-        wrap.innerHTML = `
+        wrap.innerHTML = `${eyebrowAndNote}
           <h2>歡迎使用 The Door</h2>
           <p class="wizard-subtitle">首次使用，從分析此專案開始。</p>
           <div class="wizard-options">
@@ -241,7 +253,7 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
           </div>
         `;
       } else {
-        wrap.innerHTML = `
+        wrap.innerHTML = `${eyebrowAndNote}
           <h2>選擇操作</h2>
           <p class="wizard-subtitle">偵測到既有快照，選擇下一步。</p>
           <div class="wizard-options">
@@ -311,6 +323,7 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       }
       wrap.appendChild(switchSection);
       break;
+    }
 
     case 'PAGE_SETUP':
       wrap.innerHTML = `
@@ -344,12 +357,14 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       break;
 
     case 'PAGE_CONFIRM': {
-      const mode = state.hasApiKey ? 'API key 模式' : 'Agent 模式（無 API key）';
+      const apiOn = state.hasApiKey;
+      const badgeCls = apiOn ? 'api' : 'agent';
+      const badgeText = apiOn ? '● API key 模式' : '◐ Agent 模式（無 API key）';
       wrap.innerHTML = `
         <h2>確認送出</h2>
         <dl class="wizard-summary">
           <dt>操作</dt><dd>${state.action}</dd>
-          <dt>模式</dt><dd>${mode}</dd>
+          <dt>執行模式</dt><dd><span class="wizard-mode-badge ${badgeCls}">${badgeText}</span></dd>
         </dl>
         <button class="wizard-btn-primary" data-submit>確認送出</button>
       `;
