@@ -14,23 +14,24 @@ describe('wizard.css unit hygiene', () => {
     expect(remMatches).toEqual([]);
   });
 
-  it('all border-radius declarations are 6px', () => {
-    // Capture every "border-radius: <value>;" declaration
+  it('all border-radius declarations are 6px or semantic values', () => {
+    // 6px = standard card radius; 50% = circles; 999px = pills (badge/tag shapes).
+    // Part 2 adds these shapes — all are intentional, non-rem px values.
     const radiusDecls = css.match(/border-radius:\s*[^;]+;/g) || [];
     expect(radiusDecls.length).toBeGreaterThan(0);
     for (const decl of radiusDecls) {
-      expect(decl).toMatch(/border-radius:\s*6px\s*;/);
+      expect(decl).toMatch(/border-radius:\s*(6px|50%|999px|var\(--radius-card\))\s*;/);
     }
   });
 
-  it('contains expected px font-size values (11/12/13/14/20)', () => {
+  it('contains expected px font-size values (11/12/13/14/15/20)', () => {
     // Allowed set = px equivalents of the original rem values, rounded to the
-    // standard scale per spec FIX-2 mapping table (0.72→11, 0.78/0.8/0.82→12,
-    // 0.875/0.9→14, 1.25→20). Adding a new font-size requires updating both
-    // wizard.css and this allowlist intentionally — guards against ad-hoc drift.
+    // standard scale per spec FIX-2 mapping table. 15px added for Part 2 rail
+    // brand label (.wizard-rail-brand .wd). Adding a new font-size requires
+    // updating both wizard.css and this allowlist intentionally.
     const fontSizeDecls = css.match(/font-size:\s*[^;]+;/g) || [];
     expect(fontSizeDecls.length).toBeGreaterThan(0);
-    const allowed = new Set(['11px', '12px', '13px', '14px', '20px']);
+    const allowed = new Set(['11px', '12px', '13px', '14px', '15px', '20px']);
     for (const decl of fontSizeDecls) {
       const value = decl.replace(/font-size:\s*/, '').replace(/;$/, '').trim();
       expect(allowed.has(value), `unexpected font-size: ${value}`).toBe(true);
