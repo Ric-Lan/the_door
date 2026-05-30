@@ -115,6 +115,10 @@ class BatchReader:
             sub_batches = self._maybe_split(active_nodes)
 
             for sub_nodes in sub_batches:
+                for nid in sub_nodes:
+                    node = self._node_lookup.get(nid)
+                    if node is not None:
+                        self._reporter.report_file(node.file)
                 features, relations, unclassified, infrastructure, prompt_str = await self._process_batch(
                     sub_nodes, batch_num
                 )
