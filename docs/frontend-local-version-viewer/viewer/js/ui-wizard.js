@@ -1,5 +1,12 @@
 import { renderProgressInnerHTML, appendPlLine, updateProgressCount } from './progress-view.js';
 
+// ─── Threshold transition ────────────────────────────────────────────────────
+export function redirectWithTransition(url, setLocation = (u) => { window.location.href = u; }) {
+  const shell = document.querySelector('.wizard-shell');
+  if (shell) shell.classList.add('leaving');
+  setTimeout(() => setLocation(url), 620);
+}
+
 // ─── State shape ────────────────────────────────────────────────────────────
 export function getInitialState() {
   return {
@@ -286,7 +293,7 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         if (!btn.disabled) {
           btn.addEventListener('click', () => {
             const act = btn.getAttribute('data-action');
-            if (act === 'view') { redirectFn('/index.html'); return; }
+            if (act === 'view') { redirectWithTransition('/index.html', redirectFn); return; }
             dispatch({ type: 'SELECT_ACTION', action: act });
           });
         }
@@ -417,7 +424,7 @@ snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="$
         wrap.querySelector('[data-copy]').addEventListener('click', () => {
           navigator.clipboard.writeText(wrap.querySelector('[data-agent-params]').textContent);
         });
-        wrap.querySelector('[data-done]').addEventListener('click', () => redirectFn('/index.html'));
+        wrap.querySelector('[data-done]').addEventListener('click', () => redirectWithTransition('/index.html', redirectFn));
       } else {
         // API mode: shared progress view (spec §4.2 ⓕ, §5.3, §5.4)
         wrap.innerHTML = `<h2>分析進行中</h2>${renderProgressInnerHTML({
@@ -484,7 +491,7 @@ export function initWizard(container, api, redirectFn = (url) => { window.locati
         if (data.status === 'done') {
           clearInterval(activeTimer);
           activeTimer = null;
-          redirectFn('/index.html');
+          redirectWithTransition('/index.html', redirectFn);
         }
         if (data.status === 'failed') {
           clearInterval(activeTimer);

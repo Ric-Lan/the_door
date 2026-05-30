@@ -1943,3 +1943,7 @@ h1 {
 /* Part 2 wizard shell viewport (spec §2) */
 html, body { height: 100%; margin: 0; }
 #wizard-mount { height: 100vh; }
+
+/* Part 2 viewerIn landing animation (spec §6.2) — only scale, no opacity starter */
+.onboarding-card { animation: viewerIn 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes viewerIn { from { transform: scale(0.99); } to { transform: scale(1); } }

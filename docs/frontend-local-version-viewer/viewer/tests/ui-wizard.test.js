@@ -607,20 +607,26 @@ describe('initWizard', () => {
   });
 
   it('calls redirectFn with /index.html when view is selected', async () => {
-    const api = {
-      getStatus: vi.fn().mockResolvedValue({
-        state: { has_snapshots: true, has_api_key: true },
-        next_actions: [],
-      }),
-      postAnalyze: vi.fn(),
-      getJobStatus: vi.fn(),
-    };
-    const redirectFn = vi.fn();
-    const { initWizard } = await import('../js/ui-wizard.js');
-    initWizard(container, api, redirectFn);
-    await vi.waitFor(() => expect(container.querySelector('[data-action="view"]')).not.toBeNull());
-    container.querySelector('[data-action="view"]').click();
-    expect(redirectFn).toHaveBeenCalledWith('/index.html');
+    vi.useFakeTimers();
+    try {
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: true, has_api_key: true },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn(),
+        getJobStatus: vi.fn(),
+      };
+      const redirectFn = vi.fn();
+      const { initWizard } = await import('../js/ui-wizard.js');
+      initWizard(container, api, redirectFn);
+      await vi.waitFor(() => expect(container.querySelector('[data-action="view"]')).not.toBeNull());
+      container.querySelector('[data-action="view"]').click();
+      await vi.advanceTimersByTimeAsync(700);
+      expect(redirectFn).toHaveBeenCalledWith('/index.html');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('agent mode: shows params block without calling postAnalyze', async () => {
@@ -677,28 +683,34 @@ describe('initWizard', () => {
   });
 
   it('agent mode: done button redirects to /index.html', async () => {
-    const redirectFn = vi.fn();
-    const api = {
-      getStatus: vi.fn().mockResolvedValue({
-        state: { has_snapshots: false, has_api_key: false },
-        next_actions: [],
-      }),
-      postAnalyze: vi.fn(),
-      getJobStatus: vi.fn(),
-    };
-    const { initWizard } = await import('../js/ui-wizard.js');
-    initWizard(container, api, redirectFn);
-    await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
-    container.querySelector('[data-action="analyze"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_SETUP"]'));
-    container.querySelector('[data-next="setup"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_LABEL"]'));
-    container.querySelector('[data-next="label"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
-    container.querySelector('[data-submit]').click();
-    await vi.waitFor(() => container.querySelector('[data-done]'));
-    container.querySelector('[data-done]').click();
-    expect(redirectFn).toHaveBeenCalledWith('/index.html');
+    vi.useFakeTimers();
+    try {
+      const redirectFn = vi.fn();
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: false, has_api_key: false },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn(),
+        getJobStatus: vi.fn(),
+      };
+      const { initWizard } = await import('../js/ui-wizard.js');
+      initWizard(container, api, redirectFn);
+      await vi.waitFor(() => container.querySelector('[data-action="analyze"]'));
+      container.querySelector('[data-action="analyze"]').click();
+      await vi.waitFor(() => container.querySelector('[data-page="PAGE_SETUP"]'));
+      container.querySelector('[data-next="setup"]').click();
+      await vi.waitFor(() => container.querySelector('[data-page="PAGE_LABEL"]'));
+      container.querySelector('[data-next="label"]').click();
+      await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
+      container.querySelector('[data-submit]').click();
+      await vi.waitFor(() => container.querySelector('[data-done]'));
+      container.querySelector('[data-done]').click();
+      await vi.advanceTimersByTimeAsync(700);
+      expect(redirectFn).toHaveBeenCalledWith('/index.html');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders PROGRESS step list when hasApiKey=true', async () => {
@@ -770,7 +782,9 @@ describe('initWizard', () => {
       container.querySelector('[data-next="label"]').click();
       container.querySelector('[data-submit]').click();
       await Promise.resolve(); await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1500);
+      // Interval fires at 1500ms; after getJobStatus resolves, redirectWithTransition
+      // schedules a 620ms setTimeout. Total: 1500 + 620 = 2120ms.
+      await vi.advanceTimersByTimeAsync(2200);
       expect(redirectFn).toHaveBeenCalledWith('/index.html');
     } finally {
       vi.useRealTimers();
@@ -861,25 +875,31 @@ describe('initWizard', () => {
 
   it('uses default redirectFn (window.location.href) when not provided', async () => {
     // Cover the default parameter arrow function in initWizard
-    const api = {
-      getStatus: vi.fn().mockResolvedValue({
-        state: { has_snapshots: true, has_api_key: true },
-        next_actions: [],
-      }),
-      postAnalyze: vi.fn(),
-      getJobStatus: vi.fn(),
-    };
-    // Mock window.location
-    const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
-    delete window.location;
-    window.location = { href: '' };
-    const { initWizard: initWizard3 } = await import('../js/ui-wizard.js');
-    initWizard3(container, api); // no redirectFn — uses default
-    await vi.waitFor(() => container.querySelector('[data-action="view"]'));
-    container.querySelector('[data-action="view"]').click();
-    expect(window.location.href).toBe('/index.html');
-    // restore
-    if (locationDescriptor) Object.defineProperty(window, 'location', locationDescriptor);
+    vi.useFakeTimers();
+    try {
+      const api = {
+        getStatus: vi.fn().mockResolvedValue({
+          state: { has_snapshots: true, has_api_key: true },
+          next_actions: [],
+        }),
+        postAnalyze: vi.fn(),
+        getJobStatus: vi.fn(),
+      };
+      // Mock window.location
+      const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+      delete window.location;
+      window.location = { href: '' };
+      const { initWizard: initWizard3 } = await import('../js/ui-wizard.js');
+      initWizard3(container, api); // no redirectFn — uses default
+      await vi.waitFor(() => container.querySelector('[data-action="view"]'));
+      container.querySelector('[data-action="view"]').click();
+      await vi.advanceTimersByTimeAsync(700);
+      expect(window.location.href).toBe('/index.html');
+      // restore
+      if (locationDescriptor) Object.defineProperty(window, 'location', locationDescriptor);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders PAGE_ERROR with fallback "未知錯誤" when errorMessage is null', () => {
