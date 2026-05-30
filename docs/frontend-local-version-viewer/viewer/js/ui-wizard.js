@@ -1,3 +1,5 @@
+import { renderProgressInnerHTML, appendPlLine, updateProgressCount } from './progress-view.js';
+
 // ─── State shape ────────────────────────────────────────────────────────────
 export function getInitialState() {
   return {
@@ -13,6 +15,7 @@ export function getInitialState() {
     jobStatus: null,
     currentStep: null,
     steps: [],
+    progress: null,
     errorMessage: null,
     pollFailCount: 0,
     switchPath: '',
@@ -71,6 +74,7 @@ export function transition(state, action) {
         jobStatus: action.status,
         currentStep: action.currentStep,
         steps: action.steps,
+        progress: action.progress ?? state.progress,
       };
     }
 
@@ -392,19 +396,12 @@ snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="$
         });
         wrap.querySelector('[data-done]').addEventListener('click', () => redirectFn('/index.html'));
       } else {
-        const idx = stepIndexForCurrentStep(state.steps, state.currentStep);
-        const stepItems = state.steps.map((s, i) => {
-          const cls  = i < idx ? 'done' : i === idx ? 'running' : 'pending';
-          const icon = cls === 'done' ? '✓' : cls === 'running' ? '◐' : '○';
-          return `<li class="wizard-step" data-step-status="${cls}">`
-               + `<span class="wizard-step-icon">${icon}</span>${s.step_name}</li>`;
-        }).join('');
-        const fallback = '<li class="wizard-step" data-step-status="pending">'
-          + '<span class="wizard-step-icon">○</span>初始化中…</li>';
-        wrap.innerHTML = `
-          <h2>分析進行中</h2>
-          <ul class="wizard-steps">${stepItems || fallback}</ul>
-        `;
+        // API mode: shared progress view (spec §4.2 ⓕ, §5.3, §5.4)
+        wrap.innerHTML = `<h2>分析進行中</h2>${renderProgressInnerHTML({
+          steps: state.steps,
+          currentStep: state.currentStep,
+          progress: state.progress,
+        })}`;
       }
       break;
 
@@ -455,7 +452,12 @@ export function initWizard(container, api, redirectFn = (url) => { window.locati
         const data = await api.getJobStatus(jobId);
         dispatch({ type: 'POLL_UPDATE', status: data.status,
                    currentStep: data.current_step, steps: data.steps || [],
-                   errorMessage: data.error_message });
+                   errorMessage: data.error_message, progress: data.progress });
+        // Live feed (bypass full rerender for stutter-free append).
+        if (data.progress && data.progress.current_file) {
+          appendPlLine(data.progress.current_file);
+          updateProgressCount(data.progress.files_done, data.progress.files_total);
+        }
         if (data.status === 'done') {
           clearInterval(activeTimer);
           activeTimer = null;

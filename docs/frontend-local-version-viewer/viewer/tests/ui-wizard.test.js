@@ -487,13 +487,12 @@ describe('initWizard', () => {
     expect(container.querySelector('[data-submit]').classList.contains('wizard-btn-primary')).toBe(true);
   });
 
-  it('PROGRESS step list uses wizard-steps + wizard-step + wizard-step-icon', async () => {
+  it('PROGRESS step list uses wizard-steplist + wizard-sl-row (phasebar)', async () => {
     vi.useFakeTimers();
     try {
       const steps = [
-        { step_name: '探索', status: 'done' },
-        { step_name: 'LLM', status: 'running' },
-        { step_name: '寫入', status: 'pending' },
+        { step_name: 'analyze_old', status: 'completed' },
+        { step_name: 'analyze_new', status: 'running' },
       ];
       const api = {
         getStatus: vi.fn().mockResolvedValue({
@@ -502,7 +501,7 @@ describe('initWizard', () => {
         }),
         postAnalyze: vi.fn().mockResolvedValue({ job_id: 'j' }),
         getJobStatus: vi.fn().mockResolvedValue({
-          status: 'running', current_step: 'LLM', steps,
+          status: 'running', current_step: 'analyze_new', steps,
         }),
       };
       const { initWizard } = await import('../js/ui-wizard.js');
@@ -514,19 +513,20 @@ describe('initWizard', () => {
       container.querySelector('[data-submit]').click();
       await Promise.resolve(); await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1500);
-      expect(container.querySelector('ul.wizard-steps')).not.toBeNull();
-      const items = container.querySelectorAll('li.wizard-step');
-      expect(items.length).toBe(3);
-      // Icons: ✓ for done, ◐ for running, ○ for pending
-      expect(items[0].querySelector('.wizard-step-icon').textContent).toBe('✓');
-      expect(items[1].querySelector('.wizard-step-icon').textContent).toBe('◐');
-      expect(items[2].querySelector('.wizard-step-icon').textContent).toBe('○');
+      // New phasebar structure
+      expect(container.querySelector('.wizard-phasebar')).not.toBeNull();
+      expect(container.querySelector('.wizard-steplist')).not.toBeNull();
+      // 6 canonical step rows
+      expect(container.querySelectorAll('.wizard-sl-row').length).toBe(6);
+      // completed + running steps have correct data-step-status
+      expect(container.querySelector('[data-step-status="completed"]')).not.toBeNull();
+      expect(container.querySelector('[data-step-status="running"]')).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('PROGRESS fallback (no steps) uses wizard-step with pending icon ○', async () => {
+  it('PROGRESS fallback (no steps) renders 6 canonical pending rows via phasebar', async () => {
     vi.useFakeTimers();
     try {
       const api = {
@@ -548,9 +548,9 @@ describe('initWizard', () => {
       container.querySelector('[data-submit]').click();
       await Promise.resolve(); await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1500);
-      const fallbackItem = container.querySelector('li.wizard-step[data-step-status="pending"]');
-      expect(fallbackItem).not.toBeNull();
-      expect(fallbackItem.querySelector('.wizard-step-icon').textContent).toBe('○');
+      // All 6 canonical steps should be rendered as pending rows
+      const pendingRows = container.querySelectorAll('.wizard-sl-row[data-step-status="pending"]');
+      expect(pendingRows.length).toBe(6);
     } finally {
       vi.useRealTimers();
     }
@@ -704,7 +704,7 @@ describe('initWizard', () => {
   it('renders PROGRESS step list when hasApiKey=true', async () => {
     vi.useFakeTimers();
     try {
-      const steps = [{ step_name: 'LLM 分析', status: 'running' }];
+      const steps = [{ step_name: 'analyze_new', status: 'running' }];
       const api = {
         getStatus: vi.fn().mockResolvedValue({
           state: { has_snapshots: false, has_api_key: true },
@@ -712,7 +712,7 @@ describe('initWizard', () => {
         }),
         postAnalyze: vi.fn().mockResolvedValue({ job_id: 'job-abc' }),
         getJobStatus: vi.fn().mockResolvedValue({
-          status: 'running', current_step: 'LLM 分析', steps,
+          status: 'running', current_step: 'analyze_new', steps,
         }),
       };
       const { initWizard } = await import('../js/ui-wizard.js');
@@ -890,13 +890,12 @@ describe('initWizard', () => {
     expect(el.textContent).toMatch(/未知錯誤/);
   });
 
-  it('PROGRESS with multiple steps renders done/running/pending correctly', async () => {
+  it('PROGRESS with multiple steps renders completed/running/pending correctly', async () => {
     vi.useFakeTimers();
     try {
       const steps = [
-        { step_name: '探索', status: 'done' },
-        { step_name: 'LLM', status: 'running' },
-        { step_name: '寫入', status: 'pending' },
+        { step_name: 'analyze_old', status: 'completed' },
+        { step_name: 'analyze_new', status: 'running' },
       ];
       const api = {
         getStatus: vi.fn().mockResolvedValue({
@@ -905,7 +904,7 @@ describe('initWizard', () => {
         }),
         postAnalyze: vi.fn().mockResolvedValue({ job_id: 'job-multi' }),
         getJobStatus: vi.fn().mockResolvedValue({
-          status: 'running', current_step: 'LLM', steps,
+          status: 'running', current_step: 'analyze_new', steps,
         }),
       };
       const { initWizard } = await import('../js/ui-wizard.js');
@@ -917,11 +916,11 @@ describe('initWizard', () => {
       container.querySelector('[data-submit]').click();
       await Promise.resolve(); await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1500);
-      // The step before current should be 'done'
-      expect(container.querySelector('[data-step-status="done"]')).not.toBeNull();
+      // The completed step should have data-step-status="completed"
+      expect(container.querySelector('[data-step-status="completed"]')).not.toBeNull();
       // The current step should be 'running'
       expect(container.querySelector('[data-step-status="running"]')).not.toBeNull();
-      // Steps after current should be 'pending'
+      // Steps not yet started should be 'pending'
       expect(container.querySelector('[data-step-status="pending"]')).not.toBeNull();
     } finally {
       vi.useRealTimers();
