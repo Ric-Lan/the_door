@@ -13,7 +13,16 @@
 
 - [ ] **Step 1: Failing tests for new renderPipelineProgress structure**
 
-Modify `docs/frontend-local-version-viewer/viewer/tests/ui-modal.test.js` — locate existing `describe('renderPipelineProgress', ...)` block and replace its contents with:
+Modify `docs/frontend-local-version-viewer/viewer/tests/ui-modal.test.js` — at file top加（與既有 import 並列）：
+
+```js
+import { renderPipelineProgress } from '../js/ui-modal.js';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+```
+
+然後 locate existing `describe('renderPipelineProgress', ...)` block and replace its contents with:
 
 ```js
 describe('renderPipelineProgress new design (spec §7)', () => {
@@ -29,8 +38,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     `;
   });
 
-  it('renders 3 phase buckets inside #pipeline-progress', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('renders 3 phase buckets inside #pipeline-progress', () => {
     renderPipelineProgress({
       status: 'running',
       current_step: 'analyze_new',
@@ -40,8 +48,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     expect(document.querySelectorAll('#pipeline-progress .wizard-phasebar .wizard-phase').length).toBe(3);
   });
 
-  it('renders 6 steplist rows', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('renders 6 steplist rows', () => {
     renderPipelineProgress({
       status: 'running',
       current_step: null,
@@ -52,8 +59,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     expect(document.querySelectorAll('#pipeline-progress .wizard-steplist .wizard-sl-row').length).toBe(6);
   });
 
-  it('shows .wizard-prog-live when progress dict set', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('shows .wizard-prog-live when progress dict set', () => {
     renderPipelineProgress({
       status: 'running',
       current_step: 'analyze_new',
@@ -64,8 +70,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     expect(document.querySelector('.wizard-pl-count').textContent).toMatch(/12\s*\/\s*100/);
   });
 
-  it('hides .wizard-prog-live when progress is null', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('hides .wizard-prog-live when progress is null', () => {
     renderPipelineProgress({
       status: 'running',
       current_step: 'analyze_new',
@@ -75,8 +80,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     expect(document.querySelector('.wizard-prog-live')).toBeNull();
   });
 
-  it('failed step shows .wizard-sl-row.failed', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('failed step shows .wizard-sl-row.failed', () => {
     renderPipelineProgress({
       status: 'failed',
       current_step: null,
@@ -86,8 +90,7 @@ describe('renderPipelineProgress new design (spec §7)', () => {
     expect(document.querySelector('.wizard-sl-row.failed')).not.toBeNull();
   });
 
-  it('no longer renders old .step-item chips', async () => {
-    const { renderPipelineProgress } = await import('../js/ui-modal.js');
+  it('no longer renders old .step-item chips', () => {
     renderPipelineProgress({
       status: 'running',
       current_step: 'analyze_new',
@@ -99,13 +102,9 @@ describe('renderPipelineProgress new design (spec §7)', () => {
 });
 
 describe('styles.css chips cleanup (spec §7.1)', () => {
-  it('removes 6 .step-* chips rules', async () => {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    const url = await import('node:url');
-    const dir = path.dirname(url.fileURLToPath(import.meta.url));
-    const css = fs.readFileSync(path.resolve(dir, '../styles.css'), 'utf8');
-    // The class itself is OK as a substring (data-step-status etc.); check rule declarations don't exist.
+  it('removes 6 .step-* chips rules', () => {
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(resolve(dir, '../styles.css'), 'utf8');
     expect(css).not.toMatch(/\.step-item\s*{/);
     expect(css).not.toMatch(/\.step-completed\s*{/);
     expect(css).not.toMatch(/\.step-failed\s*{/);

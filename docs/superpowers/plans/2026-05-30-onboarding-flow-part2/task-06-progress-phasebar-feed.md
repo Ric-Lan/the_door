@@ -9,7 +9,7 @@
 - Create: `docs/frontend-local-version-viewer/viewer/js/progress-view.js`（共用 DOM render：`renderProgressInnerHTML` + `appendPlLine` + `updateProgressCount`；task 8 也 import 使用）
 - Modify: `docs/frontend-local-version-viewer/viewer/js/ui-wizard.js`（PROGRESS case 呼叫 progress-view.js + startPolling 內 appendPlLine）
 - Create: `docs/frontend-local-version-viewer/viewer/tests/wizard-phasebar.test.js`
-- Create: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js`
+- Create: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-render.test.js`（ui-wizard 整合 smoke；feed/render 細節覆蓋已在 progress-view.test.js）
 - Create: `docs/frontend-local-version-viewer/viewer/tests/progress-view.test.js`
 
 ---
@@ -173,9 +173,11 @@ npm test -- tests/wizard-phasebar.test.js
 ```
 Expected: 14 pass.
 
-- [ ] **Step 5: Failing test for PROGRESS DOM + feed**
+- [ ] **Step 5: Failing test — ui-wizard PROGRESS integration smoke**
 
-Path: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js`
+Path: `docs/frontend-local-version-viewer/viewer/tests/wizard-progress-render.test.js`
+
+Detailed DOM-structure assertions live in `progress-view.test.js` (Step 6). 此檔只測 ui-wizard `renderPage('PROGRESS')` 是否確實呼叫共用 render module 並把產出塞進 `.wizard-card`：
 
 ```js
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -188,54 +190,30 @@ function mountProgress(stateOverrides = {}) {
     ...getInitialState(),
     page: 'PROGRESS',
     hasApiKey: true,
-    steps: stateOverrides.steps || [],
-    currentStep: stateOverrides.currentStep ?? null,
-    progress: stateOverrides.progress ?? null,
     ...stateOverrides,
   }, () => {}, () => {}, {});
   return c;
 }
 
-describe('PROGRESS phasebar + steplist (spec §4.2 ⓕ, §5.3)', () => {
+describe('renderPage PROGRESS integration (spec §4.2 ⓕ)', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
-  it('renders 3 phase buckets', () => {
-    const c = mountProgress();
-    expect(c.querySelectorAll('.wizard-phasebar .wizard-phase').length).toBe(3);
+  it('mounts shared progress view inside .wizard-card', () => {
+    const c = mountProgress({ steps: [], currentStep: null, progress: null });
+    const card = c.querySelector('.wizard-card');
+    expect(card).not.toBeNull();
+    // smoke: shared module produced the phasebar shell
+    expect(card.querySelector('.wizard-phasebar')).not.toBeNull();
+    expect(card.querySelector('.wizard-steplist')).not.toBeNull();
   });
 
-  it('renders 6 steplist rows (all 6 canonical steps)', () => {
-    const c = mountProgress({
-      steps: ['analyze_old', 'analyze_new', 'diff', 'scope_verify', 'timeline', 'report']
-        .map(n => ({ step_name: n, status: 'pending' })),
-    });
-    expect(c.querySelectorAll('.wizard-steplist .wizard-sl-row').length).toBe(6);
-  });
-
-  it('steplist row has data-step-status reflecting status', () => {
-    const c = mountProgress({
-      steps: [{ step_name: 'analyze_new', status: 'running' }],
-    });
-    const row = c.querySelector('.wizard-sl-row');
-    expect(row.getAttribute('data-step-status')).toBe('running');
-  });
-
-  it('hides .wizard-prog-live when progress is null', () => {
-    const c = mountProgress({ progress: null });
-    expect(c.querySelector('.wizard-prog-live')).toBeNull();
-  });
-
-  it('renders .wizard-prog-live when progress is set', () => {
-    const c = mountProgress({
-      progress: { files_done: 5, files_total: 10, current_file: 'a.py', current_root: 'new' },
-    });
-    expect(c.querySelector('.wizard-prog-live')).not.toBeNull();
-    expect(c.querySelector('.wizard-pl-count').textContent).toMatch(/5\s*\/\s*10/);
+  it('agent mode (!hasApiKey) does NOT mount phasebar (terminal block instead)', () => {
+    const c = mountProgress({ hasApiKey: false, projectPath: '/x', label: 'v1' });
+    expect(c.querySelector('.wizard-phasebar')).toBeNull();
+    expect(c.querySelector('.wizard-agent-params')).not.toBeNull();
   });
 });
-
-// appendPlLine 行為完整覆蓋已在 progress-view.test.js（Step 6）。
-// 此處只測 PROGRESS DOM 結構，不再重複 appendPlLine 測試。
+```
 ```
 
 - [ ] **Step 6: Create `progress-view.js` shared module + tests**
@@ -474,7 +452,7 @@ And `getInitialState()` add `progress: null,`.
 - [ ] **Step 9: Run all task 6 tests, verify PASS**
 
 ```bash
-npm test -- tests/wizard-phasebar.test.js tests/wizard-progress-feed.test.js
+npm test -- tests/wizard-phasebar.test.js tests/wizard-progress-render.test.js
 ```
 Expected: all pass.
 
@@ -493,7 +471,7 @@ git add docs/frontend-local-version-viewer/viewer/js/phase-status.js \
         docs/frontend-local-version-viewer/viewer/js/progress-view.js \
         docs/frontend-local-version-viewer/viewer/js/ui-wizard.js \
         docs/frontend-local-version-viewer/viewer/tests/wizard-phasebar.test.js \
-        docs/frontend-local-version-viewer/viewer/tests/wizard-progress-feed.test.js \
+        docs/frontend-local-version-viewer/viewer/tests/wizard-progress-render.test.js \
         docs/frontend-local-version-viewer/viewer/tests/progress-view.test.js
 git commit -m "feat(wizard): PROGRESS phasebar + steplist + 即時 feed
 

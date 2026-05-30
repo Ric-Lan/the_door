@@ -121,7 +121,7 @@ case 'BACK':
 
 In `renderPage`:
 
-**共用 BACK listener wiring**：每個下面三 case 結尾用同一段 hook（單一風格、避免重複）：
+**共用 BACK listener wiring**：定義在 `renderPage` 函式內、`switch` 之前（renderer-side 單一定義；下面三 case 都呼叫）：
 
 ```js
 const bindBack = (root) => {
@@ -132,49 +132,53 @@ const bindBack = (root) => {
 };
 ```
 
-放在 `renderPage` 函式內、`switch` 之前（reducer 級單一定義）。
-
-**PAGE_SETUP** case — replace existing `wrap.innerHTML = ...` block with:
+**PAGE_SETUP** case — 整個 case block 改為：
 
 ```js
-wrap.innerHTML = `
-  <h2>設定分析範圍</h2>
-  <p class="wizard-subtitle">偵測到 ${state.fileCount} 個源碼檔案。</p>
-  <div class="wizard-field">
-    <label>排除目錄（逗號分隔，選填）</label>
-    <input type="text" data-excludes placeholder="tests/, docs/" value="${state.excludesRaw}">
-  </div>
-  <div style="display:flex;gap:12px;margin-top:20px;">
-    <button class="wizard-btn-ghost" data-back="PAGE_ACTION">← 上一步</button>
-    <button class="wizard-btn-primary" data-next="setup">下一步</button>
-  </div>
-`;
-wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
-  const raw = wrap.querySelector('[data-excludes]').value;
-  dispatch({ type: 'NEXT_FROM_SETUP', excludesRaw: raw });
-});
-bindBack(wrap);
+case 'PAGE_SETUP': {
+  wrap.innerHTML = `
+    <h2>設定分析範圍</h2>
+    <p class="wizard-subtitle">偵測到 ${state.fileCount} 個源碼檔案。</p>
+    <div class="wizard-field">
+      <label>排除目錄（逗號分隔，選填）</label>
+      <input type="text" data-excludes placeholder="tests/, docs/" value="${state.excludesRaw}">
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <button class="wizard-btn-ghost" data-back="PAGE_ACTION">← 上一步</button>
+      <button class="wizard-btn-primary" data-next="setup">下一步</button>
+    </div>
+  `;
+  wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
+    const raw = wrap.querySelector('[data-excludes]').value;
+    dispatch({ type: 'NEXT_FROM_SETUP', excludesRaw: raw });
+  });
+  bindBack(wrap);
+  break;
+}
 ```
 
-**PAGE_LABEL** case — same pattern:
+**PAGE_LABEL** case — 整個 case block 改為：
 
 ```js
-wrap.innerHTML = `
-  <h2>快照標籤</h2>
-  <div class="wizard-field">
-    <label>版本標籤（選填）</label>
-    <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
-  </div>
-  <div style="display:flex;gap:12px;margin-top:20px;">
-    <button class="wizard-btn-ghost" data-back="PAGE_SETUP">← 上一步</button>
-    <button class="wizard-btn-primary" data-next="label">下一步</button>
-  </div>
-`;
-wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
-  const lbl = wrap.querySelector('[data-label]').value;
-  dispatch({ type: 'NEXT_FROM_LABEL', label: lbl });
-});
-bindBack(wrap);
+case 'PAGE_LABEL': {
+  wrap.innerHTML = `
+    <h2>快照標籤</h2>
+    <div class="wizard-field">
+      <label>版本標籤（選填）</label>
+      <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <button class="wizard-btn-ghost" data-back="PAGE_SETUP">← 上一步</button>
+      <button class="wizard-btn-primary" data-next="label">下一步</button>
+    </div>
+  `;
+  wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
+    const lbl = wrap.querySelector('[data-label]').value;
+    dispatch({ type: 'NEXT_FROM_LABEL', label: lbl });
+  });
+  bindBack(wrap);
+  break;
+}
 ```
 
 **PAGE_CONFIRM** case — **完整重寫**（含 mode badge 變數定義，覆蓋 task 5 寫的版本；self-contained，不依賴外部 scope）：

@@ -249,12 +249,14 @@ def test_batch_reader_init_accepts_reporter_kwarg():
 
 
 def test_batch_reader_default_reporter_is_noop():
-    """Construction without reporter must not require ProgressReporter import in caller."""
+    """Construction without reporter must default to NoOp (no caller wiring required)."""
+    from unittest.mock import MagicMock
     from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
-    from the_door.models import StructureJSON
-    # Minimal StructureJSON construction; if heavy, use existing fixture from test_batch_reader.py
-    structure = StructureJSON(files=[], nodes=[], edges=[], topology=None, analyzed_files=[])
-    br = BatchReader(llm_provider=None, structure=structure)
+    structure = MagicMock()
+    structure.nodes = []
+    structure.edges = []
+    structure.topology = None
+    br = BatchReader(llm_provider=MagicMock(), structure=structure)
     assert isinstance(br._reporter, NoOpProgressReporter)
 ```
 
