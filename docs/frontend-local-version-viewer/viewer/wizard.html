@@ -8,14 +8,11 @@
   <link rel="stylesheet" href="wizard.css">
 </head>
 <body>
-  <div class="wizard-root">
-    <div id="wizard-mount"></div>
-  </div>
+  <div id="wizard-mount"></div>
   <script type="module">
     import { initWizard, createApi } from './js/ui-wizard.js';
     const container = document.getElementById('wizard-mount');
-    const api = createApi();
-    initWizard(container, api);
+    initWizard(container, createApi());
   </script>
 </body>
 </html>

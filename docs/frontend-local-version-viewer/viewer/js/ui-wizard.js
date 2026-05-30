@@ -18,6 +18,7 @@ export function getInitialState() {
     switchPath: '',
     switchConflict: false,
     switchActiveJobId: null,
+    errorOriginPage: null,
   };
 }
 
@@ -35,7 +36,7 @@ export function transition(state, action) {
       };
 
     case 'STATUS_ERROR':
-      return { ...state, page: 'PAGE_ERROR', errorMessage: action.message };
+      return { ...state, page: 'PAGE_ERROR', errorMessage: action.message, errorOriginPage: state.page };
 
     case 'SELECT_ACTION': {
       const nextPage =
@@ -55,7 +56,7 @@ export function transition(state, action) {
       return { ...state, page: 'SUBMITTING' };
 
     case 'SUBMIT_ERROR':
-      return { ...state, page: 'PAGE_ERROR', errorMessage: action.message };
+      return { ...state, page: 'PAGE_ERROR', errorMessage: action.message, errorOriginPage: state.page };
 
     case 'JOB_STARTED':
       return { ...state, page: 'PROGRESS', jobId: action.jobId };
@@ -63,7 +64,7 @@ export function transition(state, action) {
     case 'POLL_UPDATE': {
       if (action.status === 'failed') {
         return { ...state, page: 'PAGE_ERROR', jobStatus: 'failed',
-                 errorMessage: action.errorMessage || '分析失敗' };
+                 errorMessage: action.errorMessage || '分析失敗', errorOriginPage: state.page };
       }
       return {
         ...state,
@@ -77,7 +78,7 @@ export function transition(state, action) {
       const newCount = state.pollFailCount + 1;
       if (newCount >= 3) {
         return { ...state, page: 'PAGE_ERROR', pollFailCount: newCount,
-                 errorMessage: '分析可能仍在進行，請直接前往 Viewer 確認' };
+                 errorMessage: '分析可能仍在進行，請直接前往 Viewer 確認', errorOriginPage: state.page };
       }
       return { ...state, pollFailCount: newCount };
     }
@@ -144,9 +145,76 @@ export function createApi(fetchFn = window.fetch.bind(window)) {
   };
 }
 
+// ─── Rail HTML (spec §4.1) ────────────────────────────────────────────────────
+const STAGE = {
+  LOADING: 0, PAGE_ACTION: 0,
+  PAGE_SETUP: 1, PAGE_LABEL: 2, PAGE_CONFIRM: 3,
+  SUBMITTING: 4, PROGRESS: 4,
+};
+const STAGE_LABELS = ['選擇操作', '設定範圍', '快照標籤', '確認送出', '分析中', '進入 Viewer'];
+
+export function railStage(state) {
+  if (state.page === 'PAGE_ERROR') return STAGE[state.errorOriginPage] ?? 0;
+  return STAGE[state.page] ?? 0;
+}
+
+const DOOR_SVG = `
+  <svg class="leaf" viewBox="0 0 100 100" fill="none" aria-label="The Door">
+    <rect x="22" y="10" width="56" height="76" fill="#d9f3ef"></rect>
+    <path d="M22 10 L22 86 M78 10 L78 86 M22 10 L78 10" stroke="#0f766e" stroke-width="6"></path>
+    <line x1="10" y1="90" x2="90" y2="90" stroke="#0f766e" stroke-width="6"></line>
+    <circle cx="70" cy="50" r="2.5" fill="#0f766e"></circle>
+  </svg>`;
+
+export function wizardRailHTML(stage, lit) {
+  const frac = Math.min(stage, 5) / 5;
+  const angle = -(78 * frac);
+  const fillH = `${frac * 100}%`;
+  const steps = STAGE_LABELS.map((label, i) => {
+    const cls = i < stage ? 'done' : i === stage ? 'active' : '';
+    const icon = i < stage ? '✓' : String(i + 1);
+    return `<div class="wizard-step ${cls}"><span class="dot">${icon}</span><span class="lbl">${label}</span></div>`;
+  }).join('');
+  return `
+    <div class="wizard-rail">
+      <div class="wizard-rail-brand">${DOOR_SVG}<div><div class="wd">The Door</div><div class="sub">門 · 啟動精靈</div></div></div>
+      <div class="wizard-door-wrap">
+        <svg class="wizard-door-frame" viewBox="0 0 148 188" fill="none">
+          <path d="M12 8 L12 182 M136 8 L136 182 M12 8 L136 8" stroke="rgba(217,243,239,0.6)" stroke-width="3"></path>
+          <line x1="4" y1="184" x2="144" y2="184" stroke="rgba(217,243,239,0.6)" stroke-width="3.5"></line>
+        </svg>
+        <div class="wizard-door-light${lit ? ' lit' : ''}"></div>
+        <div class="wizard-door-leaf" style="transform:rotateY(${angle}deg)"><span class="grain"></span><span class="knob"></span></div>
+        <div class="wizard-door-pct">${lit ? '已開啟' : '開啟 ' + Math.round(frac * 100) + '%'}</div>
+      </div>
+      <div class="wizard-stepper">
+        <div class="wizard-stepper-line"></div>
+        <div class="wizard-stepper-fill" style="height:${fillH}"></div>
+        ${steps}
+      </div>
+      <div class="wizard-rail-foot">CODE → FUNCTIONAL LANGUAGE</div>
+    </div>`;
+}
+
 // ─── DOM renderer ────────────────────────────────────────────────────────────
 export function renderPage(container, state, dispatch, redirectFn, api) {
   container.innerHTML = '';
+
+  // Build shell
+  const shell = document.createElement('div');
+  shell.className = 'wizard-shell';
+  const lit = state.page === 'PROGRESS' && state.status === 'completed';
+  shell.insertAdjacentHTML('beforeend', wizardRailHTML(railStage(state), lit));
+
+  const content = document.createElement('div');
+  content.className = 'wizard-content';
+  const screen = document.createElement('div');
+  screen.className = 'wizard-screen wizard-screen-enter';
+  screen.setAttribute('data-page', state.page);
+  content.appendChild(screen);
+  shell.appendChild(content);
+  container.appendChild(shell);
+
   const wrap = document.createElement('div');
   wrap.setAttribute('data-page', state.page);
   wrap.className = 'wizard-card';
@@ -334,7 +402,7 @@ snapshot_write(codebase_path="${state.projectPath}", l1_features=[...], label="$
       break;
   }
 
-  container.appendChild(wrap);
+  screen.appendChild(wrap);
 }
 
 // ─── Controller ──────────────────────────────────────────────────────────────
