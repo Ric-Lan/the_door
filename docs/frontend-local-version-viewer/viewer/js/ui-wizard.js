@@ -55,6 +55,9 @@ export function transition(state, action) {
     case 'NEXT_FROM_LABEL':
       return { ...state, page: 'PAGE_CONFIRM', label: action.label };
 
+    case 'BACK':
+      return { ...state, page: action.target };
+
     case 'SUBMIT':
       return { ...state, page: 'SUBMITTING' };
 
@@ -223,6 +226,13 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
   wrap.setAttribute('data-page', state.page);
   wrap.className = 'wizard-card';
 
+  const bindBack = (root) => {
+    const btn = root.querySelector('[data-back]');
+    if (!btn) return;
+    btn.addEventListener('click', () =>
+      dispatch({ type: 'BACK', target: btn.getAttribute('data-back') }));
+  };
+
   switch (state.page) {
     case 'LOADING':
       wrap.innerHTML = '<p>載入中…</p>';
@@ -329,7 +339,7 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       break;
     }
 
-    case 'PAGE_SETUP':
+    case 'PAGE_SETUP': {
       wrap.innerHTML = `
         <h2>設定分析範圍</h2>
         <p class="wizard-subtitle">偵測到 ${state.fileCount} 個源碼檔案。</p>
@@ -337,44 +347,57 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
           <label>排除目錄（逗號分隔，選填）</label>
           <input type="text" data-excludes placeholder="tests/, docs/" value="${state.excludesRaw}">
         </div>
-        <button class="wizard-btn-primary" data-next="setup">下一步</button>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="wizard-btn-ghost" data-back="PAGE_ACTION">← 上一步</button>
+          <button class="wizard-btn-primary" data-next="setup">下一步</button>
+        </div>
       `;
       wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
         const raw = wrap.querySelector('[data-excludes]').value;
         dispatch({ type: 'NEXT_FROM_SETUP', excludesRaw: raw });
       });
+      bindBack(wrap);
       break;
+    }
 
-    case 'PAGE_LABEL':
+    case 'PAGE_LABEL': {
       wrap.innerHTML = `
         <h2>快照標籤</h2>
         <div class="wizard-field">
           <label>版本標籤（選填）</label>
           <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
         </div>
-        <button class="wizard-btn-primary" data-next="label">下一步</button>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="wizard-btn-ghost" data-back="PAGE_SETUP">← 上一步</button>
+          <button class="wizard-btn-primary" data-next="label">下一步</button>
+        </div>
       `;
       wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
         const lbl = wrap.querySelector('[data-label]').value;
         dispatch({ type: 'NEXT_FROM_LABEL', label: lbl });
       });
+      bindBack(wrap);
       break;
+    }
 
     case 'PAGE_CONFIRM': {
       const apiOn = state.hasApiKey;
       const badgeCls = apiOn ? 'api' : 'agent';
       const badgeText = apiOn ? '● API key 模式' : '◐ Agent 模式（無 API key）';
+      const backTarget = state.action === 'update' ? 'PAGE_ACTION' : 'PAGE_LABEL';
       wrap.innerHTML = `
         <h2>確認送出</h2>
         <dl class="wizard-summary">
           <dt>操作</dt><dd>${state.action}</dd>
           <dt>執行模式</dt><dd><span class="wizard-mode-badge ${badgeCls}">${badgeText}</span></dd>
         </dl>
-        <button class="wizard-btn-primary" data-submit>確認送出</button>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button class="wizard-btn-ghost" data-back="${backTarget}">← 上一步</button>
+          <button class="wizard-btn-primary" data-submit>確認送出</button>
+        </div>
       `;
-      wrap.querySelector('[data-submit]').addEventListener('click', () => {
-        dispatch({ type: 'SUBMIT' });
-      });
+      wrap.querySelector('[data-submit]').addEventListener('click', () => dispatch({ type: 'SUBMIT' }));
+      bindBack(wrap);
       break;
     }
 
