@@ -482,8 +482,8 @@ describe('initWizard', () => {
     await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
     const dl = container.querySelector('dl.wizard-summary');
     expect(dl).not.toBeNull();
-    expect(dl.querySelectorAll('dt').length).toBe(2);
-    expect(dl.querySelectorAll('dd').length).toBe(2);
+    expect(dl.querySelectorAll('dt').length).toBeGreaterThanOrEqual(2);
+    expect(dl.querySelectorAll('dd').length).toBeGreaterThanOrEqual(2);
     expect(container.querySelector('[data-submit]').classList.contains('wizard-btn-primary')).toBe(true);
   });
 

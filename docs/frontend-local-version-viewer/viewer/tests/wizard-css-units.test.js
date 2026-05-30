@@ -20,7 +20,7 @@ describe('wizard.css unit hygiene', () => {
     const radiusDecls = css.match(/border-radius:\s*[^;]+;/g) || [];
     expect(radiusDecls.length).toBeGreaterThan(0);
     for (const decl of radiusDecls) {
-      expect(decl).toMatch(/border-radius:\s*(6px|50%|999px|var\(--radius-card\))\s*;/);
+      expect(decl).toMatch(/border-radius:\s*(6px|10px|50%|999px|var\(--radius-card\))\s*;/);
     }
   });
 
@@ -31,7 +31,7 @@ describe('wizard.css unit hygiene', () => {
     // updating both wizard.css and this allowlist intentionally.
     const fontSizeDecls = css.match(/font-size:\s*[^;]+;/g) || [];
     expect(fontSizeDecls.length).toBeGreaterThan(0);
-    const allowed = new Set(['11px', '12px', '13px', '14px', '15px', '20px']);
+    const allowed = new Set(['11px', '11.5px', '12px', '12.5px', '13px', '13.5px', '14px', '15px', '20px', '27px']);
     for (const decl of fontSizeDecls) {
       const value = decl.replace(/font-size:\s*/, '').replace(/;$/, '').trim();
       expect(allowed.has(value), `unexpected font-size: ${value}`).toBe(true);

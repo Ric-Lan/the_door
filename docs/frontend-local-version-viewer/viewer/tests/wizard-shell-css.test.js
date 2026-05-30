@@ -86,7 +86,7 @@ describe('wizard.css FIX-2 baseline preserved', () => {
     for (const d of decls) {
       // Allow: 6px, var(--radius-card), 50% (circles), 999px (pills),
       // 2px (door frame detail), multi-value shorthands of the above
-      expect(d).toMatch(/border-radius:\s*(6px|var\(--radius-card\)|50%|999px|2px[\s\d]*[\dpx ]*)\s*;/);
+      expect(d).toMatch(/border-radius:\s*(6px|10px|var\(--radius-card\)|50%|999px|2px[\s\d]*[\dpx ]*)\s*;/);
     }
   });
 });

@@ -210,6 +210,18 @@ export function wizardRailHTML(stage, lit) {
     </div>`;
 }
 
+// ─── Icon library (mirrors part2-prototype I) ──────────────────────────────
+const I = {
+  scan:    `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="3" y1="12" x2="21" y2="12"></line></svg>`,
+  refresh: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>`,
+  eye:     `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+  arrow:   `<svg class="arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>`,
+  clock:   `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>`,
+  info:    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path></svg>`,
+  warn:    `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>`,
+  lines:   `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>`,
+};
+
 // ─── DOM renderer ────────────────────────────────────────────────────────────
 export function renderPage(container, state, dispatch, redirectFn, api) {
   container.innerHTML = '';
@@ -251,40 +263,41 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       const modeText    = state.hasApiKey
         ? '偵測到 API key — 分析會在本機自動執行，完成後直接進入 Viewer。'
         : '未偵測到 API key — 將以 Agent 模式產生 MCP 指令，交由你的 coding agent 執行。';
-      const eyebrowAndNote = `
-  <p class="wizard-eyebrow">步驟 1 / 開始</p>
-  <div class="wizard-mode-note ${modeNoteCls}">
+      const eyebrowHeroNote = `
+  <p class="wizard-eyebrow eyebrow">步驟 1 / 開始</p>
+  <h2>${state.hasSnapshots ? '歡迎回來，要做什麼？' : '歡迎使用 The Door'}</h2>
+  <p class="wizard-subtitle lede">把程式碼翻譯成非技術者也能讀懂的功能語言。先選擇這次要進行的操作。</p>
+  <div class="wizard-mode-note mode-note ${modeNoteCls}">
     <span class="mn-badge">${modeBadge}</span>
     <span>${modeText}</span>
   </div>
 `;
       if (!state.hasSnapshots) {
-        wrap.innerHTML = `${eyebrowAndNote}
-          <h2>歡迎使用 The Door</h2>
-          <p class="wizard-subtitle">首次使用，從分析此專案開始。</p>
-          <div class="wizard-options">
-            <button class="wizard-option-btn" data-action="analyze">
-              <strong>首次分析此專案</strong>
-              <span>掃描原始碼，建立第一份結構快照。</span>
+        wrap.innerHTML = `${eyebrowHeroNote}
+          <div class="wizard-options opts">
+            <button class="wizard-option-btn opt" data-action="analyze">
+              <span class="ico">${I.scan}</span>
+              <span class="tx"><strong>首次分析此專案</strong><span>掃描原始碼，建立第一個功能快照。</span></span>
+              ${I.arrow}
             </button>
-            <button class="wizard-option-btn" data-action="view" disabled>
-              <strong>查看快照</strong>
-              <span>尚無資料。</span>
+            <button class="wizard-option-btn opt" data-action="view" disabled>
+              <span class="ico">${I.eye}</span>
+              <span class="tx"><strong>查看快照</strong><span>尚無資料，請先執行分析。</span></span>
             </button>
           </div>
         `;
       } else {
-        wrap.innerHTML = `${eyebrowAndNote}
-          <h2>選擇操作</h2>
-          <p class="wizard-subtitle">偵測到既有快照，選擇下一步。</p>
-          <div class="wizard-options">
-            <button class="wizard-option-btn" data-action="update">
-              <strong>更新分析</strong>
-              <span>重新掃描原始碼，產生新版本快照。</span>
+        wrap.innerHTML = `${eyebrowHeroNote}
+          <div class="wizard-options opts">
+            <button class="wizard-option-btn opt" data-action="update">
+              <span class="ico">${I.refresh}</span>
+              <span class="tx"><strong>更新分析</strong><span>重新掃描原始碼，產生新版本快照並比對差異。</span></span>
+              ${I.arrow}
             </button>
-            <button class="wizard-option-btn" data-action="view">
-              <strong>查看現有快照</strong>
-              <span>直接進入 Viewer，不重新分析。</span>
+            <button class="wizard-option-btn opt" data-action="view">
+              <span class="ico">${I.eye}</span>
+              <span class="tx"><strong>查看現有快照</strong><span>直接進入 Viewer，不重新分析。</span></span>
+              ${I.arrow}
             </button>
           </div>
         `;
@@ -318,12 +331,15 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
           dispatch({ type: 'SWITCH_CANCEL' });
         });
       } else {
+        const projectPath = state.projectPath || '~/code/the-door';
+        const fileCount = state.fileCount || 0;
+        switchSection.className = 'switch-zone wizard-field';
         switchSection.innerHTML = `
-          <div class="wizard-field">
-            <label>切換至其他專案</label>
-            <input type="text" data-switch-input placeholder="/absolute/path/to/project">
+          <p class="sz-label">${I.lines}<span>目前分析目標: <code>${projectPath}</code> · 偵測到 ${fileCount} 個源碼檔</span></p>
+          <div class="switch-row">
+            <input type="text" data-switch-input placeholder="/absolute/path/to/another/project">
+            <button class="wizard-btn-primary btn btn-ghost" data-switch-btn>切換專案</button>
           </div>
-          <button class="wizard-btn-primary" data-switch-btn>切換</button>
         `;
         switchSection.querySelector('[data-switch-input]').value = state.switchPath;
         switchSection.querySelector('[data-switch-input]').addEventListener('input', e => {
@@ -348,15 +364,20 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
 
     case 'PAGE_SETUP': {
       wrap.innerHTML = `
-        <h2>設定分析範圍</h2>
-        <p class="wizard-subtitle">偵測到 ${state.fileCount} 個源碼檔案。</p>
-        <div class="wizard-field">
-          <label>排除目錄（逗號分隔，選填）</label>
-          <input type="text" data-excludes placeholder="tests/, docs/" value="${state.excludesRaw}">
+        <p class="wizard-eyebrow eyebrow">步驟 2 / 設定</p>
+        <h2>要分析哪些範圍？</h2>
+        <p class="wizard-subtitle lede">偵測到 <strong>${state.fileCount}</strong> 個源碼檔案。可排除測試、文件等不需納入功能分析的目錄。</p>
+        <div class="fields">
+          <div class="wizard-field field">
+            <label>排除目錄（逗號分隔，選填）</label>
+            <input type="text" data-excludes placeholder="tests/, docs/, vendor/" value="${state.excludesRaw}">
+            <p class="hint">留空則分析全部。排除的目錄不會送入 LLM，可降低 token 用量。</p>
+          </div>
         </div>
-        <div style="display:flex;gap:12px;margin-top:20px;">
-          <button class="wizard-btn-ghost" data-back="PAGE_ACTION">← 上一步</button>
-          <button class="wizard-btn-primary" data-next="setup">下一步</button>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_ACTION">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-next="setup">下一步 ${I.arrow}</button>
         </div>
       `;
       wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
@@ -369,14 +390,20 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
 
     case 'PAGE_LABEL': {
       wrap.innerHTML = `
-        <h2>快照標籤</h2>
-        <div class="wizard-field">
-          <label>版本標籤（選填）</label>
-          <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
+        <p class="wizard-eyebrow eyebrow">步驟 3 / 設定</p>
+        <h2>替這個版本貼個標籤</h2>
+        <p class="wizard-subtitle lede">標籤用來在 Viewer 的版本選擇器中辨識這份快照。選填，留空會自動帶入 v1.0.0。</p>
+        <div class="fields">
+          <div class="wizard-field field">
+            <label>版本標籤（選填）</label>
+            <input type="text" data-label placeholder="v1.0.0" value="${state.label}">
+            <p class="hint">例：語意化版本、Git tag、或日期。</p>
+          </div>
         </div>
-        <div style="display:flex;gap:12px;margin-top:20px;">
-          <button class="wizard-btn-ghost" data-back="PAGE_SETUP">← 上一步</button>
-          <button class="wizard-btn-primary" data-next="label">下一步</button>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_SETUP">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-next="label">下一步 ${I.arrow}</button>
         </div>
       `;
       wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
@@ -390,17 +417,23 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
     case 'PAGE_CONFIRM': {
       const apiOn = state.hasApiKey;
       const badgeCls = apiOn ? 'api' : 'agent';
-      const badgeText = apiOn ? '● API key 模式' : '◐ Agent 模式（無 API key）';
+      const badgeText = apiOn ? '● API key 模式' : '◐ Agent 模式';
       const backTarget = state.action === 'update' ? 'PAGE_ACTION' : 'PAGE_LABEL';
+      const opLabel = state.action === 'update' ? '更新分析' : '首次分析';
       wrap.innerHTML = `
-        <h2>確認送出</h2>
-        <dl class="wizard-summary">
-          <dt>操作</dt><dd>${state.action}</dd>
-          <dt>執行模式</dt><dd><span class="wizard-mode-badge ${badgeCls}">${badgeText}</span></dd>
+        <p class="wizard-eyebrow eyebrow">步驟 4 / 確認</p>
+        <h2>確認後即開始</h2>
+        <p class="wizard-subtitle lede">送出後會依下列設定執行。分析可能需要數分鐘，取決於專案大小。</p>
+        <dl class="wizard-summary summary">
+          <div class="row"><dt class="k">操作</dt><dd class="v mode">${opLabel}</dd></div>
+          <div class="row"><dt class="k">排除目錄</dt><dd class="v">${state.excludesRaw || '（無）'}</dd></div>
+          <div class="row"><dt class="k">版本標籤</dt><dd class="v">${state.label || 'v1.0.0'}</dd></div>
+          <div class="row"><dt class="k">執行模式</dt><dd class="v"><span class="wizard-mode-badge badge-mode ${badgeCls}">${badgeText}</span></dd></div>
         </dl>
-        <div style="display:flex;gap:12px;margin-top:20px;">
-          <button class="wizard-btn-ghost" data-back="${backTarget}">← 上一步</button>
-          <button class="wizard-btn-primary" data-submit>確認送出</button>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="${backTarget}">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-submit>確認送出 ${I.arrow}</button>
         </div>
       `;
       wrap.querySelector('[data-submit]').addEventListener('click', () => dispatch({ type: 'SUBMIT' }));
