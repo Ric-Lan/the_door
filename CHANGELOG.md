@@ -10,6 +10,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.4.7 — 2026-05-30
+
+### Added
+- **Onboarding flow Part 2**: 雙欄精靈外殼（左門外暗面 + 右門內明亮）+ 進度視覺化（phasebar + steplist + 即時檔案 feed）+ 跨頁穿門轉場（spec §0-§9）
+- **後端 progress 契約**: `UpdateJob.progress` 欄位（`files_done` / `files_total` / `current_file` / `current_root`）由新 `ProgressReporter` 抽象從 `ASTExtractor` / `BatchReader` 內部 file loop 寫入；`handle_get_update_status` payload 暴露給前端
+- **handle_post_analyze adapter**: 精靈 analyze 走 `run_analyze_pipeline` 經 per-request closure 映射為 `[步驟 N/6]` 訊息與 modal `PipelineOrchestrator.run` 對齊（spec §5.1）
+- **Viewer modal 進度設計一致化**: `ui-modal.js renderPipelineProgress` 改用 phasebar/steplist/feed（與精靈 PROGRESS 同設計）
+- **「上一步」鈕**: PAGE_SETUP / PAGE_LABEL / PAGE_CONFIRM 三處新增 `.wizard-btn-ghost`；通用化 `{ type: 'BACK', target }` action 支援 analyze 與 update 兩條路徑（spec §4.3）
+- **`errorOriginPage` state 欄位**: PAGE_ERROR rail stage 由 origin 推回，避免 STATUS_ERROR 在 LOADING 階段被誤顯示為「分析中」（spec §4.1）
+
+### Changed
+- `styles.css` 加 11 個 Part 2 token（terminal / radius / rail 系列）+ 共用進度區（`/* Progress (shared) */`）
+- `wizard.css` 加 shell + rail + screen 動畫 + mode-note + ghost button + agent-* + transient；字體 token (`--font-sans` / `--font-mono`) 限定 `.wizard-shell` 後代 scope（不入 styles.css :root 避免 7 處 fallback regression）
+- `wizard.html` 移除 `.wizard-root` wrapper（雙欄自滿版）
+
+### Removed
+- `styles.css:846-870` 舊 `.step-*` chips 規則（已被 `.wizard-phasebar` / `.wizard-sl-row*` 取代）
+
+### Tests
+- 1a/1b: +18 Python tests（progress_reporter / adapter / payload / e2e）
+- 2-9: +35 JS tests（shell / phasebar / feed / back / error-origin / transition）
+- coverage 維持 100%
+
+---
+
 ## v1.4.6 — 2026-05-30
 
 ### Edge noise projection (post-v1.4.5 增量)
