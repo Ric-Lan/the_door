@@ -193,17 +193,25 @@ pytest the_door/tests/unit/core/ui/test_handle_get_update_status_progress.py -v
 ```
 Expected: 3 pass.
 
-- [ ] **Step 9: Replace task 1a's TODO sink in `_run_analyze_job` / `_run_update_job`**
+- [ ] **Step 9: Replace task 1a's `NoOpProgressReporter()` with real sink in `_run_analyze_job` / `_run_update_job`**
 
 Modify `the_door/src/the_door/core/ui/api_handlers.py`:
 
-Locate the `reporter = ProgressReporter(sink=lambda _d: None)  # TODO 1b` lines (added in task 1a). Replace with:
+Both `_run_analyze_job` (~line 272) and `_run_update_job` (~line 1052) — change:
 
 ```python
+from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+reporter = NoOpProgressReporter()
+```
+
+To:
+
+```python
+from the_door.core.pipeline.progress_reporter import ProgressReporter
 reporter = ProgressReporter(sink=job.update_progress)
 ```
 
-(Both `_run_analyze_job` around line 272 and `_run_update_job` around line 1052.)
+(2 occurrences total.)
 
 - [ ] **Step 10: Add integration test — progress payload reflects file-level work**
 

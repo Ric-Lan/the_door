@@ -121,7 +121,20 @@ case 'BACK':
 
 In `renderPage`:
 
-**PAGE_SETUP** case — append `.wizard-btn-ghost` to existing markup. Replace the existing `wrap.innerHTML = ...` with:
+**共用 BACK listener wiring**：每個下面三 case 結尾用同一段 hook（單一風格、避免重複）：
+
+```js
+const bindBack = (root) => {
+  const btn = root.querySelector('[data-back]');
+  if (!btn) return;
+  btn.addEventListener('click', () =>
+    dispatch({ type: 'BACK', target: btn.getAttribute('data-back') }));
+};
+```
+
+放在 `renderPage` 函式內、`switch` 之前（reducer 級單一定義）。
+
+**PAGE_SETUP** case — replace existing `wrap.innerHTML = ...` block with:
 
 ```js
 wrap.innerHTML = `
@@ -140,12 +153,10 @@ wrap.querySelector('[data-next="setup"]').addEventListener('click', () => {
   const raw = wrap.querySelector('[data-excludes]').value;
   dispatch({ type: 'NEXT_FROM_SETUP', excludesRaw: raw });
 });
-wrap.querySelector('[data-back]').addEventListener('click', () => {
-  dispatch({ type: 'BACK', target: wrap.querySelector('[data-back]').getAttribute('data-back') });
-});
+bindBack(wrap);
 ```
 
-**PAGE_LABEL** case — same pattern, `data-back="PAGE_SETUP"`:
+**PAGE_LABEL** case — same pattern:
 
 ```js
 wrap.innerHTML = `
@@ -163,32 +174,32 @@ wrap.querySelector('[data-next="label"]').addEventListener('click', () => {
   const lbl = wrap.querySelector('[data-label]').value;
   dispatch({ type: 'NEXT_FROM_LABEL', label: lbl });
 });
-wrap.querySelector('[data-back]').addEventListener('click', () => {
-  dispatch({ type: 'BACK', target: 'PAGE_SETUP' });
-});
+bindBack(wrap);
 ```
 
-**PAGE_CONFIRM** case — target depends on `state.action`:
-
-In the PAGE_CONFIRM template (from task 5), change the bottom of innerHTML to include 上一步:
+**PAGE_CONFIRM** case — **完整重寫**（含 mode badge 變數定義，覆蓋 task 5 寫的版本；self-contained，不依賴外部 scope）：
 
 ```js
-const backTarget = state.action === 'update' ? 'PAGE_ACTION' : 'PAGE_LABEL';
-wrap.innerHTML = `
-  <h2>確認送出</h2>
-  <dl class="wizard-summary">
-    <dt>操作</dt><dd>${state.action}</dd>
-    <dt>執行模式</dt><dd><span class="wizard-mode-badge ${badgeCls}">${badgeText}</span></dd>
-  </dl>
-  <div style="display:flex;gap:12px;margin-top:20px;">
-    <button class="wizard-btn-ghost" data-back="${backTarget}">← 上一步</button>
-    <button class="wizard-btn-primary" data-submit>確認送出</button>
-  </div>
-`;
-wrap.querySelector('[data-submit]').addEventListener('click', () => dispatch({ type: 'SUBMIT' }));
-wrap.querySelector('[data-back]').addEventListener('click', () => {
-  dispatch({ type: 'BACK', target: wrap.querySelector('[data-back]').getAttribute('data-back') });
-});
+case 'PAGE_CONFIRM': {
+  const apiOn = state.hasApiKey;
+  const badgeCls = apiOn ? 'api' : 'agent';
+  const badgeText = apiOn ? '● API key 模式' : '◐ Agent 模式（無 API key）';
+  const backTarget = state.action === 'update' ? 'PAGE_ACTION' : 'PAGE_LABEL';
+  wrap.innerHTML = `
+    <h2>確認送出</h2>
+    <dl class="wizard-summary">
+      <dt>操作</dt><dd>${state.action}</dd>
+      <dt>執行模式</dt><dd><span class="wizard-mode-badge ${badgeCls}">${badgeText}</span></dd>
+    </dl>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <button class="wizard-btn-ghost" data-back="${backTarget}">← 上一步</button>
+      <button class="wizard-btn-primary" data-submit>確認送出</button>
+    </div>
+  `;
+  wrap.querySelector('[data-submit]').addEventListener('click', () => dispatch({ type: 'SUBMIT' }));
+  bindBack(wrap);
+  break;
+}
 ```
 
 - [ ] **Step 5: Run task 7 tests, verify PASS**

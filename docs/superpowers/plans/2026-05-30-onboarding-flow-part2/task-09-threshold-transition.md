@@ -16,24 +16,24 @@
 Path: `docs/frontend-local-version-viewer/viewer/tests/wizard-redirect-transition.test.js`
 
 ```js
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { redirectWithTransition } from '../js/ui-wizard.js';
 
 describe('redirectWithTransition (spec §6.2)', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div class="wizard-shell"></div>';
     vi.useFakeTimers();
   });
+  afterEach(() => { vi.useRealTimers(); });
 
-  it('adds .leaving class to .wizard-shell immediately', async () => {
-    const { redirectWithTransition } = await import('../js/ui-wizard.js');
+  it('adds .leaving class to .wizard-shell immediately', () => {
     const setLocation = vi.fn();
     redirectWithTransition('/index.html', setLocation);
     expect(document.querySelector('.wizard-shell').classList.contains('leaving')).toBe(true);
     expect(setLocation).not.toHaveBeenCalled();
   });
 
-  it('delays setLocation by ~620ms (animation duration)', async () => {
-    const { redirectWithTransition } = await import('../js/ui-wizard.js');
+  it('delays setLocation by ~620ms (animation duration)', () => {
     const setLocation = vi.fn();
     redirectWithTransition('/index.html', setLocation);
     vi.advanceTimersByTime(619);
@@ -42,9 +42,8 @@ describe('redirectWithTransition (spec §6.2)', () => {
     expect(setLocation).toHaveBeenCalledWith('/index.html');
   });
 
-  it('still redirects if no .wizard-shell present (fallback)', async () => {
+  it('still redirects if no .wizard-shell present (fallback)', () => {
     document.body.innerHTML = '';
-    const { redirectWithTransition } = await import('../js/ui-wizard.js');
     const setLocation = vi.fn();
     redirectWithTransition('/index.html', setLocation);
     vi.advanceTimersByTime(700);

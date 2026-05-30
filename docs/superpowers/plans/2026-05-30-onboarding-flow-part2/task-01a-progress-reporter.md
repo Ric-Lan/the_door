@@ -208,31 +208,57 @@ def test_extract_calls_reporter_per_file(tmp_path):
 pytest the_door/tests/unit/core/extraction/test_ast_extractor_reporter.py -v
 ```
 
-- [ ] **Step 7: Hook ProgressReporter into BatchReader**
+- [ ] **Step 7: Hook ProgressReporter into BatchReader (per-instance via `__init__`)**
 
 Modify `the_door/src/the_door/core/reading/batch_reader.py`:
 
-`BatchReader.run(...)` (or the file-iteration method) — accept `reporter: ProgressReporter | None = None`; call `reporter.report_file(file_path)` inside the per-file loop.
+`BatchReader.__init__` 現有 signature（line 51-62）：
+```python
+def __init__(
+    self, llm_provider, structure: StructureJSON,
+    *, max_context_tokens=None, context_mode="detail",
+) -> None:
+```
 
-Locate file loop via `grep -n "for .* in .*\.files\|for path in" the_door/src/the_door/core/reading/batch_reader.py`.
+新增 keyword-only `reporter` 參數（放在 `context_mode` 之後）：
+```python
+def __init__(
+    self, llm_provider, structure: StructureJSON,
+    *, max_context_tokens=None, context_mode="detail",
+    reporter: "ProgressReporter | None" = None,
+) -> None:
+    ...
+    from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+    self._reporter = reporter or NoOpProgressReporter()
+```
+
+在 `read()` method 內部 per-node 處理迴圈（grep `for .* in .*batch\|for node in` 找到 file-level loop），於處理每節點/檔案前呼叫：
+```python
+self._reporter.report_file(node.file_path)
+```
 
 Add test `the_door/tests/unit/core/reading/test_batch_reader_reporter.py`:
 
 ```python
-from unittest.mock import MagicMock
-
-from the_door.core.pipeline.progress_reporter import ProgressReporter
+from the_door.core.reading.batch_reader import BatchReader
 
 
-def test_batch_reader_calls_reporter_per_file(monkeypatch, tmp_path):
-    # Minimal smoke: instantiate BatchReader, inject reporter, verify report_file called.
-    # Skip if BatchReader needs heavy fixtures; assert reporter signature accepted.
-    from the_door.core.reading.batch_reader import BatchReader
-    sig = BatchReader.run.__code__.co_varnames
-    assert "reporter" in sig, "BatchReader.run must accept reporter kwarg"
+def test_batch_reader_init_accepts_reporter_kwarg():
+    sig = BatchReader.__init__.__code__.co_varnames
+    assert "reporter" in sig, "BatchReader.__init__ must accept reporter kwarg"
+
+
+def test_batch_reader_default_reporter_is_noop():
+    """Construction without reporter must not require ProgressReporter import in caller."""
+    from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+    from the_door.models import StructureJSON
+    # Minimal StructureJSON construction; if heavy, use existing fixture from test_batch_reader.py
+    structure = StructureJSON(files=[], nodes=[], edges=[], topology=None, analyzed_files=[])
+    br = BatchReader(llm_provider=None, structure=structure)
+    assert isinstance(br._reporter, NoOpProgressReporter)
 ```
 
-(Full integration covered by `test_progress_reporter_e2e.py` in Step 12.)
+(File-level call behaviour covered by `test_progress_reporter_e2e.py` in Step 13.)
 
 - [ ] **Step 8: Wire ProgressReporter into `run_analyze_pipeline`**
 
@@ -262,19 +288,22 @@ def _run_pipeline_inner(
     reporter: ProgressReporter,
 ) -> AnalyzeResult:
     ...
-    # Before ASTExtractor.extract call, count files for set_total
+    # Before ASTExtractor.extract call, count files for set_total.
+    # FileDiscovery only exposes discover() (file_discovery.py:50); use len() over its result.
     from the_door.core.extraction.file_discovery import FileDiscovery
-    file_count = FileDiscovery().count(str(codebase_path), config.extra_ignore)
+    file_count = len(FileDiscovery().discover(str(codebase_path), config.extra_ignore))
     reporter.set_total(file_count, root="new")
     ...
-    # Pass reporter through:
+    # Pass reporter through to extractor (kwarg added in Step 5):
     ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore, reporter=reporter)
     ...
-    # Pass reporter into BatchReader:
-    reader = BatchReader(..., reporter=reporter)
+    # Pass reporter into BatchReader (kwarg added in Step 7 via __init__):
+    reader = BatchReader(
+        llm_provider, structure,
+        max_context_tokens=..., context_mode=...,
+        reporter=reporter,
+    )
 ```
-
-If `FileDiscovery` lacks a `count()`, add it as a 3-line method or call existing discovery + `len()`.
 
 - [ ] **Step 9: Wire ProgressReporter into `PipelineOrchestrator.run`**
 
@@ -416,12 +445,12 @@ def _make_analyze_progress_adapter(job):
     return adapter
 ```
 
-Modify `_run_analyze_job` (around line 272-294) to use adapter + reporter:
+Modify `_run_analyze_job` (around line 272-294) to use adapter + NoOp reporter (task 1b swaps to real sink):
 
 ```python
 def _run_analyze_job(self, job, extra_ignore, snapshot_label) -> None:
     from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
-    from the_door.core.pipeline.progress_reporter import ProgressReporter
+    from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
     from the_door.models import AnalyzeConfig
     config = AnalyzeConfig(
         skip_cost_confirm=True,
@@ -429,7 +458,7 @@ def _run_analyze_job(self, job, extra_ignore, snapshot_label) -> None:
         snapshot_label=snapshot_label,
     )
     adapter = _make_analyze_progress_adapter(job)
-    reporter = ProgressReporter(sink=job.update_progress)  # update_progress arrives in task 1b
+    reporter = NoOpProgressReporter()
     try:
         run_analyze_pipeline(
             self._project_root, config,
@@ -441,14 +470,15 @@ def _run_analyze_job(self, job, extra_ignore, snapshot_label) -> None:
         self._job_store.fail_job(job.job_id, str(exc))
 ```
 
-Same pattern in modal `_run_update_job` (around line 1052) — reporter only (no adapter; PipelineOrchestrator already emits `[步驟 N/6]`):
+Same pattern in modal `_run_update_job` (around line 1052) — NoOp reporter (no adapter; PipelineOrchestrator already emits `[步驟 N/6]`):
 
 ```python
-reporter = ProgressReporter(sink=job.update_progress)
+from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+reporter = NoOpProgressReporter()
 result = PipelineOrchestrator().run(config, progress_callback=job.update_step, reporter=reporter)
 ```
 
-> Note: `job.update_progress` is added in task 1b. Until task 1b lands, replace `sink=job.update_progress` with `sink=lambda _d: None` and add a TODO comment; task 1b will swap it.
+Task 1b Step 9 replaces both `NoOpProgressReporter()` with `ProgressReporter(sink=job.update_progress)`.
 
 - [ ] **Step 12: Run adapter test + integration**
 

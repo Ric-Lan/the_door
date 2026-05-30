@@ -22,7 +22,7 @@
 | 3  | [task-03-css-shell-rail.md](task-03-css-shell-rail.md) | `wizard.css` shell + rail + tokens B | `vitest` |
 | 4  | [task-04-render-page-shell.md](task-04-render-page-shell.md) | `ui-wizard.js` renderPage shell + `errorOriginPage` state | `vitest` |
 | 5  | [task-05-mode-note-badge.md](task-05-mode-note-badge.md) | PAGE_ACTION mode-note + PAGE_CONFIRM badge | `vitest` |
-| 6  | [task-06-progress-phasebar-feed.md](task-06-progress-phasebar-feed.md) | PROGRESS phasebar + steplist + file feed | `vitest` |
+| 6  | [task-06-progress-phasebar-feed.md](task-06-progress-phasebar-feed.md) | PROGRESS phasebar + steplist + file feed（建立 `phase-status.js` + 共用 `progress-view.js`） | `vitest` |
 | 7  | [task-07-back-transition.md](task-07-back-transition.md) | `BACK` transition + 上一步 buttons | `vitest` |
 | 8  | [task-08-modal-consistency.md](task-08-modal-consistency.md) | `ui-modal.js renderPipelineProgress` redesign + remove 6 chips rules | `vitest` |
 | 9  | [task-09-threshold-transition.md](task-09-threshold-transition.md) | Cross-page threshold transition + `.onboarding-card` viewerIn | `vitest` |
@@ -43,8 +43,8 @@
 - **2, 3** independent CSS tasks; can run parallel.
 - **4** depends on 3 (DOM uses `.wizard-shell` class from 3).
 - **5, 6, 7** depend on 4 (mutate renderPage cases); can run parallel among themselves.
-- **6** also depends on 1b (consumes progress payload).
-- **8** depends on 2 (shared CSS) + 6 (renderPipelineProgress mirrors PROGRESS).
+- **6** also depends on 1b (consumes progress payload); produces shared `progress-view.js` module.
+- **8** depends on 2 (shared CSS) + 6 (imports `progress-view.js` — `renderProgressInnerHTML` / `appendPlLine`).
 - **9** depends on 4 (uses `.wizard-shell.leaving`); runs near end.
 - **10** runs last (release artefacts + visual audit).
 

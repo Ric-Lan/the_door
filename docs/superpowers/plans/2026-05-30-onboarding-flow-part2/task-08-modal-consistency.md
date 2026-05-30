@@ -2,7 +2,7 @@
 
 **Goal:** `ui-modal.js renderPipelineProgress(job)` 改用 phasebar + steplist + 即時 feed 結構（與精靈 PROGRESS 同樣式）；移除 `viewer/styles.css:846-870` 的 6 條 `.step-*` chips 規則。
 
-**Dependencies:** task 2（shared progress CSS）+ task 6（phaseStatus / PHASE_BUCKETS / appendPlLine helpers）+ task 1b（progress payload）。
+**Dependencies:** task 2（shared progress CSS）+ task 6（`progress-view.js` 共用 render module）+ task 1b（progress payload）。
 
 **Files:**
 - Modify: `docs/frontend-local-version-viewer/viewer/js/ui-modal.js`（`renderPipelineProgress` + 加 progress feed handling 進 `pollJobStatus`）
@@ -123,16 +123,17 @@ cd docs/frontend-local-version-viewer/viewer
 npm test -- tests/ui-modal.test.js
 ```
 
-- [ ] **Step 3: Rewrite `renderPipelineProgress` in ui-modal.js**
+- [ ] **Step 3: Rewrite `renderPipelineProgress` in ui-modal.js using shared `progress-view.js`**
 
 Modify `docs/frontend-local-version-viewer/viewer/js/ui-modal.js`:
 
-At top, add import:
+At top, add imports:
 ```js
-import { PHASE_BUCKETS, phaseStatus, labelFor } from './phase-status.js';
+import { labelFor } from './phase-status.js';
+import { renderProgressInnerHTML, appendPlLine } from './progress-view.js';
 ```
 
-Replace `export function renderPipelineProgress(job)` (around line 33) entirely:
+Replace `export function renderPipelineProgress(job)` (line 33) entirely:
 
 ```js
 export function renderPipelineProgress(job) {
@@ -140,53 +141,17 @@ export function renderPipelineProgress(job) {
   if (!container) return;
   els.currentStep.textContent = job.current_step ? '執行中：' + labelFor(job.current_step) : '';
 
-  const STEPS_CANONICAL = ['analyze_old', 'analyze_new', 'diff', 'scope_verify', 'timeline', 'report'];
-  const stepsByName = new Map((job.steps || []).map(s => [s.step_name, s]));
-  const fullSteps = STEPS_CANONICAL.map(name => stepsByName.get(name) || { step_name: name, status: 'pending' });
-
-  const phasebarHTML = PHASE_BUCKETS.map(bucket => {
-    const st = phaseStatus(bucket, fullSteps, job.current_step);
-    const icon = st === 'done' ? '✓ ' : st === 'failed' ? '✗ ' : '';
-    return `<div class="wizard-phase ${st}"><div class="track"><div class="fill"></div></div><div class="pl">${icon}${bucket.label}</div></div>`;
-  }).join('');
-
-  const rowsHTML = fullSteps.map(s => {
-    const icon = s.status === 'completed' ? '✓'
-      : s.status === 'failed'  ? '✗'
-      : s.status === 'skipped' ? '⊘'
-      : s.status === 'running' ? '<span class="wizard-spin"></span>'
-      : '○';
-    const dur = s.duration_ms != null ? `${(s.duration_ms / 1000).toFixed(1)}s` : '';
-    const err = s.error_message ? `<span class="wizard-sl-err">${s.error_message}</span>` : '';
-    return `<div class="wizard-sl-row ${s.status}" data-step-status="${s.status}">
-      <span class="si">${icon}</span><span class="sn">${labelFor(s.step_name)}</span>${err}<span class="dur">${dur}</span>
-    </div>`;
-  }).join('');
-
-  const progLiveHTML = job.progress ? `
-    <div class="wizard-prog-live">
-      <div class="wizard-pl-head">
-        <span class="wizard-pl-dot"></span>
-        正在分析 <span class="wizard-pl-count">${job.progress.files_done} / ${job.progress.files_total}</span> 個檔案
-      </div>
-      <div class="wizard-pl-feed"></div>
-    </div>` : '';
-
-  els.stepsList.outerHTML = `
-    <div id="steps-list" class="wizard-pipeline-redesign">
-      <div class="wizard-phasebar">${phasebarHTML}</div>
-      <div class="wizard-steplist">${rowsHTML}</div>
-      ${progLiveHTML}
-    </div>
-  `;
-  // Re-grab reference after outerHTML swap (els.stepsList stale)
+  els.stepsList.outerHTML = `<div id="steps-list">${renderProgressInnerHTML({
+    steps: job.steps,
+    currentStep: job.current_step,
+    progress: job.progress,
+  })}</div>`;
+  // Re-grab reference after outerHTML swap (cached els.stepsList stale).
   els.stepsList = document.getElementById('steps-list');
 }
 ```
 
-Note: `els.stepsList` is grabbed via `els` import from `dom.js`. After `outerHTML` swap the cached reference goes stale; refresh it.
-
-Patch `pollJobStatus` (around line 82) to append live feed lines (mirroring task 6 pattern):
+Patch `pollJobStatus` (line 82) to append live feed via shared helper:
 
 ```js
 export async function pollJobStatus(jobId, callbacks = {}) {
@@ -194,14 +159,7 @@ export async function pollJobStatus(jobId, callbacks = {}) {
     const job = await api.fetchJobStatus(jobId);
     renderPipelineProgress(job);
     if (job.progress && job.progress.current_file) {
-      const feed = document.querySelector('#pipeline-progress .wizard-pl-feed');
-      if (feed) {
-        const line = document.createElement('div');
-        line.className = 'wizard-pl-line';
-        line.textContent = job.progress.current_file;
-        feed.appendChild(line);
-        while (feed.children.length > 20) feed.removeChild(feed.firstChild);
-      }
+      appendPlLine(job.progress.current_file, document.getElementById('pipeline-progress'));
     }
     /* existing completion / failure handling */
   } catch (err) { /* existing */ }

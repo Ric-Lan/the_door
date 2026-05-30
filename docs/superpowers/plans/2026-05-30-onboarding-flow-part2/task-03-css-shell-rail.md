@@ -250,13 +250,15 @@ Append to end of `docs/frontend-local-version-viewer/viewer/wizard.css`:
   border-radius: 2px;
   box-shadow: 0 0 8px rgba(95, 214, 200, 0.5);
 }
-.wizard-step {
+/* Rail stepper items — qualified by .wizard-stepper to avoid clashing with
+   FIX-1 ship 的 .wizard-steps .wizard-step[data-step-status] (PROGRESS steplist). */
+.wizard-stepper .wizard-step {
   position: relative;
   display: flex; align-items: center; gap: 13px;
   padding: 8px 0;
   z-index: 1;
 }
-.wizard-step .dot {
+.wizard-stepper .wizard-step .dot {
   width: 28px; height: 28px;
   border-radius: 50%;
   flex-shrink: 0;
@@ -268,22 +270,22 @@ Append to end of `docs/frontend-local-version-viewer/viewer/wizard.css`:
   transition: all 0.35s ease;
   font-weight: 700;
 }
-.wizard-step .lbl {
+.wizard-stepper .wizard-step .lbl {
   font-size: 13px;
   color: var(--rail-muted);
   transition: color 0.35s ease;
   font-weight: 500;
 }
-.wizard-step.done .dot { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent-press); }
-.wizard-step.done .lbl { color: var(--rail-text); }
-.wizard-step.active .dot {
+.wizard-stepper .wizard-step.done .dot { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent-press); }
+.wizard-stepper .wizard-step.done .lbl { color: var(--rail-text); }
+.wizard-stepper .wizard-step.active .dot {
   background: #fff;
   border-color: #fff;
   color: var(--accent-press);
   box-shadow: 0 0 0 5px rgba(217, 243, 239, 0.18);
   transform: scale(1.04);
 }
-.wizard-step.active .lbl { color: #fff; font-weight: 700; }
+.wizard-stepper .wizard-step.active .lbl { color: #fff; font-weight: 700; }
 
 .wizard-rail-foot {
   position: relative; z-index: 1;
