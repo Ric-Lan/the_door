@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Door — 精靈→Viewer 進場流程</title>
+<link rel="icon" type="image/svg+xml" href="assets/the-door-glyph.svg">
+<link rel="stylesheet" href="flow.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="frame">
+      <div class="chrome">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="url">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          localhost:7421<span class="path">/wizard.html</span>
+        </div>
+      </div>
+      <div id="viewport"></div>
+    </div>
+  </div>
+  <div id="walk"></div>
+  <script type="module" src="flow.js"></script>
+</body>
+</html>
