@@ -28,7 +28,7 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
 | 本地 UI | 瀏覽器工作台，互動式圖形，三層導覽（L1 → L2 → L3） |
 | Scope-aware 關聯邊 | 跨檔關聯邊帶 `resolution` 標籤（`scope_rule` / `import_alias` / `name_match` / `skipped_dynamic`），LLM 可區分高低信心邊，不再把所有裸名匹配同等對待 |
 | **邊噪音投影** | LLM 收到的關聯邊已過濾高候選量噪音、動態 dispatch 邊聚合成 caller 散文 hint；snapshot 與 viewer 仍保留完整事實。 |
-| **Onboarding 雙欄精靈** | 視覺化的「開門→分析→進入 Viewer」三段體驗，含即時 file-level 進度 feed | v1.4.7 |
+| **Onboarding 雙欄精靈** | 視覺化的「開門→分析→進入 Viewer」三段體驗，含即時 file-level 進度 feed | v1.5.0 |
 
 ---
 

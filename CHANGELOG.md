@@ -10,7 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## v1.4.7 — 2026-05-30
+## v1.5.0 — 2026-05-30
 
 ### Added
 - **Onboarding flow Part 2**: 雙欄精靈外殼（左門外暗面 + 右門內明亮）+ 進度視覺化（phasebar + steplist + 即時檔案 feed）+ 跨頁穿門轉場（spec §0-§9）
