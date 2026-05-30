@@ -358,11 +358,13 @@ class PipelineOrchestrator:
 
             # Run full analysis
             rep = reporter or NoOpProgressReporter()
+            root_label = "old" if step_name == "analyze_old" else "new"
             result = run_analyze_pipeline(
                 path,
                 config.analyze_config,
                 progress_callback=None,  # orchestrator handles progress
                 reporter=rep,
+                root=root_label,
             )
 
             # Save fingerprint

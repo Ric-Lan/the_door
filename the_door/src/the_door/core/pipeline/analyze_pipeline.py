@@ -13,6 +13,7 @@ import subprocess
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Literal
 
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.extraction.ast_extractor import ASTExtractor
@@ -50,6 +51,7 @@ def run_analyze_pipeline(
     *,
     progress_callback: Callable[[str], None] | None = None,
     reporter: ProgressReporter | None = None,
+    root: Literal["new", "old"] = "new",
 ) -> AnalyzeResult:
     """Execute the full analysis pipeline.
 
@@ -83,7 +85,7 @@ def run_analyze_pipeline(
     rep = reporter or NoOpProgressReporter()
 
     try:
-        return _run_pipeline_inner(codebase_path, config, progress, rep)
+        return _run_pipeline_inner(codebase_path, config, progress, rep, root=root)
     except (AnalyzeError, CostConfirmationRequired):
         raise
     except Exception as exc:
@@ -95,6 +97,8 @@ def _run_pipeline_inner(
     config: AnalyzeConfig,
     progress: Callable[[str], None],
     reporter: ProgressReporter,
+    *,
+    root: Literal["new", "old"] = "new",
 ) -> AnalyzeResult:
     """Inner implementation — separated so the outer function can wrap exceptions."""
 
@@ -122,7 +126,7 @@ def _run_pipeline_inner(
 
     # Set file total for reporter before extraction
     file_count = len(FileDiscovery().discover(str(codebase_path), config.extra_ignore or []))
-    reporter.set_total(file_count, root="new")
+    reporter.set_total(file_count, root=root)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         ast_future = executor.submit(extractor.extract, str(codebase_path), config.extra_ignore, reporter=reporter)
