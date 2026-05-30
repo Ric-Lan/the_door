@@ -50,6 +50,7 @@ class UpdateJob:
     current_step: Optional[str] = None
     steps: list = field(default_factory=list)
     error_message: Optional[str] = None
+    progress: Optional[dict] = None
     _lock: threading.Lock = field(
         default_factory=threading.Lock,
         repr=False,
@@ -106,6 +107,11 @@ class UpdateJob:
             m = _RE_RUNNING.search(progress_msg)
             if m:
                 self.current_step = m.group(1)
+
+    def update_progress(self, progress: dict) -> None:
+        """Set the file-level progress dict (None / {files_done, files_total, current_file, current_root})."""
+        with self._lock:
+            self.progress = dict(progress) if progress is not None else None
 
 
 class JobStore:

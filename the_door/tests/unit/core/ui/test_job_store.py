@@ -142,3 +142,51 @@ def test_update_step_thread_safety():
 
     assert not errors
     assert len(job.steps) == 10
+
+
+def test_job_progress_default_none():
+    from the_door.core.ui.job_store import UpdateJob
+    job = UpdateJob(job_id="t")
+    assert job.progress is None
+
+
+def test_update_progress_sets_field():
+    from the_door.core.ui.job_store import UpdateJob
+    job = UpdateJob(job_id="t")
+    job.update_progress({
+        "files_done": 5, "files_total": 10,
+        "current_file": "a.py", "current_root": "new",
+    })
+    assert job.progress == {
+        "files_done": 5, "files_total": 10,
+        "current_file": "a.py", "current_root": "new",
+    }
+
+
+def test_update_progress_overwrites():
+    from the_door.core.ui.job_store import UpdateJob
+    job = UpdateJob(job_id="t")
+    job.update_progress({"files_done": 1, "files_total": 10, "current_file": "a.py", "current_root": "new"})
+    job.update_progress({"files_done": 2, "files_total": 10, "current_file": "b.py", "current_root": "new"})
+    assert job.progress["files_done"] == 2
+    assert job.progress["current_file"] == "b.py"
+
+
+def test_update_progress_thread_safe():
+    """Calling update_progress while holding job._lock must not deadlock."""
+    import threading
+    from the_door.core.ui.job_store import UpdateJob
+    job = UpdateJob(job_id="t")
+    barrier = threading.Barrier(5)
+    def worker(i):
+        barrier.wait()
+        for _ in range(20):
+            job.update_progress({
+                "files_done": i, "files_total": 100,
+                "current_file": f"f{i}.py", "current_root": "new",
+            })
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
+    for t in threads: t.start()
+    for t in threads: t.join(timeout=5)
+    assert all(not t.is_alive() for t in threads)
+    assert job.progress is not None

@@ -300,7 +300,7 @@ class APIHandlers:
         snapshot_label: str | None,
     ) -> None:
         from the_door.core.pipeline.analyze_pipeline import run_analyze_pipeline
-        from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+        from the_door.core.pipeline.progress_reporter import ProgressReporter
         from the_door.models import AnalyzeConfig
 
         config = AnalyzeConfig(
@@ -309,7 +309,7 @@ class APIHandlers:
             snapshot_label=snapshot_label,
         )
         adapter = _make_analyze_progress_adapter(job)
-        reporter = NoOpProgressReporter()
+        reporter = ProgressReporter(sink=job.update_progress)
         try:
             run_analyze_pipeline(
                 self._project_root,
@@ -376,6 +376,7 @@ class APIHandlers:
         }
         if job.status == "failed":
             response["error_message"] = job.error_message
+        response["progress"] = job.progress  # None or {files_done, files_total, current_file, current_root}
 
         return 200, response
 
@@ -1079,9 +1080,9 @@ class APIHandlers:
     ) -> None:
         """Background thread: run pipeline, persist report, update job status."""
         try:
-            from the_door.core.pipeline.progress_reporter import NoOpProgressReporter
+            from the_door.core.pipeline.progress_reporter import ProgressReporter
             config = PipelineConfig(old_path=old_path, new_path=new_path, output_language=output_language)
-            reporter = NoOpProgressReporter()
+            reporter = ProgressReporter(sink=job.update_progress)
             result = PipelineOrchestrator().run(config, progress_callback=job.update_step, reporter=reporter)
             report = ReportRenderer().render_json(result)
             self._persist_report(report)

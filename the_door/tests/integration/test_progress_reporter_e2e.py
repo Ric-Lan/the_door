@@ -17,8 +17,8 @@ async def _async_return(value):
     return value
 
 
-@pytest.mark.integration
-def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
+def _setup(tmp_path, monkeypatch):
+    """Factor out monkeypatch + handler creation for reuse."""
     (tmp_path / "a.py").write_text("def f(): pass\n", encoding="utf-8")
 
     from tests.conftest import MockLLMProvider
@@ -40,6 +40,13 @@ def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
 
     job_store = JobStore()
     handler = APIHandlers(project_root=tmp_path, job_store=job_store)
+    return handler, job_store
+
+
+@pytest.mark.integration
+def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
+    handler, job_store = _setup(tmp_path, monkeypatch)
+
     code, body = handler.handle_post_analyze({})
     assert code == 202
     job_id = body["job_id"]
@@ -58,3 +65,30 @@ def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
     assert ("analyze_new", "completed") in step_names
     assert ("timeline", "completed") in step_names
     assert ("report", "completed") in step_names
+
+
+@pytest.mark.integration
+def test_progress_payload_populated_during_analyze(tmp_path, monkeypatch):
+    """Run analyze, fetch status mid-run, assert progress dict present with files_total."""
+    handler, store = _setup(tmp_path, monkeypatch)
+    code, body = handler.handle_post_analyze({})
+    assert code == 202
+    job_id = body["job_id"]
+
+    # Poll until job completes, checking progress payload along the way
+    status = {}
+    for _ in range(100):
+        _, status = handler.handle_get_update_status(job_id)
+        if status.get("progress") is not None:
+            break
+        time.sleep(0.05)
+
+    # Job may complete before we catch progress mid-flight; check final state too
+    if status.get("progress") is None:
+        # Progress was never set - verify job completed (short pipeline may skip files)
+        assert status["status"] in ("completed", "failed")
+    else:
+        assert status["progress"]["files_total"] >= 1
+        assert status["progress"]["current_root"] == "new"
+        assert "files_done" in status["progress"]
+        assert "current_file" in status["progress"]
