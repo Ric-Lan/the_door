@@ -78,13 +78,15 @@ Expected: FAIL — 落點仍是 `PAGE_CONFIRM` / `PICK_REGEN` 無對應 case。
 
 - [ ] **Step 4: 改 reducer**
 
-在 `js/ui-wizard.js` 的 `getInitialState` 回傳物件加四個欄位（接在 `errorOriginPage: null,` 後）：
+在 `js/ui-wizard.js` 的 `getInitialState` 回傳物件加六個欄位（接在 `errorOriginPage: null,` 後）：
 
 ```javascript
     updateFlow: null,
     regenRef: null,
     newDataPath: '',
     baselineRef: null,
+    knownVersionIds: [],
+    detectedRef: null,
 ```
 
 把 `transition` 的 `SELECT_ACTION` case 改成：
