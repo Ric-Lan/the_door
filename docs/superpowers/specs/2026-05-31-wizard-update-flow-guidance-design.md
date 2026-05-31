@@ -163,7 +163,12 @@ B 路的核心是一個 **相似度分流關卡**：必須先（由 agent）跑�
 
 - **Agent 模式（無 API key）**：全程是引導畫面。每個會「執行」的步驟（重生、結構比對、差異解析）
   都由 wizard 出指令卡，交給使用者的 agent 跑。這是本設計的中心情境。
-- **API key 模式**：匯流回既有的「確認送出 → 自動跑 pipeline → 輪詢進度」既有行為，本設計不更動該段。
+- **API key 模式**：既有的「同路徑重掃」更新（首次分析 / 更新當前專案）維持「確認送出 → 自動跑 pipeline →
+  輪詢進度」既有行為，本設計不更動該段。
+- **B 路（引入新資料）的模式例外**：新資料位於伺服器當前指向專案**之外**的資料夾，既有自動執行接口
+  （`/api/analyze` 只能分析當前專案根）**無法**指向它。因此 B 路的版本差異分支**無論有無 API key，
+  都終結於指令卡**（交付 `update --from-snapshot <ref> <newpath>` 或其 agent-as-LLM 等價指令），
+  不接既有自動執行。這是「只引導不執行」原則在跨資料夾情境下的必然結果。
 
 ---
 
@@ -196,6 +201,8 @@ B 路會多出「結構比對」「相似度判讀」兩個視覺階段，需要
 6. **wizard API client 新增「讀快照清單」的呼叫**（打既有 endpoint，非新 endpoint；現有 client 無此方法）。
 7. **標籤識別字串的退回邏輯**：實作 `git_tags[0] → label → version_id`，**不可**直接套用 `_snapLabel`
    （它停在 label→null）。
-8. **baseline 無持久化節點的處理路徑**：選 baseline 時若偵測該快照 source_nodes 全空，
-   指示使用者先用 `extract --as-version <baseline> <baseline_source>` 補檔（不需 API key），再回來跑 B 路；
-   或在判讀頁明確顯示「此 baseline 缺結構資料，無法比對」的指引，不讓流程靜默卡死。
+8. **baseline 無持久化節點的處理路徑（純引導文字，非偵測）**：快照清單接口只回傳
+   `{version_id, timestamp, trigger, label, git_tags}`，**不含 source_nodes**，因此 wizard 無從、也不應自行偵測
+   baseline 是否缺結構（偵測會違反「只引導不執行」原則）。改以引導文字處理：在結構比對指示頁/判讀頁附一段
+   「若 agent 回報無法比對（baseline 缺結構資料），請先跑 `extract --as-version <baseline> <baseline_source>`
+   補檔（不需 API key）再回來」。讓這個失敗模式有明確出口，不靜默卡死。
