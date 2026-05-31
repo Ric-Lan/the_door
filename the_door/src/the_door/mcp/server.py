@@ -21,6 +21,7 @@ from the_door.mcp.tools import project_list_tool
 from the_door.mcp.tools import system_status_tool
 from the_door.mcp.tools import analyze_changes_tool
 from the_door.mcp.tools import snapshot_patch_tool
+from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 
 
 class TheDoorMCPServer:
@@ -185,6 +186,16 @@ class TheDoorMCPServer:
                     ),
                     inputSchema=snapshot_patch_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="localize_data_model",
+                    description="Tier 0 local localization of data-model touch points (zero token).",
+                    inputSchema=localize_datamodel_tool.TOOL_SCHEMA,
+                ),
+                Tool(
+                    name="verify_data_model_contract",
+                    description="Tier 1 bidirectional contract diff over agent-normalized field-sets.",
+                    inputSchema=verify_contract_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -235,6 +246,10 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(analyze_changes_tool, arguments)
             elif name == "snapshot_patch":
                 return await self._dispatch_tool(snapshot_patch_tool, arguments)
+            elif name == "localize_data_model":
+                return await self._dispatch_tool(localize_datamodel_tool, arguments)
+            elif name == "verify_data_model_contract":
+                return await self._dispatch_tool(verify_contract_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
