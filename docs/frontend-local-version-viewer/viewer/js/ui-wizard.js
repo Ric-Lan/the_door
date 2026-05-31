@@ -83,6 +83,12 @@ export function transition(state, action) {
       return { ...state };  // page 不變；導頁由 render side effect 處理
     case 'NEXT_FROM_VERSION_GUIDE':
       return { ...state, page: 'PAGE_VERSION_DETECT' };
+    case 'VERSION_DETECTED':
+      return { ...state, detectedRef: action.ref };
+    case 'DETECT_RESCAN':
+      return { ...state, detectedRef: null };
+    case 'GOTO_TRANSLATE_CHOICE':
+      return { ...state, page: 'PAGE_TRANSLATE_CHOICE' };
     case 'SNAPSHOTS_LOADED':
       return {
         ...state,
@@ -622,6 +628,43 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       labelInput.addEventListener('input', e => { cmdPre.textContent = buildCmd(e.target.value.trim()); });
       wrap.querySelector('[data-version-next]').addEventListener('click',
         () => dispatch({ type: 'NEXT_FROM_VERSION_GUIDE' }));
+      bindBack(wrap);
+      break;
+    }
+
+    case 'PAGE_VERSION_DETECT': {
+      const detected = state.detectedRef;
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 偵測</p>
+        <h2>確認新版本已建立</h2>
+        ${detected ? `
+          <p class="wizard-subtitle lede">偵測到新版本：<strong>${detected}</strong>。可以進下一步了。</p>
+          <div class="actions">
+            <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_VERSION_GUIDE">← 上一步</button>
+            <span class="spacer"></span>
+            <button class="wizard-btn-primary btn btn-primary" data-detect-next>下一步 ${I.arrow}</button>
+          </div>
+        ` : `
+          <p class="wizard-subtitle lede">尚未偵測到新版本。請確認上一步的指令已執行完成，再重新掃描。</p>
+          <div class="actions">
+            <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_VERSION_GUIDE">← 上一步</button>
+            <span class="spacer"></span>
+            <button class="wizard-btn-primary btn btn-ghost" data-detect-rescan>重新掃描</button>
+          </div>
+        `}
+      `;
+      if (!detected && api && typeof api.getSnapshots === 'function') {
+        api.getSnapshots()
+          .then(({ snapshots }) => {
+            const fresh = snapshots.find(s => !state.knownVersionIds.includes(s.version_id));
+            if (fresh) dispatch({ type: 'VERSION_DETECTED', ref: resolveSnapshotRef(fresh) });
+          })
+          .catch(() => { /* 靜默：使用者可按重新掃描 */ });
+      }
+      const nextBtn = wrap.querySelector('[data-detect-next]');
+      if (nextBtn) nextBtn.addEventListener('click', () => dispatch({ type: 'GOTO_TRANSLATE_CHOICE' }));
+      const rescanBtn = wrap.querySelector('[data-detect-rescan]');
+      if (rescanBtn) rescanBtn.addEventListener('click', () => dispatch({ type: 'DETECT_RESCAN' }));
       bindBack(wrap);
       break;
     }

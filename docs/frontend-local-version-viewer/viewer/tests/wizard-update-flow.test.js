@@ -214,6 +214,58 @@ describe('PAGE_VERSION_GUIDE render', () => {
   });
 });
 
+describe('version detect reducer', () => {
+  const base = { ...getInitialState(), page: 'PAGE_VERSION_DETECT', updateFlow: 'new_data',
+    knownVersionIds: ['u1'] };
+  it('VERSION_DETECTED stores the detected ref', () => {
+    const s = transition(base, { type: 'VERSION_DETECTED', ref: 'v1.3.0' });
+    expect(s.detectedRef).toBe('v1.3.0');
+  });
+  it('DETECT_RESCAN clears detectedRef to allow a fresh scan', () => {
+    const s = transition({ ...base, detectedRef: 'x' }, { type: 'DETECT_RESCAN' });
+    expect(s.detectedRef).toBeNull();
+  });
+  it('GOTO_TRANSLATE_CHOICE advances to PAGE_TRANSLATE_CHOICE', () => {
+    const s = transition({ ...base, detectedRef: 'v1.3.0' }, { type: 'GOTO_TRANSLATE_CHOICE' });
+    expect(s.page).toBe('PAGE_TRANSLATE_CHOICE');
+  });
+});
+
+describe('PAGE_VERSION_DETECT render', () => {
+  function render(state, dispatch = () => {}, api = {}) {
+    const c = document.createElement('div');
+    renderPage(c, state, dispatch, () => {}, api);
+    return c;
+  }
+  const baseState = { ...getInitialState(), page: 'PAGE_VERSION_DETECT', updateFlow: 'new_data',
+    knownVersionIds: ['u1'] };
+
+  it('dispatches VERSION_DETECTED when a new version_id appears', async () => {
+    const calls = [];
+    const api = { getSnapshots: () => Promise.resolve({ snapshots: [
+      { version_id: 'u2', label: 'v1.3.0', git_tags: [] },
+      { version_id: 'u1', label: 'v1.2.2', git_tags: [] },
+    ] }) };
+    render(baseState, a => calls.push(a), api);
+    await Promise.resolve(); await Promise.resolve();
+    const detected = calls.find(a => a.type === 'VERSION_DETECTED');
+    expect(detected).toBeTruthy();
+    expect(detected.ref).toBe('v1.3.0');
+  });
+
+  it('shows the detected ref and an enabled next button when detectedRef set', () => {
+    const c = render({ ...baseState, detectedRef: 'v1.3.0' });
+    expect(c.textContent).toContain('v1.3.0');
+    expect(c.querySelector('[data-detect-next]').disabled).toBe(false);
+  });
+
+  it('shows a rescan button and no next when not yet detected', () => {
+    const c = render({ ...baseState, detectedRef: null });
+    expect(c.querySelector('[data-detect-rescan]')).not.toBeNull();
+    expect(c.querySelector('[data-detect-next]')).toBeNull();
+  });
+});
+
 describe('railStage for update-flow pages', () => {
   const mk = (page) => ({ ...getInitialState(), page });
   it('maps new pages to non-negative stages', () => {
