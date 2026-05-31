@@ -109,3 +109,64 @@ describe('PAGE_NEW_DATA render', () => {
     expect(c.querySelector('[data-newdata-next]').disabled).toBe(false);
   });
 });
+
+describe('similarity gate reducer', () => {
+  const atGuide = { ...getInitialState(), page: 'PAGE_SIMILARITY_GUIDE', updateFlow: 'new_data',
+    newDataPath: '/d/v2', baselineRef: 'v1.2.2' };
+  it('NEXT_FROM_SIM_GUIDE advances to PAGE_SIMILARITY_DECISION', () => {
+    const s = transition(atGuide, { type: 'NEXT_FROM_SIM_GUIDE' });
+    expect(s.page).toBe('PAGE_SIMILARITY_DECISION');
+  });
+  it('DECIDE_VERSION advances to PAGE_VERSION_GUIDE', () => {
+    const s = transition({ ...atGuide, page: 'PAGE_SIMILARITY_DECISION' }, { type: 'DECIDE_VERSION' });
+    expect(s.page).toBe('PAGE_VERSION_GUIDE');
+  });
+  it('DECIDE_NEWPROJECT keeps page (redirect handled as side effect)', () => {
+    const s = transition({ ...atGuide, page: 'PAGE_SIMILARITY_DECISION' }, { type: 'DECIDE_NEWPROJECT' });
+    expect(s.page).toBe('PAGE_SIMILARITY_DECISION');
+  });
+});
+
+describe('PAGE_SIMILARITY_GUIDE render', () => {
+  function render(state) {
+    const c = document.createElement('div');
+    renderPage(c, state, () => {}, () => {}, {});
+    return c;
+  }
+  it('shows a compare command embedding path and baseline', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_SIMILARITY_GUIDE',
+      updateFlow: 'new_data', newDataPath: '/d/v2', baselineRef: 'v1.2.2' });
+    const cmd = c.querySelector('[data-compare-cmd]');
+    expect(cmd).not.toBeNull();
+    expect(cmd.textContent).toContain('/d/v2');
+    expect(cmd.textContent).toContain('v1.2.2');
+  });
+});
+
+describe('PAGE_SIMILARITY_DECISION render', () => {
+  function render(dispatch = () => {}, redirectFn = () => {}) {
+    const c = document.createElement('div');
+    renderPage(c, { ...getInitialState(), page: 'PAGE_SIMILARITY_DECISION',
+      updateFlow: 'new_data', newDataPath: '/d/v2', baselineRef: 'v1.2.2' },
+      dispatch, redirectFn, {});
+    return c;
+  }
+  it('shows threshold guidance and two decision buttons', () => {
+    const c = render();
+    expect(c.textContent).toContain('六成');
+    expect(c.querySelector('[data-decide-version]')).not.toBeNull();
+    expect(c.querySelector('[data-decide-newproject]')).not.toBeNull();
+  });
+  it('version button dispatches DECIDE_VERSION', () => {
+    const calls = [];
+    const c = render(a => calls.push(a.type));
+    c.querySelector('[data-decide-version]').click();
+    expect(calls).toContain('DECIDE_VERSION');
+  });
+  it('new-project button redirects to /wizard.html', () => {
+    let redirected = null;
+    const c = render(() => {}, (u) => { redirected = u; });
+    c.querySelector('[data-decide-newproject]').click();
+    expect(redirected).toBe('/wizard.html');
+  });
+});

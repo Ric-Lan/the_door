@@ -75,6 +75,12 @@ export function transition(state, action) {
       return { ...state, baselineRef: action.ref };
     case 'NEXT_FROM_NEW_DATA':
       return { ...state, page: 'PAGE_SIMILARITY_GUIDE' };
+    case 'NEXT_FROM_SIM_GUIDE':
+      return { ...state, page: 'PAGE_SIMILARITY_DECISION' };
+    case 'DECIDE_VERSION':
+      return { ...state, page: 'PAGE_VERSION_GUIDE' };
+    case 'DECIDE_NEWPROJECT':
+      return { ...state };  // page 不變；導頁由 render side effect 處理
     case 'SNAPSHOTS_LOADED':
       return {
         ...state,
@@ -513,6 +519,66 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       wrap.querySelector('[data-newdata-next]').addEventListener('click', () => {
         if (state.newDataPath && state.baselineRef) dispatch({ type: 'NEXT_FROM_NEW_DATA' });
       });
+      bindBack(wrap);
+      break;
+    }
+
+    case 'PAGE_SIMILARITY_GUIDE': {
+      const cmd = `extract_structure(codebase_path="${state.newDataPath}")  ` +
+        `# 然後把回傳的 nodes 與基準版本「${state.baselineRef}」的快照節點比對，` +
+        `算出沿用幾個 / 變動幾個 → 回報相似度百分比`;
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 結構比對</p>
+        <h2>先讓 agent 跑一次結構比對</h2>
+        <p class="wizard-subtitle lede">wizard 不會自己算。把下面指令交給你的 agent，它會回報新資料跟基準版本的相似度。</p>
+        <div class="wizard-field field">
+          <label>交給 agent 執行的指令</label>
+          <pre data-compare-cmd>${cmd}</pre>
+        </div>
+        <p class="hint">若 agent 回報「基準版本缺結構資料、無法比對」，請先跑
+          <code>the-door extract --as-version ${state.baselineRef} &lt;baseline 原始碼路徑&gt;</code>
+          補檔（不需 API key），再回來。</p>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_NEW_DATA">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-sim-next>我已拿到相似度 ${I.arrow}</button>
+        </div>
+      `;
+      wrap.querySelector('[data-sim-next]').addEventListener('click',
+        () => dispatch({ type: 'NEXT_FROM_SIM_GUIDE' }));
+      bindBack(wrap);
+      break;
+    }
+
+    case 'PAGE_SIMILARITY_DECISION': {
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 判讀</p>
+        <h2>這份新資料算不算同一個專案？</h2>
+        <p class="wizard-subtitle lede">對照 agent 回報的相似度，自己決定走哪一條。</p>
+        <div class="wizard-mode-note mode-note">
+          <span>判讀準則：相似度（沿用功能比例）<strong>高於約六成</strong>視為同專案的新版本，做版本差異比較；
+          <strong>低於約六成</strong>表示差異過大，當作另一個新專案處理。邊界情況由你裁量。</span>
+        </div>
+        <div class="wizard-options opts">
+          <button class="wizard-option-btn opt" data-decide-version>
+            <span class="ico">${I.refresh}</span>
+            <span class="tx"><strong>當作版本比較</strong><span>產生對基準版本做差異解析的指令。</span></span>
+            ${I.arrow}
+          </button>
+          <button class="wizard-option-btn opt" data-decide-newproject>
+            <span class="ico">${I.scan}</span>
+            <span class="tx"><strong>當作新專案</strong><span>回首頁，把這份資料當全新專案分析。</span></span>
+            ${I.arrow}
+          </button>
+        </div>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_SIMILARITY_GUIDE">← 上一步</button>
+        </div>
+      `;
+      wrap.querySelector('[data-decide-version]').addEventListener('click',
+        () => dispatch({ type: 'DECIDE_VERSION' }));
+      wrap.querySelector('[data-decide-newproject]').addEventListener('click',
+        () => { dispatch({ type: 'DECIDE_NEWPROJECT' }); redirectFn('/wizard.html'); });
       bindBack(wrap);
       break;
     }
