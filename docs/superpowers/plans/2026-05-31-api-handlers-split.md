@@ -65,7 +65,7 @@ the_door/tests/
 
 - [ ] **Step 1: 參考既有 e2e 的 server 啟動樣板**
 
-Read `the_door/tests/integration/test_e2e_ui_server.py` 開頭（free-port、起 server thread、`urllib.request` 發請求的 helper）。沿用同樣板，不要自創新起法。
+Read `the_door/tests/integration/test_e2e_ui_server.py` 開頭（free-port、起 server thread、`urllib.request` 發請求的 helper）。沿用同樣板，不要自創新起法。若 e2e **無**「送原始 bytes body」的 helper（`_post_raw`），於本測試檔自建一個（`urllib.request.Request(url, data=raw_bytes, method="POST")` + 捕 `HTTPError` 取 status/body）。
 
 - [ ] **Step 2: 寫整合測試（對現行 server，斷言現況行為）**
 
@@ -453,13 +453,35 @@ git commit -m "feat(api): router dispatch hub with template match + locatable ha
 > 2. 把舊 `api_handlers.py` 對應 `handle_*` 方法的**函式體逐字搬入**，只做兩種機械轉換：
 >    - `self._project_root` → `self._ctx.project_root`；`self._job_store` → `self._ctx.job_store`；
 >      `self._switch_project_fn(...)` → `self._ctx.switch_project(...)`。
->    - 方法簽名改成 router 呼叫慣例：`def <new_name>(self, ctx=None, *, body=None, **params)`。
->      （router 已持有 ctx，handler 用 `self._ctx`；簽名收 `ctx`/`body`/`params` 以相容 dispatch 呼叫。）
+>    - 方法簽名：**每個方法宣告與原方法相同的具名 path/query 參數**，前面加 `self, ctx=None, *, body=None`，
+>      後面加 `**_` 吸收其餘。**不可只用通用 `**params`**——否則搬移後 body 引用的具名變數會綁不到、runtime NameError。
 > 3. 業務邏輯、回應 body、錯誤碼**一字不改**（行為不變）。
 > 4. 測試：把舊 `test_api_handlers*.py` 相對應斷言搬入新測試檔，建構改為
 >    `H = <Domain>Handlers(APIContext(lambda: tmp_path, lambda: job_store, lambda p,f: {...}))`，
 >    呼叫改新方法名。
 > 5. 舊 `api_handlers.py` 此時**仍保留**（尚未刪），新舊並存。
+>
+> **精確簽名表（router 以 `handler(self._ctx, body=body, **path_params, **query)` 呼叫；下列為各方法須宣告的具名參數，均接 `**_`）：**
+>
+> | 新方法 | 具名參數（path/query） | 來源（server 取值處） |
+> |---|---|---|
+> | `project.get` / `project.status` | 無 | — |
+> | `project.set_project` | `body`（POST body） | — |
+> | `analysis.analyze` / `analysis.update` | `body`（POST body） | — |
+> | `analysis.update_status` | `job_id`（path） | `/api/update/status/{job_id}` |
+> | `catalog.snapshots` / `catalog.timeline` / `catalog.report_latest` | 無 | — |
+> | `graph.get_l1` | `version_id`（query） | `?version_id=` |
+> | `graph.get_l2` / `graph.generate_l2` | `feature_id`（path） | — |
+> | `graph.get_structure` | 無 | — |
+> | `graph.get_layer_explanation` / `graph.generate_layer_explanation` | `feature_id`, `layer`（path） | — |
+> | `diff.versions` | `baseline`, `current`（query） | **搬入後於 body 開頭加 `baseline_id, current_id = baseline, current`（query 名≠原變數名）** |
+> | `diff.get_explanation` | `feature_id`（path）, `baseline_version_id`, `current_version_id`, `output_language`（query） | — |
+> | `diff.generate_explanation` | `feature_id`（path）, `body`（POST body） | 原簽名 `(feature_id, body)`，body 由 router 以 `body=` 傳入 |
+> | `annotation.get_notes` | `mode`, `feature_id`, `version_a`, `version_b`（query） | — |
+> | `annotation.post_notes` | `body`（POST body） | — |
+> | `annotation.doubts` | 無 | — |
+>
+> 範例（diff.versions）：`def versions(self, ctx=None, *, body=None, baseline=None, current=None, **_): baseline_id, current_id = baseline, current; <搬入的原 body>`
 
 ### Task 5: ProjectHandlers
 
@@ -626,35 +648,31 @@ routes = build_routes(ProjectHandlers(ctx), AnalysisHandlers(ctx), CatalogHandle
 self._router = Router(ctx, routes)
 ```
 
-把 `_handle_get` / `_handle_post`（約 134–300 行）整段 if-elif + 重複 body 解析，換成單一：
+把 `_handle_get` 的 **`if path.startswith("/api/")` 分支**（約 144–219 行的整段 API if-elif）換成單一 router.dispatch；**`else` 靜態服務分支（`static_handler.serve(path)` 回 3-tuple 的那段）原樣保留不動**。把 `_handle_post`（約 229–300 行）整段 API if-elif + 重複 body 解析換成單一 dispatch：
 
 ```python
 def _handle_get(handler, router, static_handler):
-    path = handler.path.split("?")[0]
+    parsed = urlparse(handler.path)
+    path = parsed.path
     if path.startswith("/api/"):
-        query = _parse_query(handler.path)
+        query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
         status, body = router.dispatch("GET", path, raw_body=b"", query=query)
-        _send_json(handler, status, body); return
-    static_handler.serve(handler)   # 非 /api/ 仍走靜態
+        _send_json(handler, status, body)
+        return
+    # —— 以下靜態服務分支：保留現行實作（status, content_type, body_bytes = static_handler.serve(path) …），勿改 ——
+    ...（現行 else 分支原樣）
 
 def _handle_post(handler, router):
-    path = handler.path.split("?")[0]
+    parsed = urlparse(handler.path)
+    path = parsed.path
     length = int(handler.headers.get("Content-Length", 0))
     raw = handler.rfile.read(length) if length > 0 else b""
-    status, body = router.dispatch("POST", path, raw_body=raw, query=_parse_query(handler.path))
+    query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+    status, body = router.dispatch("POST", path, raw_body=raw, query=query)
     _send_json(handler, status, body)
 ```
 
-> body 解析（json.loads / 壞 JSON→400）現在**只在 router 一處**；server.py 不再重複。
-
-`_parse_query` 小 helper（若 server.py 尚無，於此新增）：
-
-```python
-from urllib.parse import urlparse, parse_qs
-def _parse_query(full_path: str) -> dict:
-    qs = parse_qs(urlparse(full_path).query)
-    return {k: v[0] for k, v in qs.items()}   # 取首值，扁平化
-```
+> `urlparse`/`parse_qs` 已在 server.py import（line 18），直接用。body 解析（json.loads / 壞 JSON→400）現在**只在 router 一處**；server.py 不再重複。`_RequestHandler.do_GET/do_POST`（約 62–66 行）的呼叫改傳 `self._router`（取代 `api_handlers`）。
 
 - [ ] **Step 3: 跑兩道安全網 + 全 ui 測試**
 
