@@ -37,8 +37,7 @@
 .wizard-options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
 }
 
 .wizard-option-btn {
@@ -249,7 +248,7 @@
 
 /* Left: rail */
 .wizard-rail {
-  width: 312px;
+  width: 300px;
   flex-shrink: 0;
   background: linear-gradient(160deg, var(--rail-bg), var(--rail-bg-2));
   color: var(--rail-text);
@@ -392,16 +391,16 @@
 
 /* Right: content */
 .wizard-content {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-y: auto;
   background: var(--surface);
 }
 .wizard-screen {
-  position: absolute; inset: 0;
-  padding: 52px 56px;
+  width: 100%; max-width: 560px;
+  padding: 56px 40px 40px;
   display: flex; flex-direction: column;
-  overflow-y: auto;
+  min-height: 100%;
 }
 .wizard-screen-enter {
   animation: wizardScreenIn 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -417,13 +416,13 @@
   text-transform: uppercase;
   color: var(--accent);
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 .wizard-mode-note {
   display: flex; align-items: center; gap: 11px;
   margin-top: 20px; max-width: 520px;
   padding: 11px 15px;
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   font-size: 13px; line-height: 1.5;
 }
 .wizard-mode-note.api {
@@ -483,7 +482,7 @@
   padding: 14px 18px;
   background: var(--warn-bg);
   border: 1px solid #f0d999;
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   font-size: 13px; color: #6b3d05; line-height: 1.55;
 }
 .wizard-agent-steps {
@@ -533,6 +532,7 @@
   max-width: none;
   padding: 0;
   width: 100%;
+  border-radius: 0;
 }
 
 /* Hero typography in screens */
@@ -568,7 +568,7 @@
   margin-top: 20px;
   max-width: 520px;
   padding: 11px 15px;
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   font-size: 12.5px;
   line-height: 1.5;
 }
@@ -607,7 +607,7 @@
   gap: 16px;
   padding: 18px 20px;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   background: var(--surface);
   cursor: pointer;
   text-align: left;
@@ -683,7 +683,7 @@
   width: 100%;
   padding: 11px 14px;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   font-size: 14px;
   color: var(--text);
   background: var(--surface);
@@ -702,7 +702,7 @@
   margin-top: 30px;
   max-width: 480px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   overflow: hidden;
 }
 .wizard-shell .summary .row {
@@ -759,7 +759,7 @@
   justify-content: center;
   gap: 8px;
   padding: 12px 26px;
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   border: 1.5px solid transparent;
   font-size: 14px;
   font-weight: 600;
@@ -812,7 +812,7 @@
   flex: 1;
   padding: 9px 13px;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius-card);
+  border-radius: 6px;
   font-size: 13px;
   font-family: var(--font-mono);
   color: var(--text);
