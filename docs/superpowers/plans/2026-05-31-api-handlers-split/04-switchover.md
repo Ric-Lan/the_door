@@ -85,7 +85,9 @@ def _handle_post(handler, router):
     _send_json(handler, status, body)
 ```
 
-> `urlparse`/`parse_qs` 已在 server.py import（line 18），直接用。body 解析（json.loads / 壞 JSON→400）現在**只在 router 一處**；server.py 不再重複。`_RequestHandler.do_GET/do_POST`（約 62–66 行）的呼叫改傳 `self._router`（取代 `api_handlers`）。
+> `urlparse`/`parse_qs` 已在 server.py import（line 18），直接用。body 解析（json.loads / 壞 JSON→400）現在**只在 router 一處**；server.py 不再重複。
+>
+> **closure 綁定須同步改（否則 NameError）**：`start()` 內 line 58 `api_handlers = self._api_handlers` → 改成 `router = self._router`；`_RequestHandler.do_GET`（約 64 行）`_handle_get(self, api_handlers, static_handler)` → `_handle_get(self, router, static_handler)`；`do_POST`（約 66 行）`_handle_post(self, api_handlers)` → `_handle_post(self, router)`。舊 `self._api_handlers` 屬性（line 46 起）整段移除，改為 `self._router = Router(...)`。
 
 - [ ] **Step 3: 跑兩道安全網 + 全 ui 測試**
 

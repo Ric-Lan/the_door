@@ -74,6 +74,14 @@ the_door/tests/
 >      `self._switch_project_fn(...)` → `self._ctx.switch_project(...)`。
 >    - 方法簽名：**每個方法宣告與原方法相同的具名 path/query 參數**，前面加 `self, ctx=None, *, body=None`，
 >      後面加 `**_` 吸收其餘。**不可只用通用 `**params`**——否則搬移後 body 引用的具名變數會綁不到、runtime NameError。
+> 2.5. **搬 import（必做，否則 NameError）**：把該方法體用到的 import 從 `api_handlers.py` 頂部（約 11–43 行）
+>    複製到新 handler 檔頂部，**只複製該檔實際用到的**。可能用到的依賴（依領域）：
+>    `SnapshotStore`（catalog/diff/graph）、`DoubtStore`（annotation）、`StateInspector`/`NextActionSuggester`/
+>    `NextAction`/`Remediation`/`make_error_envelope`（project/多處錯誤封套）、`create_provider`/`ConfigManager`/
+>    `ConfigError`（graph/diff generate）、`PipelineOrchestrator`/`ReportRenderer`/`PipelineConfig`（analysis）、
+>    `TimelineEngine`（catalog.timeline）、`L2Generator`/`L2GenerationError`/`build_l2_graph_view_model`（graph）、
+>    `JobStore`/`UpdateJob`（analysis）、`serializers` 內函式、stdlib（`asyncio`/`json`/`threading`/`datetime`/`os`/`Path`）。
+>    搬完跑該 handler 測試即可驗證 import 是否齊（缺則 NameError/ImportError）。
 > 3. 業務邏輯、回應 body、錯誤碼**一字不改**（行為不變）。
 > 4. 測試：把舊 `test_api_handlers*.py` 相對應斷言搬入新測試檔，建構改為
 >    `H = <Domain>Handlers(APIContext(lambda: tmp_path, lambda: job_store, lambda p,f: {...}))`，呼叫改新方法名。
