@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { getInitialState, transition, renderPage, railStage } from '../js/ui-wizard.js';
 
 function atUpdateMode() {
@@ -276,5 +276,37 @@ describe('railStage for update-flow pages', () => {
     expect(railStage(mk('PAGE_VERSION_GUIDE'))).toBe(4);
     expect(railStage(mk('PAGE_VERSION_DETECT'))).toBe(4);
     expect(railStage(mk('PAGE_TRANSLATE_CHOICE'))).toBe(4);
+  });
+});
+
+describe('PAGE_TRANSLATE_CHOICE render', () => {
+  function render(redirectFn = () => {}) {
+    const c = document.createElement('div');
+    renderPage(c, { ...getInitialState(), page: 'PAGE_TRANSLATE_CHOICE', updateFlow: 'new_data',
+      newDataPath: '/d/v2', baselineRef: 'v1.2.2', detectedRef: 'v1.3.0' },
+      () => {}, redirectFn, {});
+    return c;
+  }
+  it('shows a translate instruction card referencing the new version', () => {
+    const c = render();
+    const cmd = c.querySelector('[data-translate-cmd]');
+    expect(cmd).not.toBeNull();
+    expect(cmd.textContent).toContain('v1.3.0');
+  });
+  it('explains both paths still show the diff', () => {
+    const c = render();
+    expect(c.textContent).toContain('差異');
+  });
+  it('enter-viewer button redirects to /index.html', () => {
+    vi.useFakeTimers();
+    try {
+      let redirected = null;
+      const c = render((u) => { redirected = u; });
+      c.querySelector('[data-enter-viewer]').click();
+      vi.runAllTimers();
+      expect(redirected).toBe('/index.html');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

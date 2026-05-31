@@ -669,6 +669,35 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
       break;
     }
 
+    case 'PAGE_TRANSLATE_CHOICE': {
+      const ref = state.detectedRef;
+      const translateCmd = `# 對新版本「${ref}」重跑 L1 自然語言解析：\n` +
+        `extract_structure(codebase_path="${state.newDataPath}")  → 產生每個功能的自然語言 label/description →\n` +
+        `snapshot_write(codebase_path="${state.newDataPath}", l1_features=[...], label="${ref}", inherit_from="${state.baselineRef}")`;
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 進入 Viewer</p>
+        <h2>要先跑自然語言翻譯嗎？</h2>
+        <p class="wizard-subtitle lede">兩條路都能在 Viewer 看到差異項目。差別只在功能名稱好不好讀。</p>
+        <div class="wizard-mode-note mode-note">
+          <span>跑翻譯 → Viewer 顯示<strong>自然語言</strong>差異；不跑直接進 → 仍看得到<strong>差異拓樸</strong>，
+          但功能名稱是技術性短名、沒有翻譯。</span>
+        </div>
+        <div class="wizard-field field">
+          <label>（選跑）自然語言翻譯指令</label>
+          <pre data-translate-cmd>${translateCmd}</pre>
+        </div>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_VERSION_DETECT">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-enter-viewer>進入 Viewer ${I.arrow}</button>
+        </div>
+      `;
+      wrap.querySelector('[data-enter-viewer]').addEventListener('click',
+        () => redirectWithTransition('/index.html', redirectFn));
+      bindBack(wrap);
+      break;
+    }
+
     case 'PAGE_SETUP': {
       wrap.innerHTML = `
         <p class="wizard-eyebrow eyebrow">步驟 2 / 設定</p>
