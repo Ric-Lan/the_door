@@ -126,7 +126,7 @@ class ContractVerifier:
 
 - [ ] **Step 4: 跑測試確認通過 + 覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/datamodel/test_contract_verifier.py --cov=the_door/src/the_door/core/datamodel/contract_verifier.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/datamodel/test_contract_verifier.py --cov=the_door.core.datamodel.contract_verifier --cov-report=term-missing -q`
 Expected: PASS；contract_verifier.py **100%**。
 
 - [ ] **Step 5: Commit**

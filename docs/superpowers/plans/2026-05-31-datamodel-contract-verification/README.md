@@ -12,6 +12,12 @@
 
 ---
 
+## 路徑框架（重要，避免找錯目錄）
+
+- **所有指令一律在內層套件目錄 `the_door/` 下執行**（即 `cd the_door` 後）。該目錄含 `src/`、`tests/`、`pyproject.toml`（`testpaths=["tests"]`）。
+- 各 task「**Files:**」區段列的是 **repo 根相對路徑**（`the_door/src/...`、`the_door/tests/...`）；對應到指令的內層 cwd，去掉開頭的 `the_door/` 即為 `src/...` / `tests/...`（`git add` 指令已用內層相對路徑）。
+- 覆蓋率一律用 **import-name 形式**（`--cov=the_door.core.datamodel.X`），與 cwd 無關（editable install），不要用檔案路徑。
+
 ## 紀律（全任務適用）
 
 - **測試覆蓋率 100%**：每個分支（命中/不命中、空輸入、錯誤路徑）都要有對應斷言。

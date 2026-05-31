@@ -114,10 +114,15 @@ Expected: 指令清單含 `verify-data-model`。
 
 - [ ] **Step 7: 跑覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/cli/test_verify_datamodel_cmd.py --cov=the_door/src/the_door/cli/verify_datamodel_cmd.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/cli/test_verify_datamodel_cmd.py --cov=the_door.cli.verify_datamodel_cmd --cov-report=term-missing -q`
 Expected: PASS；verify_datamodel_cmd.py **100%**。
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: 全套回歸 gate（改了共享 main.py）**
+
+Run: `cd the_door && python -m pytest -q`
+Expected: 全綠、無退步（特別是任何斷言 CLI 指令清單的既有測試仍通過）。若有既有測試斷言指令數量/清單，依新指令更新該斷言。
+
+- [ ] **Step 9: Commit**
 
 ```bash
 cd the_door

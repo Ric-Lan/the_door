@@ -1,6 +1,6 @@
 # Task 04 — 報告呈現（datamodel_renderer）
 
-**內容分類：** 純呈現。定位圖文字、契約 diff 文字 + 摘要計數、契約 diff JSON。摘要**衍生不存欄位**（spec §6）。
+**內容分類：** 純呈現。定位圖文字（CLI 用）+ 契約 diff JSON（MCP 持久化用）。v1 **不做**人類可讀的契約 diff 文字（無消費者、YAGNI）。
 
 **設計來源：** spec §4（輸出）、§8（持久化用 JSON）。依賴 Task 01。
 
@@ -21,7 +21,7 @@ from the_door.core.datamodel.models import (
     DataModelCandidate, DataModelLocalization, ContractEntry, ContractDiff,
 )
 from the_door.core.datamodel.datamodel_renderer import (
-    render_localization, render_contract_diff, contract_diff_to_json,
+    render_localization, contract_diff_to_json,
 )
 
 
@@ -40,17 +40,6 @@ def test_render_localization_with_candidates():
 def test_render_localization_empty():
     out = render_localization(DataModelLocalization())
     assert "未偵測到資料模型觸點" in out
-
-
-def test_render_contract_diff_counts():
-    diff = ContractDiff(entries=(
-        ContractEntry("User", "email", "write_gap", "x"),
-        ContractEntry("User", "id", "coverage_gap", "y"),
-        ContractEntry("User", "name", "match", "z"),
-    ))
-    out = render_contract_diff(diff)
-    assert "write_gap=1" in out and "coverage_gap=1" in out and "match=1" in out
-    assert "[write_gap] User.email" in out
 
 
 def test_contract_diff_to_json_roundtrip():
@@ -96,21 +85,6 @@ def render_localization(loc: DataModelLocalization) -> str:
     return "\n".join(lines)
 
 
-def render_contract_diff(diff: ContractDiff) -> str:
-    """Human-readable Tier 1 contract diff with derived summary counts."""
-    counts = {"write_gap": 0, "coverage_gap": 0, "match": 0}
-    for e in diff.entries:
-        counts[e.status] += 1
-    lines = ["# Data-Model Contract Diff (Tier 1)", ""]
-    lines.append(
-        f"write_gap={counts['write_gap']} "
-        f"coverage_gap={counts['coverage_gap']} match={counts['match']}"
-    )
-    for e in diff.entries:
-        lines.append(f"  [{e.status}] {e.entity}.{e.field} — {e.detail}")
-    return "\n".join(lines)
-
-
 def contract_diff_to_json(diff: ContractDiff) -> str:
     """Serialize contract diff for persistence under .the-door/datamodel/."""
     return json.dumps(
@@ -127,7 +101,7 @@ def contract_diff_to_json(diff: ContractDiff) -> str:
 
 - [ ] **Step 4: 跑測試確認通過 + 覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/datamodel/test_renderer.py --cov=the_door/src/the_door/core/datamodel/datamodel_renderer.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/datamodel/test_renderer.py --cov=the_door.core.datamodel.datamodel_renderer --cov-report=term-missing -q`
 Expected: PASS；datamodel_renderer.py **100%**。
 
 - [ ] **Step 5: Commit**
@@ -140,6 +114,5 @@ git commit -m "feat(datamodel): localization + contract-diff renderers (text + j
 
 ## Done when
 - [ ] 定位圖含計數 + 候選；空時印「未偵測到資料模型觸點」
-- [ ] 契約 diff 摘要計數正確衍生、條目可讀
-- [ ] JSON 序列化結構正確（ensure_ascii=False）
-- [ ] datamodel_renderer.py 覆蓋率 100%
+- [ ] 契約 diff JSON 序列化結構正確（ensure_ascii=False）
+- [ ] datamodel_renderer.py 覆蓋率 100%（僅 render_localization + contract_diff_to_json 兩函式）

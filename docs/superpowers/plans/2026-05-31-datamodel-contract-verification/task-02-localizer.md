@@ -111,7 +111,7 @@ class DataModelLocalizer:
 
 - [ ] **Step 4: 跑測試確認通過 + 覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/datamodel/test_localizer.py --cov=the_door/src/the_door/core/datamodel/datamodel_localizer.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/datamodel/test_localizer.py --cov=the_door.core.datamodel.datamodel_localizer --cov-report=term-missing -q`
 Expected: PASS；datamodel_localizer.py **100%**。
 
 - [ ] **Step 5: Commit**

@@ -219,7 +219,7 @@ def schema_file_reason(path: str) -> str | None:
 
 - [ ] **Step 9: 跑測試確認通過 + 覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/datamodel/test_hints.py tests/unit/datamodel/test_models.py --cov=the_door/src/the_door/core/datamodel/models.py --cov=the_door/src/the_door/core/datamodel/datamodel_hints.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/datamodel/test_hints.py tests/unit/datamodel/test_models.py --cov=the_door.core.datamodel.models --cov=the_door.core.datamodel.datamodel_hints --cov-report=term-missing -q`
 Expected: PASS；models.py + datamodel_hints.py **100%**（無 Missing 行）。
 
 - [ ] **Step 10: Commit**

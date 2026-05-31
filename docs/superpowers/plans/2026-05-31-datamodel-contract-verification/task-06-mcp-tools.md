@@ -285,13 +285,13 @@ from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 - [ ] **Step 10: 驗證註冊不破壞 server**
 
 Run: `cd the_door && python -c "from the_door.mcp.server import *"`（無 import 錯誤即可）
-其次跑既有 MCP server 測試確認不退步：
-Run: `cd the_door && python -m pytest tests/unit/mcp -q`
-Expected: 全綠、無退步。
+其次跑**全套**回歸 gate（改了共享 server.py，可能撞到斷言工具清單的既有測試）：
+Run: `cd the_door && python -m pytest -q`
+Expected: 全綠、無退步。若有既有測試斷言 MCP 工具數量/清單，依新增的兩個工具更新該斷言。
 
 - [ ] **Step 11: 跑覆蓋率**
 
-Run: `cd the_door && python -m pytest tests/unit/mcp/test_localize_datamodel_tool.py tests/unit/mcp/test_verify_contract_tool.py --cov=the_door/src/the_door/mcp/tools/localize_datamodel_tool.py --cov=the_door/src/the_door/mcp/tools/verify_contract_tool.py --cov-report=term-missing -q`
+Run: `cd the_door && python -m pytest tests/unit/mcp/test_localize_datamodel_tool.py tests/unit/mcp/test_verify_contract_tool.py --cov=the_door.mcp.tools.localize_datamodel_tool --cov=the_door.mcp.tools.verify_contract_tool --cov-report=term-missing -q`
 Expected: PASS；兩工具檔 **100%**。
 
 - [ ] **Step 12: Commit**
