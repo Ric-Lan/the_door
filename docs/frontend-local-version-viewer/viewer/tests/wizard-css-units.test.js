@@ -15,12 +15,12 @@ describe('wizard.css unit hygiene', () => {
   });
 
   it('all border-radius declarations are 6px or semantic values', () => {
-    // 6px = standard card radius; 50% = circles; 999px = pills (badge/tag shapes).
-    // Part 2 adds these shapes — all are intentional, non-rem px values.
+    // 0 = squared-off (visual v2 card); 6px = standard card radius; 50% = circles;
+    // 999px = pills (badge/tag shapes). Part 2 adds these shapes — all intentional, non-rem.
     const radiusDecls = css.match(/border-radius:\s*[^;]+;/g) || [];
     expect(radiusDecls.length).toBeGreaterThan(0);
     for (const decl of radiusDecls) {
-      expect(decl).toMatch(/border-radius:\s*(6px|10px|50%|999px|var\(--radius-card\))\s*;/);
+      expect(decl).toMatch(/border-radius:\s*(0|6px|10px|50%|999px|var\(--radius-card\))\s*;/);
     }
   });
 
