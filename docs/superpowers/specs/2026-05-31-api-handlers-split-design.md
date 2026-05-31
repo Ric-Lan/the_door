@@ -179,18 +179,22 @@ class APIContext:
 ```
 ERROR_CODES = {
   "router.no_route":           ErrCode(http=404, file="core/ui/api/router.py",
-                                       desc="請求路徑未命中任何路由"),
+                                       desc="Request path matched no route"),
   "router.method_not_allowed": ErrCode(http=405, file="core/ui/api/router.py",
-                                       desc="路徑存在但 HTTP method 不符"),
+                                       desc="Path exists but HTTP method not allowed"),
   "router.invalid_json":       ErrCode(http=400, file="core/ui/api/router.py",
-                                       desc="POST body 非合法 JSON"),
-  "router.handler_error":      ErrCode(http=500, file="<動態：失敗 handler 之檔>",
-                                       desc="handler 拋出未預期例外"),
+                                       desc="POST body is not valid JSON"),
+  "router.handler_error":      ErrCode(http=500, file="<dynamic: failing handler's file>",
+                                       desc="Handler raised an unexpected exception"),
   "l2_not_generated":          ErrCode(http=404, file="core/ui/api/handlers/graph.py",
-                                       desc="該功能尚未生成 L2"),
+                                       desc="L2 not yet generated for this feature"),
   ...（API 區既有業務碼一併登記）
 }
 ```
+
+> **回應語言約定**：錯誤碼回應值（`code` / `message` / `desc` / `source` / `source_file`）
+> 一律**英文**（機器/API 面向，與既有 `not_found`/`invalid_json` 等碼一致）。
+> 路由表 `summary` 維持**繁中**（人/agent 定位用途的註解，非 API 回應值）。
 
 一次解三事：
 - **檔案標記**：建封套時用 code 查表自動帶出 `source_file`。
