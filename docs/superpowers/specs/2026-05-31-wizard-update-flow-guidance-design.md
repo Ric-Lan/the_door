@@ -91,6 +91,10 @@ B 路的核心是一個 **相似度分流關卡**：必須先（由 agent）跑�
 2. wizard 透過唯讀快照清單接口列出既有版本，讓使用者選一個當 **比較基準（baseline）**。
 3. 兩者都備齊後進入結構比對指示頁。
 
+> ⚠️ 前提條件：B 路的結構比對需要 baseline 那側也有可比對的節點清單（持久化結構或非空的 source_nodes）。
+> 已知部分舊快照存在 source_nodes 全空的資料品質問題（drift），這種快照當 baseline 時 agent 無從比對。
+> 此前提的處理路徑見 §10。
+
 ### 4.4 B 路 — 結構比對指示頁
 
 目的：指示使用者的 agent 跑結構層比對，得出相似度。wizard 自己不算。
@@ -133,8 +137,16 @@ B 路的核心是一個 **相似度分流關卡**：必須先（由 agent）跑�
 | git_tags | 對應 git tag 清單（選填） | 建快照時該 commit 有 tag 才有 |
 
 - **讀取管道**：前端透過既有的唯讀快照清單接口取得全部快照（含上述三層識別）。純讀取，非新 endpoint。
-- **沿用/顯示優先序**：`git_tags[0] → label → version_id`，沿用 viewer 版本選擇器既有慣例。
-  有 git tag 用 git tag，沒有用人給的 label，再沒有才退回 UUID。
+  （注意：wizard 目前的 API client 尚無讀快照清單的方法，需新增一個 fetch 呼叫去打這個**既有** endpoint，
+  詳見 §10。）
+- **沿用/顯示優先序**：`git_tags[0] → label → version_id`。有 git tag 用 git tag，沒有用人給的 label，
+  再沒有才退回 UUID。
+
+  > ⚠️ 實作注意：viewer 既有的顯示 helper（`layers.js` 的 `_snapLabel`）只做到 `git_tags[0] → label → null`，
+  > **不退回 version_id**（標籤為空時回傳 null）。本流程的指令需要一個後端能解析的識別字串，所以
+  > **退回 version_id 是本流程要新增的行為，不能直接沿用 `_snapLabel`**——否則遇到沒 label 也沒 git_tag 的
+  > 快照會拿到空字串，塞進指令會壞掉。後端的 baseline 解析本來就同時接受 tag / label / version_id，
+  > 所以退回 version_id 一定解得開。
 
 ---
 
@@ -181,3 +193,9 @@ B 路會多出「結構比對」「相似度判讀」兩個視覺階段，需要
 3. 階段指示器的標籤文案與階段對應。
 4. 既有更新流程「直跳確認頁」舊路徑的移除與既有測試的調整。
 5. 判讀頁門檻文案的確切措辭。
+6. **wizard API client 新增「讀快照清單」的呼叫**（打既有 endpoint，非新 endpoint；現有 client 無此方法）。
+7. **標籤識別字串的退回邏輯**：實作 `git_tags[0] → label → version_id`，**不可**直接套用 `_snapLabel`
+   （它停在 label→null）。
+8. **baseline 無持久化節點的處理路徑**：選 baseline 時若偵測該快照 source_nodes 全空，
+   指示使用者先用 `extract --as-version <baseline> <baseline_source>` 補檔（不需 API key），再回來跑 B 路；
+   或在判讀頁明確顯示「此 baseline 缺結構資料，無法比對」的指引，不讓流程靜默卡死。
