@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getInitialState, transition, renderPage } from '../js/ui-wizard.js';
+import { getInitialState, transition, renderPage, railStage } from '../js/ui-wizard.js';
 
 function atUpdateMode() {
   let s = transition(getInitialState(), {
@@ -168,5 +168,61 @@ describe('PAGE_SIMILARITY_DECISION render', () => {
     const c = render(() => {}, (u) => { redirected = u; });
     c.querySelector('[data-decide-newproject]').click();
     expect(redirected).toBe('/wizard.html');
+  });
+});
+
+describe('version guide reducer', () => {
+  it('NEXT_FROM_VERSION_GUIDE advances to PAGE_VERSION_DETECT', () => {
+    const s = transition(
+      { ...getInitialState(), page: 'PAGE_VERSION_GUIDE', updateFlow: 'new_data',
+        newDataPath: '/d/v2', baselineRef: 'v1.2.2' },
+      { type: 'NEXT_FROM_VERSION_GUIDE' });
+    expect(s.page).toBe('PAGE_VERSION_DETECT');
+  });
+});
+
+describe('PAGE_VERSION_GUIDE render', () => {
+  function render(state, dispatch = () => {}) {
+    const c = document.createElement('div');
+    renderPage(c, state, dispatch, () => {}, {});
+    return c;
+  }
+  it('shows a snapshot_write command embedding baseline and new path', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_VERSION_GUIDE',
+      updateFlow: 'new_data', newDataPath: '/d/v2', baselineRef: 'v1.2.2' });
+    const cmd = c.querySelector('[data-version-cmd]');
+    expect(cmd).not.toBeNull();
+    expect(cmd.textContent).toContain('snapshot_write');
+    expect(cmd.textContent).toContain('inherit_from="v1.2.2"');
+    expect(cmd.textContent).toContain('/d/v2');
+  });
+  it('typing a new label updates the command text live', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_VERSION_GUIDE',
+      updateFlow: 'new_data', newDataPath: '/d/v2', baselineRef: 'v1.2.2' });
+    const input = c.querySelector('[data-version-label]');
+    input.value = 'v1.3.0';
+    input.dispatchEvent(new Event('input'));
+    expect(c.querySelector('[data-version-cmd]').textContent).toContain('label="v1.3.0"');
+  });
+  it('next button dispatches NEXT_FROM_VERSION_GUIDE', () => {
+    const calls = [];
+    const c = render({ ...getInitialState(), page: 'PAGE_VERSION_GUIDE',
+      updateFlow: 'new_data', newDataPath: '/d/v2', baselineRef: 'v1.2.2' },
+      a => calls.push(a.type));
+    c.querySelector('[data-version-next]').click();
+    expect(calls).toContain('NEXT_FROM_VERSION_GUIDE');
+  });
+});
+
+describe('railStage for update-flow pages', () => {
+  const mk = (page) => ({ ...getInitialState(), page });
+  it('maps new pages to non-negative stages', () => {
+    expect(railStage(mk('PAGE_UPDATE_MODE'))).toBe(0);
+    expect(railStage(mk('PAGE_NEW_DATA'))).toBe(1);
+    expect(railStage(mk('PAGE_SIMILARITY_GUIDE'))).toBe(2);
+    expect(railStage(mk('PAGE_SIMILARITY_DECISION'))).toBe(3);
+    expect(railStage(mk('PAGE_VERSION_GUIDE'))).toBe(4);
+    expect(railStage(mk('PAGE_VERSION_DETECT'))).toBe(4);
+    expect(railStage(mk('PAGE_TRANSLATE_CHOICE'))).toBe(4);
   });
 });

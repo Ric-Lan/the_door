@@ -81,6 +81,8 @@ export function transition(state, action) {
       return { ...state, page: 'PAGE_VERSION_GUIDE' };
     case 'DECIDE_NEWPROJECT':
       return { ...state };  // page 不變；導頁由 render side effect 處理
+    case 'NEXT_FROM_VERSION_GUIDE':
+      return { ...state, page: 'PAGE_VERSION_DETECT' };
     case 'SNAPSHOTS_LOADED':
       return {
         ...state,
@@ -211,6 +213,12 @@ const STAGE = {
   LOADING: 0, PAGE_ACTION: 0,
   PAGE_SETUP: 1, PAGE_LABEL: 2, PAGE_CONFIRM: 3,
   SUBMITTING: 4, PROGRESS: 4,
+  // Update-flow pages
+  PAGE_UPDATE_MODE: 0, PAGE_REGEN_GUIDE: 0,
+  PAGE_NEW_DATA: 1,
+  PAGE_SIMILARITY_GUIDE: 2,
+  PAGE_SIMILARITY_DECISION: 3,
+  PAGE_VERSION_GUIDE: 4, PAGE_VERSION_DETECT: 4, PAGE_TRANSLATE_CHOICE: 4,
 };
 const STAGE_LABELS = ['選擇操作', '設定範圍', '快照標籤', '確認送出', '分析中', '進入 Viewer'];
 
@@ -579,6 +587,41 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         () => dispatch({ type: 'DECIDE_VERSION' }));
       wrap.querySelector('[data-decide-newproject]').addEventListener('click',
         () => { dispatch({ type: 'DECIDE_NEWPROJECT' }); redirectFn('/wizard.html'); });
+      bindBack(wrap);
+      break;
+    }
+
+    case 'PAGE_VERSION_GUIDE': {
+      const buildCmd = (label) => {
+        const labelPart = label ? `, label="${label}"` : '';
+        return `extract_structure(codebase_path="${state.newDataPath}")  ` +
+          `# 把 nodes 分組成 L1 功能後：\n` +
+          `snapshot_write(codebase_path="${state.newDataPath}", l1_features=[...]` +
+          `${labelPart}, inherit_from="${state.baselineRef}")`;
+      };
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 建立新版本</p>
+        <h2>把新資料寫成新版本快照</h2>
+        <p class="wizard-subtitle lede">交給 agent 跑下面指令，會在 store 裡建立一個繼承自基準版本的新快照。這是後面看差異的前提。可選填新版本標籤。</p>
+        <div class="wizard-field field">
+          <label>新版本標籤（選填）</label>
+          <input type="text" data-version-label placeholder="v1.3.0">
+        </div>
+        <div class="wizard-field field">
+          <label>交給 agent 執行的指令</label>
+          <pre data-version-cmd>${buildCmd('')}</pre>
+        </div>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_SIMILARITY_DECISION">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-version-next>已建立快照，下一步 ${I.arrow}</button>
+        </div>
+      `;
+      const labelInput = wrap.querySelector('[data-version-label]');
+      const cmdPre = wrap.querySelector('[data-version-cmd]');
+      labelInput.addEventListener('input', e => { cmdPre.textContent = buildCmd(e.target.value.trim()); });
+      wrap.querySelector('[data-version-next]').addEventListener('click',
+        () => dispatch({ type: 'NEXT_FROM_VERSION_GUIDE' }));
       bindBack(wrap);
       break;
     }
