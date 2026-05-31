@@ -44,3 +44,28 @@ describe('PAGE_UPDATE_MODE render', () => {
     expect(c.querySelector('[data-pick="new-data"]')).not.toBeNull();
   });
 });
+
+describe('regenerate branch', () => {
+  it('SET_REGEN_REF stores the chosen ref', () => {
+    const base = { ...getInitialState(), page: 'PAGE_REGEN_GUIDE', updateFlow: 'regen' };
+    const s = transition(base, { type: 'SET_REGEN_REF', ref: 'v1.2.2' });
+    expect(s.regenRef).toBe('v1.2.2');
+  });
+});
+
+describe('PAGE_REGEN_GUIDE render', () => {
+  function render(state) {
+    const container = document.createElement('div');
+    renderPage(container, state, () => {}, () => {}, {});
+    return container;
+  }
+  it('renders instruction card containing the chosen ref', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_REGEN_GUIDE', updateFlow: 'regen', regenRef: 'v1.2.2' });
+    expect(c.querySelector('[data-regen-cmd]')).not.toBeNull();
+    expect(c.querySelector('[data-regen-cmd]').textContent).toContain('v1.2.2');
+  });
+  it('shows a hint to pick a version when no ref chosen yet', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_REGEN_GUIDE', updateFlow: 'regen', regenRef: null });
+    expect(c.querySelector('[data-regen-pick]')).not.toBeNull();
+  });
+});

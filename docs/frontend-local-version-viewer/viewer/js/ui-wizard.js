@@ -65,6 +65,8 @@ export function transition(state, action) {
 
     case 'PICK_REGEN':
       return { ...state, page: 'PAGE_REGEN_GUIDE', updateFlow: 'regen' };
+    case 'SET_REGEN_REF':
+      return { ...state, regenRef: action.ref };
     case 'PICK_NEW_DATA':
       return { ...state, page: 'PAGE_NEW_DATA', updateFlow: 'new_data' };
     case 'SNAPSHOTS_LOADED':
@@ -417,6 +419,50 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         () => dispatch({ type: 'PICK_REGEN' }));
       wrap.querySelector('[data-pick="new-data"]').addEventListener('click',
         () => dispatch({ type: 'PICK_NEW_DATA' }));
+      break;
+    }
+
+    case 'PAGE_REGEN_GUIDE': {
+      const ref = state.regenRef;
+      const cmd = ref
+        ? `the-door extract --as-version ${ref} .  # 或請 agent：load snapshot「${ref}」→ 重生每個 feature 的 L1 描述 → snapshot_write(label="${ref}", inherit_from="${ref}")`
+        : null;
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 重生</p>
+        <h2>重生現有版本的解析</h2>
+        <p class="wizard-subtitle lede">選一個既有版本，wizard 會給你一段指令，交給你的 agent 重跑自然語言解析。沿用原本的標籤。</p>
+        <div class="wizard-field field">
+          <label>選擇要重生的版本</label>
+          <select data-regen-pick></select>
+        </div>
+        ${ref ? `
+        <div class="wizard-field field">
+          <label>交給 agent 執行的指令</label>
+          <pre data-regen-cmd>${cmd}</pre>
+        </div>` : `<p class="hint" data-regen-empty>先在上方選一個版本，指令會出現在這裡。</p>`}
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_UPDATE_MODE">← 上一步</button>
+        </div>
+      `;
+      const sel = wrap.querySelector('[data-regen-pick]');
+      if (state.snapshots === null) {
+        if (api && typeof api.getSnapshots === 'function') {
+          sel.innerHTML = `<option value="">— 載入中 —</option>`;
+          api.getSnapshots()
+            .then(({ snapshots }) => dispatch({ type: 'SNAPSHOTS_LOADED', snapshots }))
+            .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+        }
+      } else {
+        sel.innerHTML = `<option value="">— 請選擇 —</option>` + state.snapshots.map(s => {
+          const r = resolveSnapshotRef(s);
+          const selected = r === state.regenRef ? ' selected' : '';
+          return `<option value="${r}"${selected}>${r}</option>`;
+        }).join('');
+        sel.addEventListener('change', e => {
+          if (e.target.value) dispatch({ type: 'SET_REGEN_REF', ref: e.target.value });
+        });
+      }
+      bindBack(wrap);
       break;
     }
 
