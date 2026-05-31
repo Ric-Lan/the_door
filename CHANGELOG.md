@@ -10,6 +10,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.5.6 — 2026-05-31
+
+### Added
+- **資料模型契約驗證（Data-Model Contract Verification）**：全新旁路分析層（仿 `core/vulnerability/` 範式），把「程式碼實際碰到的資料欄位」對「宣告的資料模型」做雙向契約 diff（write gap / coverage gap / match）。不上 LLM 翻譯路徑、不改 extraction/ASTNode/L1-L3/snapshot。
+  - **Tier 0（全本地零 token，預設跑）**：`DataModelLocalizer` 用既有 `ExtractionResult` 節點 + 目錄走訪，依跨語言 name/dir/檔名啟發式（`core/datamodel/datamodel_hints.py`）定位「資料模型觸點」（持久化疑似節點 + schema 檔候選），產定位圖。
+  - **Tier 1（on-demand、檔案層交付）**：agent-as-LLM 讀候選**檔案**正規化出宣告欄位集與程式碼觸點欄位集，`ContractVerifier` 做雙向契約 diff，寫 `.the-door/datamodel/contract.json` + 回摘要。不寫任何 framework-specific schema parser（格式容忍度外包給 agent）。
+  - **新 CLI**：`verify-data-model <path>`（Tier 0 定位）+ `--deep`（額外印候選檔清單與 Tier 1 交付指令，不呼叫 LLM）。
+  - **新 MCP 工具**：`localize_data_model`（Tier 0 序列化）、`verify_data_model_contract`（Tier 1 契約 diff + 持久化）。
+  - 新增同儕子套件 `core/datamodel/`（models / hints / localizer / verifier / renderer），全純函式/值物件，逐單元 TDD、新模組覆蓋率 100%。
+
+---
+
 ## v1.5.5 — 2026-05-31
 
 ### Added
