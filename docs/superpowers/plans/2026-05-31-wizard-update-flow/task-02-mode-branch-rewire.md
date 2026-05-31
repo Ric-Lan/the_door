@@ -65,6 +65,14 @@ describe('update mode branch', () => {
     expect(s.page).toBe('PAGE_NEW_DATA');
     expect(s.updateFlow).toBe('new_data');
   });
+
+  it('SNAPSHOTS_LOADED stores list + derives knownVersionIds', () => {
+    const snaps = [{ version_id: 'u1', label: 'v1', git_tags: [] },
+                   { version_id: 'u2', label: 'v2', git_tags: [] }];
+    const s = transition(atUpdateMode(), { type: 'SNAPSHOTS_LOADED', snapshots: snaps });
+    expect(s.snapshots).toEqual(snaps);
+    expect(s.knownVersionIds).toEqual(['u1', 'u2']);
+  });
 });
 ```
 
@@ -85,9 +93,13 @@ Expected: FAIL — 落點仍是 `PAGE_CONFIRM` / `PICK_REGEN` 無對應 case。
     regenRef: null,
     newDataPath: '',
     baselineRef: null,
+    snapshots: null,          // 快照清單一次性載入後存這裡（null = 尚未載入）
     knownVersionIds: [],
     detectedRef: null,
 ```
+
+> `snapshots: null` 是「一次性載入」的關鍵：render 內只在 `=== null` 時才打 `/api/snapshots`，
+> 載入後 select 一律從 `state.snapshots` 同步重建，避免每次 re-render 重抓 + select 閃爍。
 
 把 `transition` 的 `SELECT_ACTION` case 改成：
 
@@ -101,7 +113,7 @@ Expected: FAIL — 落點仍是 `PAGE_CONFIRM` / `PICK_REGEN` 無對應 case。
     }
 ```
 
-在 `SELECT_ACTION` case 後面新增兩個 case：
+在 `SELECT_ACTION` case 後面新增三個 case：
 
 ```javascript
     case 'PICK_REGEN':
@@ -109,6 +121,14 @@ Expected: FAIL — 落點仍是 `PAGE_CONFIRM` / `PICK_REGEN` 無對應 case。
 
     case 'PICK_NEW_DATA':
       return { ...state, page: 'PAGE_NEW_DATA', updateFlow: 'new_data' };
+
+    case 'SNAPSHOTS_LOADED':
+      // 一次性載入：同時填快照清單與「已知 version_id 集合」。Task 03/04 共用。
+      return {
+        ...state,
+        snapshots: action.snapshots,
+        knownVersionIds: action.snapshots.map(s => s.version_id),
+      };
 ```
 
 - [ ] **Step 5: 跑測試確認通過**

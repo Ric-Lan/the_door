@@ -230,3 +230,7 @@ git commit -m "feat(wizard): similarity compare guide + decision page (B branch 
 - [ ] 判讀頁有六成準則文字 + 兩顆決策按鈕
 - [ ] 當版本 → `PAGE_VERSION_GUIDE`；當新專案 → 導回 `/wizard.html`
 - [ ] 全套不退步
+
+> ⚠️ 跨 task 暫態：本 task 完成後，`PAGE_SIMILARITY_DECISION` 的「當版本」會導向 `PAGE_VERSION_GUIDE`，
+> 但該頁的 render 內容在 **Task 06** 才實作。在 Task 06 完成前，點「當版本」會看到空白 wizard-card
+> （renderPage switch 無 default、不會崩）。這是增量實作的正常暫態，Task 06 補完即正常。

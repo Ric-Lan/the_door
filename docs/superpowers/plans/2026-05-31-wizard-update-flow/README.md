@@ -48,14 +48,19 @@ cd docs/frontend-local-version-viewer/viewer
 - `regenRef: null` — A 路選定要重生的版本識別字串
 - `newDataPath: ''` — B 路新資料資料夾路徑
 - `baselineRef: null` — B 路選定的比較基準識別字串
-- `knownVersionIds: []` — 進 B 路前已知的 version_id 集合（偵測新版本用）
+- `snapshots: null` — 快照清單一次性載入後存這裡（`null`=未載入，避免每 render 重抓）
+- `knownVersionIds: []` — 進 B 路前已知的 version_id 集合（偵測新版本用；由 `SNAPSHOTS_LOADED` 一併填）
 - `detectedRef: null` — 偵測頁確認到的新版本識別字串
 
 **新 page 常數**（`state.page` 值）：
 `PAGE_UPDATE_MODE` · `PAGE_REGEN_GUIDE` · `PAGE_NEW_DATA` · `PAGE_SIMILARITY_GUIDE` · `PAGE_SIMILARITY_DECISION` · `PAGE_VERSION_GUIDE` · `PAGE_VERSION_DETECT` · `PAGE_TRANSLATE_CHOICE`
 
 **新 action type**：
-`PICK_REGEN` · `SET_REGEN_REF` · `PICK_NEW_DATA` · `SET_NEW_DATA_PATH` · `SET_BASELINE` · `SET_KNOWN_VERSIONS` · `NEXT_FROM_NEW_DATA` · `NEXT_FROM_SIM_GUIDE` · `DECIDE_VERSION` · `DECIDE_NEWPROJECT` · `NEXT_FROM_VERSION_GUIDE` · `VERSION_DETECTED` · `DETECT_RESCAN` · `GOTO_TRANSLATE_CHOICE`
+`PICK_REGEN` · `SET_REGEN_REF` · `PICK_NEW_DATA` · `SNAPSHOTS_LOADED` · `SET_NEW_DATA_PATH` · `SET_BASELINE` · `NEXT_FROM_NEW_DATA` · `NEXT_FROM_SIM_GUIDE` · `DECIDE_VERSION` · `DECIDE_NEWPROJECT` · `NEXT_FROM_VERSION_GUIDE` · `VERSION_DETECTED` · `DETECT_RESCAN` · `GOTO_TRANSLATE_CHOICE`
+
+> `SNAPSHOTS_LOADED` 取代原 `SET_KNOWN_VERSIONS`：一次填好 `snapshots` + `knownVersionIds`。
+> 文字輸入（路徑）一律用 `change` 事件 dispatch（離開欄位才觸發），**不可**用 `input`——
+> 因為 `renderPage` 每次 dispatch 會 `container.innerHTML=''` 全量重建，per-keystroke dispatch 會讓輸入框失焦。
 
 **新 helper / api**：
 - `resolveSnapshotRef(snapshot)` — pure，`git_tags[0] → label → version_id`（**不可**用 `layers.js` 的 `_snapLabel`，它停在 `label→null`）

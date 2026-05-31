@@ -25,10 +25,6 @@ describe('new-data branch reducer', () => {
     const s = transition(base, { type: 'SET_BASELINE', ref: 'v1.2.2' });
     expect(s.baselineRef).toBe('v1.2.2');
   });
-  it('SET_KNOWN_VERSIONS stores the version_id set', () => {
-    const s = transition(base, { type: 'SET_KNOWN_VERSIONS', ids: ['u1', 'u2'] });
-    expect(s.knownVersionIds).toEqual(['u1', 'u2']);
-  });
   it('NEXT_FROM_NEW_DATA advances to PAGE_SIMILARITY_GUIDE', () => {
     const s = transition({ ...base, newDataPath: '/d/v2', baselineRef: 'v1.2.2' },
       { type: 'NEXT_FROM_NEW_DATA' });
@@ -56,14 +52,12 @@ Expected: FAIL。
     case 'SET_BASELINE':
       return { ...state, baselineRef: action.ref };
 
-    case 'SET_KNOWN_VERSIONS':
-      return { ...state, knownVersionIds: action.ids };
-
     case 'NEXT_FROM_NEW_DATA':
       return { ...state, page: 'PAGE_SIMILARITY_GUIDE' };
 ```
 
-> `SET_KNOWN_VERSIONS` 記下「進 B 路前已知的 version_id 集合」，供 Task 07 偵測頁判斷是否冒出新版本。
+> 「已知 version_id 集合」由 Task 02 的 `SNAPSHOTS_LOADED`（載入快照清單時）一併填入 `knownVersionIds`，
+> 不在本 task 另設 action——避免重複定義。
 
 - [ ] **Step 4: 跑測試確認通過**
 
@@ -133,23 +127,25 @@ Expected: FAIL。
           <button class="wizard-btn-primary btn btn-primary" data-newdata-next ${ready ? '' : 'disabled'}>下一步 ${I.arrow}</button>
         </div>
       `;
+      // 路徑用 change（離開欄位/Enter 才 dispatch），不可用 input——否則每字觸發全量重建會失焦。
       const pathInput = wrap.querySelector('[data-newdata-path]');
-      pathInput.addEventListener('input', e => dispatch({ type: 'SET_NEW_DATA_PATH', path: e.target.value }));
+      pathInput.addEventListener('change', e => dispatch({ type: 'SET_NEW_DATA_PATH', path: e.target.value }));
 
+      // baseline 清單：一次性載入（state.snapshots===null 才打 API），之後從 state 同步重建。
       const sel = wrap.querySelector('[data-baseline-pick]');
-      if (api && typeof api.getSnapshots === 'function') {
-        sel.innerHTML = `<option value="">— 載入中 —</option>`;
-        api.getSnapshots()
-          .then(({ snapshots }) => {
-            sel.innerHTML = `<option value="">— 請選擇 —</option>` + snapshots.map(s => {
-              const r = resolveSnapshotRef(s);
-              const selected = r === state.baselineRef ? ' selected' : '';
-              return `<option value="${r}"${selected}>${r}</option>`;
-            }).join('');
-            // 記下當下已知 version_id 集合，供偵測新版本用（同一次唯讀讀取，不額外打 API）
-            dispatch({ type: 'SET_KNOWN_VERSIONS', ids: snapshots.map(s => s.version_id) });
-          })
-          .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+      if (state.snapshots === null) {
+        if (api && typeof api.getSnapshots === 'function') {
+          sel.innerHTML = `<option value="">— 載入中 —</option>`;
+          api.getSnapshots()
+            .then(({ snapshots }) => dispatch({ type: 'SNAPSHOTS_LOADED', snapshots }))
+            .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+        }
+      } else {
+        sel.innerHTML = `<option value="">— 請選擇 —</option>` + state.snapshots.map(s => {
+          const r = resolveSnapshotRef(s);
+          const selected = r === state.baselineRef ? ' selected' : '';
+          return `<option value="${r}"${selected}>${r}</option>`;
+        }).join('');
         sel.addEventListener('change', e => dispatch({ type: 'SET_BASELINE', ref: e.target.value || null }));
       }
       wrap.querySelector('[data-newdata-next]').addEventListener('click', () => {

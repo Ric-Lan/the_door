@@ -105,18 +105,21 @@ Expected: FAIL — 找不到 `[data-regen-cmd]` / `[data-regen-pick]`。
           <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_UPDATE_MODE">← 上一步</button>
         </div>
       `;
-      // 版本清單：呼叫既有 GET /api/snapshots（read-only）
+      // 版本清單：一次性載入（state.snapshots===null 才打 API），之後從 state 同步重建。
       const sel = wrap.querySelector('[data-regen-pick]');
-      if (sel && api && typeof api.getSnapshots === 'function') {
-        sel.innerHTML = `<option value="">— 載入中 —</option>`;
-        api.getSnapshots()
-          .then(({ snapshots }) => {
-            sel.innerHTML = `<option value="">— 請選擇 —</option>` + snapshots.map(s => {
-              const r = resolveSnapshotRef(s);
-              return `<option value="${r}">${r}</option>`;
-            }).join('');
-          })
-          .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+      if (state.snapshots === null) {
+        if (api && typeof api.getSnapshots === 'function') {
+          sel.innerHTML = `<option value="">— 載入中 —</option>`;
+          api.getSnapshots()
+            .then(({ snapshots }) => dispatch({ type: 'SNAPSHOTS_LOADED', snapshots }))
+            .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+        }
+      } else {
+        sel.innerHTML = `<option value="">— 請選擇 —</option>` + state.snapshots.map(s => {
+          const r = resolveSnapshotRef(s);
+          const selected = r === state.regenRef ? ' selected' : '';
+          return `<option value="${r}"${selected}>${r}</option>`;
+        }).join('');
         sel.addEventListener('change', e => {
           if (e.target.value) dispatch({ type: 'SET_REGEN_REF', ref: e.target.value });
         });
