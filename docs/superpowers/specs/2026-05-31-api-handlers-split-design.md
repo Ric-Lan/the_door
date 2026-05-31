@@ -197,6 +197,11 @@ ERROR_CODES = {
 - **可查找**：找/加碼只看這張表。
 - **防衝突**：新增碼須登記，重複 key 由測試擋下。
 
+**登記清單來源（實作前置步驟，勿臆測）**：實作時先 `grep` 現 `api_handlers.py` 內所有
+回傳碼（如 `not_found` / `invalid_json` / `missing_params` / `method_not_allowed` /
+`l2_not_generated` / `baseline_not_found` 等，以 grep 結果為準完整列舉），加上 router 新增的
+4 個 `router.*` 碼，構成 `ERROR_CODES` 的完整登記清單。不得只憑本 spec 的舉例。
+
 **紀律**：`ErrCode` 為扁平資料（http/file/desc），非例外繼承樹；本刀只登記
 **API 區**（router + 6 handler）的碼，repo 其他散碼全面收編**另立 backlog**（YAGNI）；
 原則入 spec：新增 API 錯誤碼一律先登記此表。
@@ -228,10 +233,25 @@ ERROR_CODES = {
 
 ## 9. 測試策略（TDD）
 
-### 行為不變安全網
+### 行為不變安全網（兩道，覆蓋全 21 端點的路由正確性）
 
-`tests/integration/test_e2e_ui_server.py` 對全 13 端點發**真 HTTP**=行為凍結基準，
-重構全程必須 GREEN（URL/method/回應 body 一字不差）；任一步變紅 = 改壞行為，回退。
+**現況事實（已驗證）**：`tests/integration/test_e2e_ui_server.py` 的真 HTTP 只覆蓋
+**13/21** 個端點——涵蓋 `project`/`snapshots`/`report-latest`/`timeline`/`status(update)`/
+`l1`/`l2`(+gen)/`structure`/`layer-explanation`(+gen)/`doubts`/`update`/`update-status`；
+**未覆蓋 8 個**：`analyze`、`set-project`、`status`、`diff`、`diff-explanations`(讀+生成)、
+`notes`(讀+寫)。
+
+這 8 個的 handler 單元測試在本次重構中**會被遷移改寫**，無法同時當「不變基準」；且
+單元測試只測業務邏輯、**測不到 router 是否把 path 綁對 handler、query/body 是否解析正確**。
+故安全網設計為**兩道、合計覆蓋全 21 端點的路由正確性**：
+
+1. **e2e 真 HTTP（現 13 端點）**：重構全程保持 GREEN，**不得修改其斷言**（URL/method/
+   回應 body 一字不差）。任一步變紅 = 改壞行為，回退。
+2. **router 綁定整合測試（新增，補齊缺的 8 端點）**：`tests/integration/test_router_binding.py`
+   ——對這 8 個端點各發一次請求，斷言「path → 正確 handler、path 參數/query/body 正確傳入、
+   回應 status 與 body 形狀符合 rewire 前」。**先於拆分動作寫好並 GREEN**，作為 rewire 的網。
+
+> 任一端點的路由正確性，必須至少被上述其一覆蓋；缺網的端點不得開始 rewire。
 
 ### 兩層單元測試（鏡像分類）
 
@@ -295,7 +315,7 @@ handle_post_notes               → annotation.post_notes
 
 ## 12. 驗收
 
-- e2e 真 HTTP 測試全綠（行為不變）。
+- 兩道安全網全綠：e2e 真 HTTP（13 端點）＋ router 綁定整合測試（補齊 8 端點）= 全 21 端點路由正確性受覆蓋。
 - 全套測試零回歸、`api/` package 100% 覆蓋。
 - `server.py` 僅剩 HTTP 殼 + 呼叫 router；`api_handlers.py` 移除。
 - 兩份文件生成且 contract 測試通過。
