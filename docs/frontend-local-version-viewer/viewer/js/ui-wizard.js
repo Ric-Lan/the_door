@@ -69,6 +69,12 @@ export function transition(state, action) {
       return { ...state, regenRef: action.ref };
     case 'PICK_NEW_DATA':
       return { ...state, page: 'PAGE_NEW_DATA', updateFlow: 'new_data' };
+    case 'SET_NEW_DATA_PATH':
+      return { ...state, newDataPath: action.path };
+    case 'SET_BASELINE':
+      return { ...state, baselineRef: action.ref };
+    case 'NEXT_FROM_NEW_DATA':
+      return { ...state, page: 'PAGE_SIMILARITY_GUIDE' };
     case 'SNAPSHOTS_LOADED':
       return {
         ...state,
@@ -462,6 +468,51 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
           if (e.target.value) dispatch({ type: 'SET_REGEN_REF', ref: e.target.value });
         });
       }
+      bindBack(wrap);
+      break;
+    }
+
+    case 'PAGE_NEW_DATA': {
+      const ready = Boolean(state.newDataPath && state.baselineRef);
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 引入新資料</p>
+        <h2>指向新版本資料夾</h2>
+        <p class="wizard-subtitle lede">輸入新下載版本的原始碼路徑，並選一個既有版本當比較基準。</p>
+        <div class="wizard-field field">
+          <label>新版本原始碼路徑</label>
+          <input type="text" data-newdata-path placeholder="/absolute/path/to/new-version" value="${state.newDataPath}">
+        </div>
+        <div class="wizard-field field">
+          <label>比較基準（既有版本）</label>
+          <select data-baseline-pick></select>
+        </div>
+        <div class="actions">
+          <button class="wizard-btn-ghost btn btn-ghost" data-back="PAGE_UPDATE_MODE">← 上一步</button>
+          <span class="spacer"></span>
+          <button class="wizard-btn-primary btn btn-primary" data-newdata-next ${ready ? '' : 'disabled'}>下一步 ${I.arrow}</button>
+        </div>
+      `;
+      const pathInput = wrap.querySelector('[data-newdata-path]');
+      pathInput.addEventListener('change', e => dispatch({ type: 'SET_NEW_DATA_PATH', path: e.target.value }));
+      const sel = wrap.querySelector('[data-baseline-pick]');
+      if (state.snapshots === null) {
+        if (api && typeof api.getSnapshots === 'function') {
+          sel.innerHTML = `<option value="">— 載入中 —</option>`;
+          api.getSnapshots()
+            .then(({ snapshots }) => dispatch({ type: 'SNAPSHOTS_LOADED', snapshots }))
+            .catch(() => { sel.innerHTML = `<option value="">（讀取版本清單失敗）</option>`; });
+        }
+      } else {
+        sel.innerHTML = `<option value="">— 請選擇 —</option>` + state.snapshots.map(s => {
+          const r = resolveSnapshotRef(s);
+          const selected = r === state.baselineRef ? ' selected' : '';
+          return `<option value="${r}"${selected}>${r}</option>`;
+        }).join('');
+        sel.addEventListener('change', e => dispatch({ type: 'SET_BASELINE', ref: e.target.value || null }));
+      }
+      wrap.querySelector('[data-newdata-next]').addEventListener('click', () => {
+        if (state.newDataPath && state.baselineRef) dispatch({ type: 'NEXT_FROM_NEW_DATA' });
+      });
       bindBack(wrap);
       break;
     }

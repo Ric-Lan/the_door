@@ -69,3 +69,43 @@ describe('PAGE_REGEN_GUIDE render', () => {
     expect(c.querySelector('[data-regen-pick]')).not.toBeNull();
   });
 });
+
+describe('new-data branch reducer', () => {
+  const base = { ...getInitialState(), page: 'PAGE_NEW_DATA', updateFlow: 'new_data' };
+  it('SET_NEW_DATA_PATH stores the path', () => {
+    const s = transition(base, { type: 'SET_NEW_DATA_PATH', path: '/downloads/v2' });
+    expect(s.newDataPath).toBe('/downloads/v2');
+  });
+  it('SET_BASELINE stores the baseline ref', () => {
+    const s = transition(base, { type: 'SET_BASELINE', ref: 'v1.2.2' });
+    expect(s.baselineRef).toBe('v1.2.2');
+  });
+  it('NEXT_FROM_NEW_DATA advances to PAGE_SIMILARITY_GUIDE', () => {
+    const s = transition({ ...base, newDataPath: '/d/v2', baselineRef: 'v1.2.2' },
+      { type: 'NEXT_FROM_NEW_DATA' });
+    expect(s.page).toBe('PAGE_SIMILARITY_GUIDE');
+  });
+});
+
+describe('PAGE_NEW_DATA render', () => {
+  function render(state, dispatch = () => {}) {
+    const container = document.createElement('div');
+    renderPage(container, state, dispatch, () => {}, {});
+    return container;
+  }
+  it('has a path input and a baseline select', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_NEW_DATA', updateFlow: 'new_data' });
+    expect(c.querySelector('[data-newdata-path]')).not.toBeNull();
+    expect(c.querySelector('[data-baseline-pick]')).not.toBeNull();
+  });
+  it('next button is disabled until both path and baseline are set', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_NEW_DATA', updateFlow: 'new_data',
+      newDataPath: '', baselineRef: null });
+    expect(c.querySelector('[data-newdata-next]').disabled).toBe(true);
+  });
+  it('next button enabled when both set', () => {
+    const c = render({ ...getInitialState(), page: 'PAGE_NEW_DATA', updateFlow: 'new_data',
+      newDataPath: '/d/v2', baselineRef: 'v1.2.2' });
+    expect(c.querySelector('[data-newdata-next]').disabled).toBe(false);
+  });
+});
