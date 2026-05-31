@@ -10,6 +10,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.5.5 — 2026-05-31
+
+### Added
+- **Wizard 更新分析引導流程（引導式 + 相似度分流）**：把精靈的「更新分析」從直跳確認頁改成引導式分岔流程。純前端引導、零新 HTTP endpoint，所有「執行」步驟由 wizard 產生指令卡交給使用者的 agent 跑（agent-as-LLM），唯一新增後端互動是讀既有的唯讀 `GET /api/snapshots`。
+  - **A 路（重生）**：`PAGE_UPDATE_MODE` → `PAGE_REGEN_GUIDE` — 選既有版本 → 出重生指令卡（沿用原標籤）。
+  - **B 路（引入新資料）**：`PAGE_NEW_DATA`（路徑 + baseline 選擇）→ `PAGE_SIMILARITY_GUIDE`（結構比對指令卡）→ `PAGE_SIMILARITY_DECISION`（六成相似度判讀準則 + 兩條決策）→ 當版本：`PAGE_VERSION_GUIDE`（`snapshot_write(inherit_from=...)` 指令、標籤即時更新）→ `PAGE_VERSION_DETECT`（唯讀偵測新快照）→ `PAGE_TRANSLATE_CHOICE`（選跑自然語言翻譯 + 進 Viewer）→ `/index.html`；當新專案：導回 `/wizard.html` 首頁。
+  - 新增純 helper `resolveSnapshotRef`（識別字串優先序 `git_tags[0] → label → version_id`，不沿用停在 `label→null` 的 `_snapLabel`）+ api client `getSnapshots`。
+  - rail 階段（`STAGE` map）補上 8 個新頁對應；文字輸入一律用 `change` 事件避免 `renderPage` 全量重建導致失焦。
+
+### Fixed
+- **css hygiene allowlist**：放寬 `wizard-css-units` / `wizard-shell-css` 的 border-radius 白名單接受 `0`（visual v2 將 `.wizard-shell .wizard-card` 改為 `border-radius:0` 的方角卡片）。
+
+### Tests
+- +38 JS tests（`wizard-update-flow.test.js` 新建 + `ui-wizard.test.js` reducer/render 改接）；893 passed、0 regression（餘 8 個為與本流程無關的 pre-existing failures）。
+
+---
+
 ## v1.5.1 — 2026-05-30
 
 ### Fixed
