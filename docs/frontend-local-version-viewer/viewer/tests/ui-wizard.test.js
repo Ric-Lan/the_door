@@ -7,6 +7,7 @@ import {
   stepIndexForCurrentStep,
   createApi,
   renderPage,
+  resolveSnapshotRef,
 } from '../js/ui-wizard.js';
 
 describe('getInitialState', () => {
@@ -1222,5 +1223,36 @@ describe('switchProject state', () => {
     const s = transition(base, { type: 'SWITCH_CANCEL' });
     expect(s.switchConflict).toBe(false);
     expect(s.switchActiveJobId).toBeNull();
+  });
+});
+
+describe('resolveSnapshotRef', () => {
+  it('prefers git_tags[0] when present', () => {
+    expect(resolveSnapshotRef({ git_tags: ['v1.2.2'], label: 'x', version_id: 'uuid-1' }))
+      .toBe('v1.2.2');
+  });
+  it('falls back to label when no git_tags', () => {
+    expect(resolveSnapshotRef({ git_tags: [], label: 'my-label', version_id: 'uuid-1' }))
+      .toBe('my-label');
+  });
+  it('falls back to version_id when no git_tags and no label', () => {
+    expect(resolveSnapshotRef({ git_tags: [], label: null, version_id: 'uuid-1' }))
+      .toBe('uuid-1');
+  });
+  it('returns null for nullish input', () => {
+    expect(resolveSnapshotRef(null)).toBeNull();
+  });
+});
+
+describe('createApi.getSnapshots', () => {
+  it('GETs /api/snapshots and returns parsed body', async () => {
+    const fakeFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ snapshots: [{ version_id: 'u1', label: 'v1.0.0', git_tags: [] }] }),
+    });
+    const api = createApi(fakeFetch);
+    const result = await api.getSnapshots();
+    expect(fakeFetch).toHaveBeenCalledWith('/api/snapshots');
+    expect(result.snapshots[0].label).toBe('v1.0.0');
   });
 });

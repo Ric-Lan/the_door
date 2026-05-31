@@ -112,6 +112,18 @@ export function transition(state, action) {
 }
 
 // ─── Pure helpers ────────────────────────────────────────────────────────────
+
+// Snapshot 識別字串優先序：git_tags[0] → label → version_id。
+// 注意：刻意不沿用 layers.js 的 _snapLabel（它停在 label→null，會讓無標籤快照產生空指令）。
+export function resolveSnapshotRef(snapshot) {
+  if (!snapshot) return null;
+  if (Array.isArray(snapshot.git_tags) && snapshot.git_tags.length > 0) {
+    return snapshot.git_tags[0];
+  }
+  if (snapshot.label) return snapshot.label;
+  return snapshot.version_id ?? null;
+}
+
 export function parseExcludes(str) {
   if (!str || !str.trim()) return [];
   return str.split(',').map(s => s.trim()).filter(Boolean);
@@ -148,6 +160,9 @@ export function createApi(fetchFn = window.fetch.bind(window)) {
     },
     getJobStatus(jobId) {
       return fetchFn(`/api/update/status/${jobId}`).then(_check);
+    },
+    getSnapshots() {
+      return fetchFn('/api/snapshots').then(_check);
     },
     setProject(path, force) {
       return fetchFn('/api/set-project', {
