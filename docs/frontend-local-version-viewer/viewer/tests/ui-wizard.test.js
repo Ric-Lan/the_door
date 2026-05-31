@@ -61,9 +61,9 @@ describe('transition: SELECT_ACTION', () => {
     expect(s.action).toBe('analyze');
   });
 
-  it('update action (has snapshots) goes to PAGE_CONFIRM', () => {
+  it('update action (has snapshots) goes to PAGE_UPDATE_MODE', () => {
     const s = transition(stateWithSnapshots(true), { type: 'SELECT_ACTION', action: 'update' });
-    expect(s.page).toBe('PAGE_CONFIRM');
+    expect(s.page).toBe('PAGE_UPDATE_MODE');
     expect(s.action).toBe('update');
   });
 
@@ -466,7 +466,7 @@ describe('initWizard', () => {
     expect(container.querySelector('[data-next="label"]').classList.contains('wizard-btn-primary')).toBe(true);
   });
 
-  it('PAGE_CONFIRM uses wizard-summary dl/dt/dd + wizard-btn-primary', async () => {
+  it('update action lands on PAGE_UPDATE_MODE with regen/new-data options', async () => {
     const api = {
       getStatus: vi.fn().mockResolvedValue({
         state: { has_snapshots: true, has_api_key: true },
@@ -480,12 +480,9 @@ describe('initWizard', () => {
     initWizard(container, api, vi.fn());
     await vi.waitFor(() => container.querySelector('[data-action="update"]'));
     container.querySelector('[data-action="update"]').click();
-    await vi.waitFor(() => container.querySelector('[data-page="PAGE_CONFIRM"]'));
-    const dl = container.querySelector('dl.wizard-summary');
-    expect(dl).not.toBeNull();
-    expect(dl.querySelectorAll('dt').length).toBeGreaterThanOrEqual(2);
-    expect(dl.querySelectorAll('dd').length).toBeGreaterThanOrEqual(2);
-    expect(container.querySelector('[data-submit]').classList.contains('wizard-btn-primary')).toBe(true);
+    await vi.waitFor(() => container.querySelector('[data-page="PAGE_UPDATE_MODE"]'));
+    expect(container.querySelector('[data-pick="regen"]')).not.toBeNull();
+    expect(container.querySelector('[data-pick="new-data"]')).not.toBeNull();
   });
 
   it('PROGRESS step list uses wizard-steplist + wizard-sl-row (phasebar)', async () => {

@@ -29,6 +29,13 @@ export function getInitialState() {
     switchConflict: false,
     switchActiveJobId: null,
     errorOriginPage: null,
+    updateFlow: null,
+    regenRef: null,
+    newDataPath: '',
+    baselineRef: null,
+    snapshots: null,          // 快照清單一次性載入後存這裡（null = 尚未載入）
+    knownVersionIds: [],
+    detectedRef: null,
   };
 }
 
@@ -51,10 +58,21 @@ export function transition(state, action) {
     case 'SELECT_ACTION': {
       const nextPage =
         action.action === 'analyze' ? 'PAGE_SETUP' :
-        action.action === 'update'  ? 'PAGE_CONFIRM' :
+        action.action === 'update'  ? 'PAGE_UPDATE_MODE' :
         state.page;
       return { ...state, page: nextPage, action: action.action };
     }
+
+    case 'PICK_REGEN':
+      return { ...state, page: 'PAGE_REGEN_GUIDE', updateFlow: 'regen' };
+    case 'PICK_NEW_DATA':
+      return { ...state, page: 'PAGE_NEW_DATA', updateFlow: 'new_data' };
+    case 'SNAPSHOTS_LOADED':
+      return {
+        ...state,
+        snapshots: action.snapshots,
+        knownVersionIds: action.snapshots.map(s => s.version_id),
+      };
 
     case 'NEXT_FROM_SETUP':
       return { ...state, page: 'PAGE_LABEL', excludesRaw: action.excludesRaw };
@@ -374,6 +392,31 @@ export function renderPage(container, state, dispatch, redirectFn, api) {
         });
       }
       wrap.appendChild(switchSection);
+      break;
+    }
+
+    case 'PAGE_UPDATE_MODE': {
+      wrap.innerHTML = `
+        <p class="wizard-eyebrow eyebrow">步驟 / 更新方式</p>
+        <h2>這次要怎麼更新？</h2>
+        <p class="wizard-subtitle lede">選擇要重生既有版本的解析，還是引入一份新版本資料來比對差異。</p>
+        <div class="wizard-options opts">
+          <button class="wizard-option-btn opt" data-pick="regen">
+            <span class="ico">${I.refresh}</span>
+            <span class="tx"><strong>重生現有版本的解析</strong><span>不換原始碼，拿既有快照重跑自然語言解析。</span></span>
+            ${I.arrow}
+          </button>
+          <button class="wizard-option-btn opt" data-pick="new-data">
+            <span class="ico">${I.scan}</span>
+            <span class="tx"><strong>引入新資料</strong><span>指向一份新下載的版本資料夾，比對它跟既有版本的差異。</span></span>
+            ${I.arrow}
+          </button>
+        </div>
+      `;
+      wrap.querySelector('[data-pick="regen"]').addEventListener('click',
+        () => dispatch({ type: 'PICK_REGEN' }));
+      wrap.querySelector('[data-pick="new-data"]').addEventListener('click',
+        () => dispatch({ type: 'PICK_NEW_DATA' }));
       break;
     }
 
