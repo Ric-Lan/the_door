@@ -144,26 +144,6 @@ def server_url(tmp_path):
     server.shutdown()
 
 
-@pytest.fixture()
-def empty_server_url(tmp_path):
-    """Start UIServer with an empty project_root (no .the-door/). Yield base URL."""
-    project_root = tmp_path / "empty_project"
-    project_root.mkdir()
-
-    viewer_dir = tmp_path / "viewer"
-    viewer_dir.mkdir()
-    (viewer_dir / "index.html").write_text("<html></html>", encoding="utf-8")
-
-    port = _find_free_port()
-    server = UIServer(project_root=project_root, viewer_dir=viewer_dir, port=port)
-    thread = threading.Thread(target=server.start, daemon=True)
-    thread.start()
-
-    base_url = f"http://127.0.0.1:{port}"
-    _wait_for_server(base_url)
-    yield base_url
-    server.shutdown()
-
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -237,6 +217,7 @@ class TestPostSetProject:
         status, body = _post(f"{server_url}/api/set-project", {})
         assert status == 400
         # Server returns {"status": "error", "message": ...} (not the standard error envelope)
+        # TODO(api-handlers-split): non-standard envelope — normalize during refactor
         assert body["status"] == "error"
 
     def test_nonexistent_path_returns_400(self, server_url):
