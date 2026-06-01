@@ -4,7 +4,7 @@ Uses Python standard library ThreadingHTTPServer.
 Binds exclusively to 127.0.0.1 (loopback) for security.
 
 Request routing:
-- /api/* → APIHandlers
+- /api/* → Router (6 domain handlers)
 - everything else → StaticHandler
 
 All API responses include Access-Control-Allow-Origin: * header.
@@ -162,14 +162,13 @@ def _handle_get(
         status, body = router.dispatch("GET", path, raw_body=b"", query=query)
         _send_json(handler, status, _alias_router_error(body))
         return
-    else:
-        # Static file serving
-        status, content_type, body_bytes = static_handler.serve(path)
-        handler.send_response(status)
-        handler.send_header("Content-Type", content_type)
-        handler.send_header("Content-Length", str(len(body_bytes)))
-        handler.end_headers()
-        handler.wfile.write(body_bytes)
+    # Static file serving
+    status, content_type, body_bytes = static_handler.serve(path)
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(body_bytes)))
+    handler.end_headers()
+    handler.wfile.write(body_bytes)
 
 
 def _handle_post(
