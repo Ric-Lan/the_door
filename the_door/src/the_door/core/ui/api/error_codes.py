@@ -69,39 +69,39 @@ ERROR_CODES: dict[str, ErrCode] = {
     # --- snapshot / version domain ------------------------------------------
     "project_read_error": ErrCode(
         http=500,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/project.py",
         desc="Failed to read project data.",
     ),
     "snapshot_read_error": ErrCode(
         http=500,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/catalog.py",
         desc="Failed to read snapshot data.",
     ),
     "snapshot_not_found": ErrCode(
         http=404,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/diff.py",
         desc="Snapshot not found.",
     ),
     "no_report_found": ErrCode(
         http=404,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/catalog.py",
         desc="No report found for the requested version.",
     ),
     "report_parse_error": ErrCode(
         http=500,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/catalog.py",
         desc="Failed to parse the report data.",
     ),
     "report_read_error": ErrCode(
         http=500,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/catalog.py",
         desc="Failed to read the report file.",
     ),
 
     # --- job / async-job domain ---------------------------------------------
     "job_not_found": ErrCode(
         http=404,
-        file="core/ui/api/handlers/jobs.py",
+        file="core/ui/api/handlers/analysis.py",
         desc="Job not found.",
     ),
 
@@ -134,7 +134,7 @@ ERROR_CODES: dict[str, ErrCode] = {
     # --- timeline domain ----------------------------------------------------
     "timeline_error": ErrCode(
         http=500,
-        file="core/ui/api/handlers/snapshot.py",
+        file="core/ui/api/handlers/catalog.py",
         desc="Failed to build timeline.",
     ),
 
