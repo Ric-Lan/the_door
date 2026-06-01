@@ -1,4 +1,11 @@
+import pytest
+
 from the_door.core.ui.api.error_codes import ERROR_CODES, ErrCode, build_error
+
+
+def test_build_error_unregistered_code_raises():
+    with pytest.raises(ValueError, match="unregistered error code"):
+        build_error("does.not.exist", source="test")
 
 
 def test_every_code_has_http_file_desc():

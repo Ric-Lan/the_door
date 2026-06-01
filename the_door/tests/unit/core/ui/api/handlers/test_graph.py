@@ -142,3 +142,141 @@ class TestGenerateLayerExplanation:
         with patch.object(h, "_run_layer_explanation_job"):
             status, body = h.generate_layer_explanation(feature_id="feat-x", layer="l1")
         assert status == 202
+
+
+class TestGraphErrorBranches:
+    def test_get_l1_exception_returns_500(self, tmp_path):
+        h = GraphHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.graph.SnapshotStore", side_effect=RuntimeError("x")):
+            status, body = h.get_l1()
+        assert status == 500
+        assert body["error"]["code"] == "l1_read_error"
+
+    def test_get_l2_exception_returns_500(self, tmp_path):
+        h = GraphHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.graph.L2Generator") as mock_lg:
+            mock_lg.load.side_effect = RuntimeError("x")
+            status, body = h.get_l2(feature_id="feat-x")
+        assert status == 500
+        assert body["error"]["code"] == "l2_read_error"
+
+    def test_generate_l2_bad_structure_json_returns_500(self, tmp_path):
+        dot = tmp_path / ".the-door"; dot.mkdir()
+        (dot / "structure.json").write_text("not json", encoding="utf-8")
+        h = GraphHandlers(_ctx(tmp_path))
+        status, body = h.generate_l2(feature_id="feat-x")
+        assert status == 500
+        assert body["error"]["code"] == "structure_read_error"
+
+    def test_get_structure_bad_json_returns_500(self, tmp_path):
+        dot = tmp_path / ".the-door"; dot.mkdir()
+        (dot / "structure.json").write_text("not json", encoding="utf-8")
+        h = GraphHandlers(_ctx(tmp_path))
+        status, body = h.get_structure()
+        assert status == 500
+        assert body["error"]["code"] == "structure_read_error"
+
+    def test_get_layer_explanation_bad_json_returns_500(self, tmp_path):
+        cache_dir = tmp_path / ".the-door" / "layer-explanations" / "feat-x"
+        cache_dir.mkdir(parents=True)
+        (cache_dir / "l1.json").write_text("not json", encoding="utf-8")
+        h = GraphHandlers(_ctx(tmp_path))
+        status, body = h.get_layer_explanation(feature_id="feat-x", layer="l1")
+        assert status == 500
+        assert body["error"]["code"] == "explanation_read_error"
+
+
+class TestRunL2GenerateJob:
+    def test_config_error_fails_job(self, tmp_path):
+        from the_door.core.llm.config_manager import ConfigError
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", side_effect=ConfigError("no key")):
+            h._run_l2_generate_job(job, "feat-x", {"nodes": [], "edges": []})
+        assert store.get_job(job.job_id).status == "failed"
+
+    def test_success_completes_job(self, tmp_path):
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with (
+            patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.create_provider", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.L2Generator") as mock_lg,
+            patch("the_door.core.ui.api.handlers.graph.asyncio.run", return_value=None),
+        ):
+            mock_lg.return_value = MagicMock()
+            h._run_l2_generate_job(job, "feat-x", {"nodes": [], "edges": []})
+        assert store.get_job(job.job_id).status == "completed"
+
+    def test_l2_generation_error_fails_job(self, tmp_path):
+        from the_door.core.ui.l2_generator import L2GenerationError
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with (
+            patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.create_provider", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.L2Generator"),
+            patch("the_door.core.ui.api.handlers.graph.asyncio.run", side_effect=L2GenerationError("fail")),
+        ):
+            h._run_l2_generate_job(job, "feat-x", {"nodes": [], "edges": []})
+        assert store.get_job(job.job_id).status == "failed"
+
+    def test_generic_error_fails_job(self, tmp_path):
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with (
+            patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.create_provider", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.L2Generator"),
+            patch("the_door.core.ui.api.handlers.graph.asyncio.run", side_effect=RuntimeError("boom")),
+        ):
+            h._run_l2_generate_job(job, "feat-x", {"nodes": [], "edges": []})
+        assert store.get_job(job.job_id).status == "failed"
+
+
+class TestRunLayerExplanationJob:
+    def test_config_error_fails_job(self, tmp_path):
+        from the_door.core.llm.config_manager import ConfigError
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", side_effect=ConfigError("no key")):
+            h._run_layer_explanation_job(job, "feat-x", "l1")
+        assert store.get_job(job.job_id).status == "failed"
+
+    def test_success_writes_cache_and_completes(self, tmp_path):
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with (
+            patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.create_provider", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.asyncio.run", return_value="some explanation"),
+        ):
+            h._run_layer_explanation_job(job, "feat-x", "l1")
+        assert store.get_job(job.job_id).status == "completed"
+        cache = tmp_path / ".the-door" / "layer-explanations" / "feat-x" / "l1.json"
+        assert cache.exists()
+
+    def test_generic_error_fails_job(self, tmp_path):
+        store = JobStore()
+        job = store.try_create_job()
+        ctx = APIContext(lambda: tmp_path, lambda: store, lambda p, f: {})
+        h = GraphHandlers(ctx)
+        with (
+            patch("the_door.core.ui.api.handlers.graph.ConfigManager.load", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.create_provider", return_value=MagicMock()),
+            patch("the_door.core.ui.api.handlers.graph.asyncio.run", side_effect=RuntimeError("boom")),
+        ):
+            h._run_layer_explanation_job(job, "feat-x", "l1")
+        assert store.get_job(job.job_id).status == "failed"

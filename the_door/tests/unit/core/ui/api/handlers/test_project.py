@@ -78,3 +78,34 @@ class TestSetProject:
         h = ProjectHandlers(_ctx(tmp_path, switch_fn=switch))
         status, body = h.set_project(body={"path": str(tmp_path)})
         assert status == 409
+
+    def test_body_none_returns_400(self, tmp_path):
+        h = ProjectHandlers(_ctx(tmp_path))
+        status, body = h.set_project()
+        assert status == 400
+        assert body["status"] == "error"
+
+    def test_invalid_path_value_returns_400(self, tmp_path):
+        # A non-string truthy path value makes Path() raise -> 400 "路徑格式無效"
+        h = ProjectHandlers(_ctx(tmp_path))
+        status, body = h.set_project(body={"path": {"not": "a string"}})
+        assert status == 400
+        assert body["message"] == "路徑格式無效"
+
+    def test_other_status_returns_400(self, tmp_path):
+        def switch(path, force):
+            return {"status": "rejected", "message": "nope"}
+        h = ProjectHandlers(_ctx(tmp_path, switch_fn=switch))
+        status, body = h.set_project(body={"path": str(tmp_path)})
+        assert status == 400
+        assert body["status"] == "rejected"
+
+
+class TestGetProjectErrorBranch:
+    def test_exception_returns_500(self, tmp_path):
+        (tmp_path / ".the-door").mkdir()
+        h = ProjectHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.project.SnapshotStore", side_effect=RuntimeError("x")):
+            status, body = h.get()
+        assert status == 500
+        assert body["error"]["code"] == "project_read_error"

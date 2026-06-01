@@ -40,6 +40,18 @@ class TestGetNotes:
         assert status == 200
         assert "notes" in body
 
+    def test_current_missing_version_b_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.get_notes(mode="current", feature_id="feat-x", version_a="v1", version_b=None)
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
+    def test_diff_missing_versions_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.get_notes(mode="diff", feature_id="feat-x", version_a="v1", version_b=None)
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
 
 class TestPostNotes:
     def test_missing_mode_returns_400(self, tmp_path):
@@ -63,6 +75,65 @@ class TestPostNotes:
         assert status == 400
         assert body["error"]["code"] == "comment_too_long"
 
+    def test_body_none_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes()
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
+    def test_invalid_mode_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={"mode": "weird", "feature_id": "feat-x"})
+        assert status == 400
+        assert body["error"]["code"] == "invalid_mode"
+
+    def test_empty_comment_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={
+            "mode": "diff", "feature_id": "feat-x",
+            "name_input": "Bob", "comment": "   ",
+            "version_a": "v1", "version_b": "v2",
+        })
+        assert status == 400
+        assert body["error"]["code"] == "empty_comment"
+
+    def test_name_too_long_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={
+            "mode": "diff", "feature_id": "feat-x",
+            "name_input": "x" * 41, "comment": "hi",
+            "version_a": "v1", "version_b": "v2",
+        })
+        assert status == 400
+        assert body["error"]["code"] == "name_too_long"
+
+    def test_baseline_missing_version_a_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={
+            "mode": "baseline", "feature_id": "feat-x",
+            "name_input": "Bob", "comment": "hi",
+        })
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
+    def test_current_missing_version_b_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={
+            "mode": "current", "feature_id": "feat-x",
+            "name_input": "Bob", "comment": "hi",
+        })
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
+    def test_diff_missing_versions_returns_400(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        status, body = h.post_notes(body={
+            "mode": "diff", "feature_id": "feat-x",
+            "name_input": "Bob", "comment": "hi", "version_a": "v1",
+        })
+        assert status == 400
+        assert body["error"]["code"] == "missing_params"
+
     def test_valid_note_returns_201(self, tmp_path):
         h = AnnotationHandlers(_ctx(tmp_path))
         with patch("the_door.core.ui.api.handlers.annotation.NoteStore") as mock_ns:
@@ -85,3 +156,10 @@ class TestDoubts:
             status, body = h.doubts()
         assert status == 200
         assert body["summary"]["total"] == 0
+
+    def test_doubts_exception_returns_500(self, tmp_path):
+        h = AnnotationHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.annotation.DoubtStore", side_effect=RuntimeError("x")):
+            status, body = h.doubts()
+        assert status == 500
+        assert body["error"]["code"] == "doubt_read_error"

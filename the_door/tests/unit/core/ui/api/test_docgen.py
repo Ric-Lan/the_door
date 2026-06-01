@@ -29,3 +29,17 @@ def test_error_doc_covers_every_code():
 def test_every_route_summary_nonempty():
     for rt in _routes():
         assert rt.summary.strip()
+
+
+def test_gen_docs_main_writes_two_files(tmp_path, monkeypatch, capsys):
+    # main() writes to Path("../docs/api") relative to cwd; run it in an isolated
+    # working dir so it never touches the real repo docs.
+    work = tmp_path / "the_door"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    from the_door.core.ui.api import _gen_docs
+    _gen_docs.main()
+    out = capsys.readouterr().out
+    assert "generated 2 docs" in out
+    assert (tmp_path / "docs" / "api" / "ai-agent-api-index.md").exists()
+    assert (tmp_path / "docs" / "api" / "error-codes.md").exists()

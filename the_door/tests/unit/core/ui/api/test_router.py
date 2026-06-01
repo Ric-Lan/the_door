@@ -1,4 +1,4 @@
-from the_door.core.ui.api.router import Router, Route
+from the_door.core.ui.api.router import Router, Route, _handler_file
 
 
 def _ok(ctx, **kw):
@@ -60,3 +60,35 @@ def test_handler_exception_500_with_source_file():
 def test_every_route_has_nonempty_summary():
     for rt in _routes():
         assert rt.summary.strip()
+
+
+def test_handler_file_origin_without_marker(monkeypatch):
+    """When the module's origin lacks the 'the_door/' marker, return origin verbatim."""
+    import importlib
+
+    class _Spec:
+        origin = "/some/other/place/mymod.py"
+
+    class _Mod:
+        __spec__ = _Spec()
+
+    monkeypatch.setattr(importlib, "import_module", lambda name: _Mod())
+
+    def fake_handler():
+        pass
+    fake_handler.__module__ = "mymod"
+    assert _handler_file(fake_handler) == "/some/other/place/mymod.py"
+
+
+def test_handler_file_import_failure_fallback(monkeypatch):
+    """When import_module raises, fall back to the dotted-module path form."""
+    import importlib
+
+    def boom(name):
+        raise ImportError("nope")
+    monkeypatch.setattr(importlib, "import_module", boom)
+
+    def fake_handler():
+        pass
+    fake_handler.__module__ = "pkg.sub.mod"
+    assert _handler_file(fake_handler) == "pkg/sub/mod.py"

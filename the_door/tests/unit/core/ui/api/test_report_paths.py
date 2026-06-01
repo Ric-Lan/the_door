@@ -37,3 +37,17 @@ def test_falls_back_to_mtime_when_no_generated_at(tmp_path):
     os.utime(second, ns=(2_000_000_000, 2_000_000_000))
 
     assert find_latest_report_path(tmp_path) == second
+
+
+def test_falls_back_to_mtime_when_json_corrupt(tmp_path):
+    dot = tmp_path / ".the-door"
+    dot.mkdir()
+    good = dot / "update-report-a.json"
+    bad = dot / "update-report-b.json"
+    good.write_text(json.dumps({"generated_at": "2026-01-01T00:00:00"}), encoding="utf-8")
+    bad.write_text("not valid json", encoding="utf-8")
+    import os
+    os.utime(bad, ns=(2_000_000_000, 2_000_000_000))
+    # The corrupt file hits the except branch -> sorts by mtime (0, ...);
+    # the good file with generated_at sorts as (1, ...) and wins.
+    assert find_latest_report_path(tmp_path) == good

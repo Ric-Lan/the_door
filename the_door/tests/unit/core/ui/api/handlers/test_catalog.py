@@ -75,3 +75,40 @@ class TestReportLatest:
         status, body = h.report_latest()
         assert status == 200
         assert body["generated_at"] == "2024-01-01T00:00:00Z"
+
+    def test_report_parse_error_returns_500(self, tmp_path):
+        dot = tmp_path / ".the-door"; dot.mkdir()
+        # generated_at present so find_latest sorts it, but body is invalid JSON
+        report_file = dot / "update-report-2024-01-01T00-00-00Z.json"
+        report_file.write_text("not json", encoding="utf-8")
+        h = CatalogHandlers(_ctx(tmp_path))
+        status, body = h.report_latest()
+        assert status == 500
+        assert body["error"]["code"] == "report_parse_error"
+
+    def test_report_read_error_returns_500(self, tmp_path):
+        dot = tmp_path / ".the-door"; dot.mkdir()
+        report_file = dot / "update-report-2024-01-01T00-00-00Z.json"
+        report_file.write_text('{"generated_at": "x"}', encoding="utf-8")
+        h = CatalogHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.catalog.find_latest_report_path", return_value=report_file):
+            with patch.object(Path, "read_text", side_effect=OSError("io")):
+                status, body = h.report_latest()
+        assert status == 500
+        assert body["error"]["code"] == "report_read_error"
+
+
+class TestCatalogErrorBranches:
+    def test_snapshots_exception_returns_500(self, tmp_path):
+        h = CatalogHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.catalog.SnapshotStore", side_effect=RuntimeError("x")):
+            status, body = h.snapshots()
+        assert status == 500
+        assert body["error"]["code"] == "snapshot_read_error"
+
+    def test_timeline_exception_returns_500(self, tmp_path):
+        h = CatalogHandlers(_ctx(tmp_path))
+        with patch("the_door.core.ui.api.handlers.catalog.SnapshotStore", side_effect=RuntimeError("x")):
+            status, body = h.timeline()
+        assert status == 500
+        assert body["error"]["code"] == "timeline_error"
