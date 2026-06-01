@@ -44,22 +44,6 @@ ERROR_CODES: dict[str, ErrCode] = {
         desc="An unhandled error occurred in the route handler.",
     ),
 
-    # --- generic server-level codes (legacy server.py) ----------------------
-    "not_found": ErrCode(
-        http=404,
-        file="core/ui/api/router.py",
-        desc="Unknown endpoint.",
-    ),
-    "method_not_allowed": ErrCode(
-        http=405,
-        file="core/ui/api/router.py",
-        desc="HTTP method not allowed.",
-    ),
-    "invalid_json": ErrCode(
-        http=400,
-        file="core/ui/api/router.py",
-        desc="Request body is not valid JSON.",
-    ),
     "missing_params": ErrCode(
         http=400,
         file="core/ui/api/router.py",
@@ -163,6 +147,8 @@ def build_error(
     ``source_file`` defaults to the registry entry's ``file`` marker when not
     supplied explicitly.  ``message`` defaults to the registry ``desc``.
     """
+    if code not in ERROR_CODES:
+        raise ValueError(f"unregistered error code: {code!r}")
     ec = ERROR_CODES[code]
     return ec.http, {
         "error": {
