@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.timeline.timeline_engine import TimelineEngine
 from the_door.core.ui.api.context import APIContext
+from the_door.core.ui.api.report_paths import find_latest_report_path
 from the_door.core.ui.serializers import (
     empty_timeline_result,
     serialize_snapshot,
@@ -60,7 +60,7 @@ class CatalogHandlers:
 
     def report_latest(self, ctx=None, **_) -> tuple[int, dict]:
         """Return the latest UpdateReport JSON."""
-        latest_path = self._find_latest_report_path()
+        latest_path = find_latest_report_path(self._ctx.project_root)
         if latest_path is None:
             return 404, self._make_error(
                 code="no_report_found",
@@ -86,27 +86,6 @@ class CatalogHandlers:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _find_latest_report_path(self) -> Path | None:
-        """Find the newest update-report-*.json by generated_at (fallback: mtime)."""
-        dot_dir = self._ctx.project_root / ".the-door"
-        if not dot_dir.exists():
-            return None
-        candidates = list(dot_dir.glob("update-report-*.json"))
-        if not candidates:
-            return None
-
-        def sort_key(p: Path):
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                val = data.get("generated_at", "")
-                if val:
-                    return (1, val)
-                return (0, p.stat().st_mtime_ns)
-            except Exception:
-                return (0, p.stat().st_mtime_ns)
-
-        return max(candidates, key=sort_key)
 
     @staticmethod
     def _make_error(code: str, message: str, source: str) -> dict:

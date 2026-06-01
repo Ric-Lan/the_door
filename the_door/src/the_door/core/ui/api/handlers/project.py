@@ -10,6 +10,7 @@ from the_door.core.guidance.state import StateInspector, to_json_dict as state_t
 from the_door.core.guidance.suggester import NextActionSuggester
 from the_door.core.scope.doubt_store import DoubtStore
 from the_door.core.ui.api.context import APIContext
+from the_door.core.ui.api.report_paths import find_latest_report_path
 
 
 class ProjectHandlers:
@@ -41,7 +42,7 @@ class ProjectHandlers:
             snapshots = SnapshotStore(self._ctx.project_root).list_snapshots()
             doubts = DoubtStore(self._ctx.project_root).list_doubts()
             has_scope_config = (dot_dir / "scope-config.json").exists()
-            has_latest_report = self._find_latest_report_path() is not None
+            has_latest_report = find_latest_report_path(self._ctx.project_root) is not None
 
             return 200, {
                 "project_path": str(self._ctx.project_root.resolve()),
@@ -105,28 +106,6 @@ class ProjectHandlers:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _find_latest_report_path(self) -> Path | None:
-        """Find the newest update-report-*.json by generated_at (fallback: mtime)."""
-        import json
-        dot_dir = self._ctx.project_root / ".the-door"
-        if not dot_dir.exists():
-            return None
-        candidates = list(dot_dir.glob("update-report-*.json"))
-        if not candidates:
-            return None
-
-        def sort_key(p: Path):
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                val = data.get("generated_at", "")
-                if val:
-                    return (1, val)
-                return (0, p.stat().st_mtime_ns)
-            except Exception:
-                return (0, p.stat().st_mtime_ns)
-
-        return max(candidates, key=sort_key)
 
     @staticmethod
     def _make_error(code: str, message: str, source: str) -> dict:

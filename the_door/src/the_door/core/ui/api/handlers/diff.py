@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
-from pathlib import Path
 
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.guidance.actions import NextAction, to_json_dict as action_to_json
@@ -15,6 +14,7 @@ from the_door.core.llm.config_manager import ConfigManager, ConfigError
 from the_door.core.diff.diff_engine import DiffEngine
 from the_door.core.llm.provider import create_provider
 from the_door.core.ui.api.context import APIContext
+from the_door.core.ui.api.report_paths import find_latest_report_path
 from the_door.models import SnapshotNotFoundError
 
 
@@ -249,7 +249,7 @@ class DiffHandlers:
         self, feature_id: str, baseline_version_id: str, current_version_id: str
     ) -> dict:
         """Return available diff data for the feature from UpdateReport."""
-        latest_path = self._find_latest_report_path()
+        latest_path = find_latest_report_path(self._ctx.project_root)
         if latest_path is None:
             return {}
         try:
@@ -277,26 +277,6 @@ class DiffHandlers:
                     }
                     break
         return context
-
-    def _find_latest_report_path(self) -> Path | None:
-        dot_dir = self._ctx.project_root / ".the-door"
-        if not dot_dir.exists():
-            return None
-        candidates = list(dot_dir.glob("update-report-*.json"))
-        if not candidates:
-            return None
-
-        def sort_key(p: Path):
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                val = data.get("generated_at", "")
-                if val:
-                    return (1, val)
-                return (0, p.stat().st_mtime_ns)
-            except Exception:
-                return (0, p.stat().st_mtime_ns)
-
-        return max(candidates, key=sort_key)
 
     @staticmethod
     def _build_diff_explanation_prompt(

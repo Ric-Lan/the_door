@@ -5,11 +5,10 @@ import json
 import threading
 from pathlib import Path
 
-from the_door.core.guidance.remediation import make_error_envelope
 from the_door.core.pipeline.pipeline_orchestrator import PipelineOrchestrator
 from the_door.core.pipeline.report_renderer import ReportRenderer
 from the_door.core.ui.api.context import APIContext
-from the_door.core.ui.job_store import JobStore, UpdateJob
+from the_door.core.ui.job_store import UpdateJob
 from the_door.models import PipelineConfig
 
 
