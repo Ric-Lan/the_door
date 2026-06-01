@@ -1,6 +1,6 @@
 """Task 05.8 — F3.3 / F3.6 remediation catalogue coverage meta-test.
 
-Pins all four in-scope api_handlers.py error sites against the standard F3
+Pins all four in-scope handler error sites against the standard F3
 envelope shape:
 
     {"error": {"code", "message", "source", "remediation": {...}}}
@@ -15,14 +15,37 @@ from pathlib import Path
 import pytest
 
 from the_door.core.diff.snapshot_store import SnapshotStore
-from the_door.core.ui.api_handlers import APIHandlers
+from the_door.core.ui.api.context import APIContext
+from the_door.core.ui.api.handlers.diff import DiffHandlers
+from the_door.core.ui.api.handlers.graph import GraphHandlers
 from the_door.core.ui.job_store import JobStore
 from the_door.models import FeatureSummary
 from tests._seed_helpers import seed_baseline_snapshot
 
 
-def _make_handlers(project_root: Path) -> APIHandlers:
-    return APIHandlers(project_root=project_root, job_store=JobStore())
+class _HandlersShim:
+    """Thin shim exposing old-style method names for the parametrized meta-test."""
+
+    def __init__(self, project_root: Path) -> None:
+        self._project_root = project_root
+        job_store = JobStore()
+        ctx = APIContext(
+            _project_root_fn=lambda: project_root,
+            _job_store_fn=lambda: job_store,
+            _switch_project_fn=lambda path, force: None,
+        )
+        self._diff = DiffHandlers(ctx)
+        self._graph = GraphHandlers(ctx)
+
+    def handle_diff_versions(self, baseline_id, current_id):
+        return self._diff.versions(baseline=baseline_id, current=current_id)
+
+    def handle_get_l1(self, version_id=None):
+        return self._graph.get_l1(version_id=version_id)
+
+
+def _make_handlers(project_root: Path) -> _HandlersShim:
+    return _HandlersShim(project_root)
 
 
 def _seed_v100_snapshot(project_root: Path):

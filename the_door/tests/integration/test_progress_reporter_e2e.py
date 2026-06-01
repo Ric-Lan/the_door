@@ -35,11 +35,17 @@ def _setup(tmp_path, monkeypatch):
         lambda self, *a, **k: _async_return(empty_result),
     )
 
-    from the_door.core.ui.api_handlers import APIHandlers
+    from the_door.core.ui.api.context import APIContext
+    from the_door.core.ui.api.handlers.analysis import AnalysisHandlers
     from the_door.core.ui.job_store import JobStore
 
     job_store = JobStore()
-    handler = APIHandlers(project_root=tmp_path, job_store=job_store)
+    ctx = APIContext(
+        _project_root_fn=lambda: tmp_path,
+        _job_store_fn=lambda: job_store,
+        _switch_project_fn=lambda path, force: None,
+    )
+    handler = AnalysisHandlers(ctx)
     return handler, job_store
 
 
@@ -47,7 +53,7 @@ def _setup(tmp_path, monkeypatch):
 def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
     handler, job_store = _setup(tmp_path, monkeypatch)
 
-    code, body = handler.handle_post_analyze({})
+    code, body = handler.analyze(body={})
     assert code == 202
     job_id = body["job_id"]
 
@@ -71,14 +77,14 @@ def test_analyze_job_emits_six_step_structure(tmp_path, monkeypatch):
 def test_progress_payload_populated_during_analyze(tmp_path, monkeypatch):
     """Run analyze, fetch status mid-run, assert progress dict present with files_total."""
     handler, store = _setup(tmp_path, monkeypatch)
-    code, body = handler.handle_post_analyze({})
+    code, body = handler.analyze(body={})
     assert code == 202
     job_id = body["job_id"]
 
     # Poll until job completes, checking progress payload along the way
     status = {}
     for _ in range(100):
-        _, status = handler.handle_get_update_status(job_id)
+        _, status = handler.update_status(job_id=job_id)
         if status.get("progress") is not None:
             break
         time.sleep(0.05)

@@ -135,11 +135,18 @@ def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot
     the O2 resolve_baseline → get_snapshot fallback). Baseline uses the
     label "v1.0.0" to prove label resolution works end-to-end.
     """
-    from the_door.core.ui.api_handlers import APIHandlers
+    from the_door.core.ui.api.context import APIContext
+    from the_door.core.ui.api.handlers.diff import DiffHandlers
     from the_door.core.ui.job_store import JobStore
-    handlers = APIHandlers(project_root=project, job_store=JobStore())
-    status, body = handlers.handle_diff_versions(
-        baseline_id="v1.0.0", current_id=new_snapshot.version_id
+    job_store = JobStore()
+    ctx = APIContext(
+        _project_root_fn=lambda: project,
+        _job_store_fn=lambda: job_store,
+        _switch_project_fn=lambda path, force: None,
+    )
+    handlers = DiffHandlers(ctx)
+    status, body = handlers.versions(
+        baseline="v1.0.0", current=new_snapshot.version_id
     )
     assert status == 200, body
     assert body["baseline_label"] == "v1.0.0"

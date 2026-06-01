@@ -12,7 +12,7 @@ import json
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from the_door.core.ui.api_handlers import APIHandlers
+from the_door.core.ui.api.handlers.analysis import AnalysisHandlers
 from the_door.core.ui.serializers import (
     empty_timeline_result,
     serialize_doubt,
@@ -204,7 +204,7 @@ def test_prop_update_report_round_trip(report):
 )
 def test_prop_api_error_response_structure(code, message, source):
     """Any (code, message, source) → _make_error() → error.code/message/source are non-empty strings."""
-    result = APIHandlers._make_error(code=code, message=message, source=source)
+    result = AnalysisHandlers._make_error(code=code, message=message, source=source)
     assert "error" in result
     error = result["error"]
     assert isinstance(error["code"], str) and len(error["code"]) > 0

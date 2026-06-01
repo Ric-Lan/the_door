@@ -14,8 +14,8 @@ from the_door.core.ui.job_store import UpdateJob
 
 
 def _adapter_for(job):
-    """Reach into api_handlers to build adapter; expose helper."""
-    from the_door.core.ui.api_handlers import _make_analyze_progress_adapter
+    """Reach into analysis handlers to build adapter; expose helper."""
+    from the_door.core.ui.api.handlers.analysis import _make_analyze_progress_adapter
     return _make_analyze_progress_adapter(job)
 
 

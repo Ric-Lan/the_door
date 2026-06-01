@@ -42,7 +42,7 @@ def running_server(tmp_path):
 
 def test_post_api_analyze_returns_202(running_server):
     port = running_server
-    with patch("the_door.core.ui.api_handlers.APIHandlers._run_analyze_job"):
+    with patch("the_door.core.ui.api.handlers.analysis.AnalysisHandlers._run_analyze_job"):
         conn = HTTPConnection("127.0.0.1", port)
         body = json.dumps({}).encode()
         conn.request("POST", "/api/analyze", body=body,
