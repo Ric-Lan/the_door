@@ -17,7 +17,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from the_door.core.ui.api_handlers import APIHandlers
+from the_door.core.ui.api import APIContext, Router, build_routes
+from the_door.core.ui.api.handlers.analysis import AnalysisHandlers
+from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
+from the_door.core.ui.api.handlers.catalog import CatalogHandlers
+from the_door.core.ui.api.handlers.diff import DiffHandlers
+from the_door.core.ui.api.handlers.graph import GraphHandlers
+from the_door.core.ui.api.handlers.project import ProjectHandlers
 from the_door.core.ui.job_store import JobStore
 from the_door.core.ui.static_handler import StaticHandler
 
@@ -43,11 +49,20 @@ class UIServer:
         # Shared state passed to request handler via closure
         self._job_store = JobStore()
         self._switch_lock = threading.Lock()
-        self._api_handlers = APIHandlers(
-            project_root_fn=lambda: self._project_root,
-            job_store_fn=lambda: self._job_store,
-            switch_project_fn=self._switch_project,
+        ctx = APIContext(
+            lambda: self._project_root,
+            lambda: self._job_store,
+            self._switch_project,
         )
+        routes = build_routes(
+            ProjectHandlers(ctx),
+            AnalysisHandlers(ctx),
+            CatalogHandlers(ctx),
+            GraphHandlers(ctx),
+            DiffHandlers(ctx),
+            AnnotationHandlers(ctx),
+        )
+        self._router = Router(ctx, routes)
         self._static_handler = StaticHandler(viewer_dir=viewer_dir)
 
     def start(self) -> None:
@@ -55,15 +70,15 @@ class UIServer:
 
         Raises OSError (errno.EADDRINUSE) if port is already in use.
         """
-        api_handlers = self._api_handlers
+        router = self._router
         static_handler = self._static_handler
 
         class _RequestHandler(BaseHTTPRequestHandler):
             def do_GET(self):
-                _handle_get(self, api_handlers, static_handler)
+                _handle_get(self, router, static_handler)
 
             def do_POST(self):
-                _handle_post(self, api_handlers)
+                _handle_post(self, router)
 
             def log_message(self, format, *args):  # noqa: A002
                 pass  # Suppress server log output to avoid polluting CLI
@@ -113,109 +128,40 @@ class UIServer:
 # Request handling functions (module-level for clarity)
 # ---------------------------------------------------------------------------
 
-# API endpoints and their allowed methods
-_API_ROUTES: dict[str, str] = {
-    "/api/project": "GET",
-    "/api/snapshots": "GET",
-    "/api/report/latest": "GET",
-    "/api/update": "POST",
-    "/api/analyze": "POST",
-    "/api/set-project": "POST",
-    "/api/doubts": "GET",
-    "/api/timeline": "GET",
-    "/api/l1": "GET",
-    "/api/diff": "GET",
-    "/api/status": "GET",
-    "/api/structure": "GET",
-    "/api/notes": "GET",
+# Router-generic error codes are remapped to the legacy bare codes that the
+# HTTP surface has always exposed (the router's own unit tests pin the
+# "router.*" forms; the HTTP contract pins the bare forms).
+_ROUTER_ERROR_ALIASES: dict[str, str] = {
+    "router.no_route": "not_found",
+    "router.method_not_allowed": "method_not_allowed",
+    "router.invalid_json": "invalid_json",
 }
+
+
+def _alias_router_error(body: dict) -> dict:
+    """Remap router-generic error codes back to the legacy HTTP error codes."""
+    err = body.get("error") if isinstance(body, dict) else None
+    if isinstance(err, dict):
+        alias = _ROUTER_ERROR_ALIASES.get(err.get("code"))
+        if alias is not None:
+            err["code"] = alias
+    return body
 
 
 def _handle_get(
     handler: BaseHTTPRequestHandler,
-    api_handlers: APIHandlers,
+    router: Router,
     static_handler: StaticHandler,
 ) -> None:
     """Route GET requests."""
-    parsed_url = urlparse(handler.path)
-    path = parsed_url.path
-    query_params = parse_qs(parsed_url.query)
+    parsed = urlparse(handler.path)
+    path = parsed.path
 
     if path.startswith("/api/"):
-        # Check method is allowed for static routes
-        allowed = _API_ROUTES.get(path)
-        # Determine if path matches a known dynamic GET pattern
-        parts = path.split("/")  # e.g. ['', 'api', 'l2', '<feature_id>']
-        is_dynamic_get = (
-            path.startswith("/api/update/status/")
-            or (len(parts) == 4 and parts[1] == "api" and parts[2] == "l2")
-            or (len(parts) == 5 and parts[1] == "api" and parts[2] == "layer-explanation")
-            or (len(parts) == 4 and parts[1] == "api" and parts[2] == "diff-explanations")
-        )
-        if allowed is None and not is_dynamic_get:
-            _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
-            return
-        if allowed == "POST":
-            _send_api_error(handler, 405, "method_not_allowed", "Method not allowed", path)
-            return
-
-        # Route to appropriate handler
-        if path == "/api/project":
-            status, body = api_handlers.handle_get_project()
-        elif path == "/api/snapshots":
-            status, body = api_handlers.handle_get_snapshots()
-        elif path == "/api/report/latest":
-            status, body = api_handlers.handle_get_report_latest()
-        elif path == "/api/doubts":
-            status, body = api_handlers.handle_get_doubts()
-        elif path == "/api/timeline":
-            status, body = api_handlers.handle_get_timeline()
-        elif path == "/api/l1":
-            version_id = query_params.get("version_id", [None])[0]
-            status, body = api_handlers.handle_get_l1(version_id=version_id)
-        elif path == "/api/diff":
-            baseline_id = query_params.get("baseline", [None])[0]
-            current_id = query_params.get("current", [None])[0]
-            if not baseline_id or not current_id:
-                _send_api_error(handler, 400, "missing_params", "baseline and current query params required", path)
-                return
-            status, body = api_handlers.handle_diff_versions(baseline_id, current_id)
-        elif path == "/api/status":
-            status, body = api_handlers.handle_get_status()
-        elif path == "/api/structure":
-            status, body = api_handlers.handle_get_structure()
-        elif path == "/api/notes":
-            mode = query_params.get("mode", [None])[0]
-            feature_id = query_params.get("feature_id", [None])[0]
-            version_a = query_params.get("version_a", [None])[0]
-            version_b = query_params.get("version_b", [None])[0]
-            status, body = api_handlers.handle_get_notes(mode, feature_id, version_a, version_b)
-        elif path.startswith("/api/update/status/"):
-            job_id = path[len("/api/update/status/"):]
-            status, body = api_handlers.handle_get_update_status(job_id)
-        elif len(parts) == 4 and parts[1] == "api" and parts[2] == "l2":
-            # /api/l2/<feature_id>
-            feature_id = parts[3]
-            status, body = api_handlers.handle_get_l2(feature_id)
-        elif len(parts) == 5 and parts[1] == "api" and parts[2] == "layer-explanation":
-            # /api/layer-explanation/<feature_id>/<layer>
-            feature_id = parts[3]
-            layer = parts[4]
-            status, body = api_handlers.handle_get_layer_explanation(feature_id, layer)
-        elif len(parts) == 4 and parts[1] == "api" and parts[2] == "diff-explanations":
-            # GET /api/diff-explanations/<feature_id>
-            feature_id = parts[3]
-            baseline_version_id = query_params.get("baseline_version_id", [None])[0]
-            current_version_id = query_params.get("current_version_id", [None])[0]
-            output_language = query_params.get("output_language", [None])[0]
-            status, body = api_handlers.handle_get_diff_explanation(
-                feature_id, baseline_version_id, current_version_id, output_language
-            )
-        else:
-            _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
-            return
-
-        _send_json(handler, status, body)
+        query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+        status, body = router.dispatch("GET", path, raw_body=b"", query=query)
+        _send_json(handler, status, _alias_router_error(body))
+        return
     else:
         # Static file serving
         status, content_type, body_bytes = static_handler.serve(path)
@@ -228,117 +174,21 @@ def _handle_get(
 
 def _handle_post(
     handler: BaseHTTPRequestHandler,
-    api_handlers: APIHandlers,
+    router: Router,
 ) -> None:
     """Route POST requests."""
-    path = handler.path.split("?")[0]
+    parsed = urlparse(handler.path)
+    path = parsed.path
 
     if not path.startswith("/api/"):
         _send_api_error(handler, 404, "not_found", f"Unknown endpoint: {path}", path)
         return
 
-    # /api/notes supports both GET and POST
-    if path == "/api/notes":
-        content_length = int(handler.headers.get("Content-Length", 0))
-        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
-        try:
-            body = json.loads(raw_body) if raw_body else {}
-        except json.JSONDecodeError:
-            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
-            return
-        status, response_body = api_handlers.handle_post_notes(body)
-        _send_json(handler, status, response_body)
-        return
-
-    # Check method is allowed for static routes
-    allowed = _API_ROUTES.get(path)
-    if allowed == "GET":
-        _send_api_error(handler, 405, "method_not_allowed", "Method not allowed", path)
-        return
-
-    if path == "/api/set-project":
-        content_length = int(handler.headers.get("Content-Length", 0))
-        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
-        try:
-            body = json.loads(raw_body) if raw_body else {}
-        except json.JSONDecodeError:
-            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
-            return
-        status, response_body = api_handlers.handle_post_set_project(body)
-        _send_json(handler, status, response_body)
-        return
-
-    if path == "/api/analyze":
-        content_length = int(handler.headers.get("Content-Length", 0))
-        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
-        try:
-            body = json.loads(raw_body) if raw_body else {}
-        except json.JSONDecodeError:
-            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
-            return
-        status, response_body = api_handlers.handle_post_analyze(body)
-        _send_json(handler, status, response_body)
-        return
-
-    if path == "/api/update":
-        # Parse JSON body
-        content_length = int(handler.headers.get("Content-Length", 0))
-        raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
-        try:
-            body = json.loads(raw_body) if raw_body else {}
-        except json.JSONDecodeError:
-            _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
-            return
-
-        status, response_body = api_handlers.handle_post_update(body)
-        _send_json(handler, status, response_body)
-    else:
-        # Check dynamic POST routes
-        parts = path.split("/")  # e.g. ['', 'api', 'l2', '<feature_id>', 'generate']
-        if (
-            len(parts) == 5
-            and parts[1] == "api"
-            and parts[2] == "l2"
-            and parts[4] == "generate"
-        ):
-            # /api/l2/<feature_id>/generate
-            feature_id = parts[3]
-            status, response_body = api_handlers.handle_post_l2_generate(feature_id)
-            _send_json(handler, status, response_body)
-        elif (
-            len(parts) == 6
-            and parts[1] == "api"
-            and parts[2] == "layer-explanation"
-            and parts[5] == "generate"
-        ):
-            # /api/layer-explanation/<feature_id>/<layer>/generate
-            feature_id = parts[3]
-            layer = parts[4]
-            status, response_body = api_handlers.handle_post_layer_explanation_generate(
-                feature_id, layer
-            )
-            _send_json(handler, status, response_body)
-        elif (
-            len(parts) == 5
-            and parts[1] == "api"
-            and parts[2] == "diff-explanations"
-            and parts[4] == "generate"
-        ):
-            # POST /api/diff-explanations/<feature_id>/generate
-            feature_id = parts[3]
-            content_length = int(handler.headers.get("Content-Length", 0))
-            raw_body = handler.rfile.read(content_length) if content_length > 0 else b""
-            try:
-                post_body = json.loads(raw_body) if raw_body else {}
-            except json.JSONDecodeError:
-                _send_api_error(handler, 400, "invalid_json", "Request body is not valid JSON", path)
-                return
-            status, response_body = api_handlers.handle_post_diff_explanation_generate(
-                feature_id, post_body
-            )
-            _send_json(handler, status, response_body)
-        else:
-            _send_api_error(handler, 405, "method_not_allowed", "Method not allowed", path)
+    length = int(handler.headers.get("Content-Length", 0))
+    raw = handler.rfile.read(length) if length > 0 else b""
+    query = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+    status, body = router.dispatch("POST", path, raw_body=raw, query=query)
+    _send_json(handler, status, _alias_router_error(body))
 
 
 def _send_json(handler: BaseHTTPRequestHandler, status: int, body: dict) -> None:

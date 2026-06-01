@@ -29,6 +29,12 @@ class DiffHandlers:
     def versions(self, ctx=None, *, baseline=None, current=None, **_) -> tuple[int, dict]:
         """GET /api/diff — compute L1 diff between two snapshots."""
         baseline_id, current_id = baseline, current
+        if not baseline_id or not current_id:
+            return 400, self._make_error(
+                "missing_params",
+                "baseline and current query params required",
+                "/api/diff",
+            )
         try:
             store = SnapshotStore(self._ctx.project_root)
             baseline_snap = self._resolve_snapshot(store, baseline_id)

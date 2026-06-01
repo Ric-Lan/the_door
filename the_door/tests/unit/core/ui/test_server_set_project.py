@@ -63,8 +63,8 @@ def test_switch_project_api_handlers_sees_new_root(tmp_path):
     new_path = tmp_path / "new_project"
     new_path.mkdir()
     server._switch_project(new_path, force=False)
-    # APIHandlers uses lambda — must return new path
-    assert server._api_handlers._project_root == new_path
+    # Router's APIContext uses a lambda over self._project_root — must return new path
+    assert server._router._ctx.project_root == new_path
 
 
 # ------------------------------------------------------------------
