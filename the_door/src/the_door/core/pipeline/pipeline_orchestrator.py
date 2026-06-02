@@ -152,143 +152,97 @@ class PipelineOrchestrator:
             f"（舊版 {old_file_count} 個檔案 + 新版 {new_file_count} 個檔案）"
         )
 
-        # ── Pipeline execution ───────────────────────────────────────
+        # ── Pipeline state (accumulated as steps complete) ───────────
         pipeline_start = time.monotonic()
         steps: list[PipelineStep] = []
         old_analyze_result: AnalyzeResult | None = None
         new_analyze_result: AnalyzeResult | None = None
+        old_snapshot: VersionSnapshot | None = None
+        new_snapshot: VersionSnapshot | None = None
         diff_result: DiffResult | None = None
         scope_result: ScopeResult | None = None
         timeline_result: TimelineResult | None = None
 
+        def _running(step_num: int, name: str) -> None:
+            progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：{name}...")
+
+        def _partial(was_interrupted: bool) -> PipelineResult:
+            """Skip all remaining steps and build the partial result from the
+            live accumulator locals. The only per-site variation is the
+            interrupted flag (True for SIGINT guards, current value for an
+            analyze failure)."""
+            steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
+            return self._build_result(
+                config, steps, old_snapshot, new_snapshot,
+                diff_result, scope_result, timeline_result,
+                old_analyze_result, new_analyze_result,
+                pipeline_start, was_interrupted,
+            )
+
         try:
             # ── Step 1: analyze_old ──────────────────────────────────
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, None, None, None, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 1
-            progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：analyze_old...")
+                return _partial(True)
+            _running(1, "analyze_old")
             step, old_analyze_result = self._run_analyze_step(
                 config.old_path, "analyze_old", config, reporter=rep,
             )
             steps.append(step)
-            self._report_step_done(progress, step_num, step)
-
+            self._report_step_done(progress, 1, step)
             if step.status == "failed":
-                # analyze failure → terminate
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, None, None, None, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, interrupted,
-                )
+                return _partial(interrupted)
+            old_snapshot = old_analyze_result.snapshot
 
             # ── Step 2: analyze_new ──────────────────────────────────
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps,
-                    old_analyze_result.snapshot if old_analyze_result else None,
-                    None, None, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 2
-            progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：analyze_new...")
+                return _partial(True)
+            _running(2, "analyze_new")
             step, new_analyze_result = self._run_analyze_step(
                 config.new_path, "analyze_new", config, reporter=rep,
             )
             steps.append(step)
-            self._report_step_done(progress, step_num, step)
-
+            self._report_step_done(progress, 2, step)
             if step.status == "failed":
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps,
-                    old_analyze_result.snapshot if old_analyze_result else None,
-                    None, None, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, interrupted,
-                )
-
-            old_snapshot = old_analyze_result.snapshot
+                return _partial(interrupted)
             new_snapshot = new_analyze_result.snapshot
 
             # ── Step 3: diff ─────────────────────────────────────────
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, old_snapshot, new_snapshot,
-                    None, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 3
-            progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：diff...")
+                return _partial(True)
+            _running(3, "diff")
             step, diff_result = self._run_diff_step(old_snapshot, new_snapshot)
             steps.append(step)
-            self._report_step_done(progress, step_num, step)
+            self._report_step_done(progress, 3, step)
 
-            # ── Step 4: scope_verify ─────────────────────────────────
+            # ── Step 4: scope_verify (optional) ──────────────────────
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, old_snapshot, new_snapshot,
-                    diff_result, None, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 4
+                return _partial(True)
             if config.scope_name is None:
                 steps.append(PipelineStep(step_name="scope_verify", status="skipped"))
-                progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] ⊘ scope_verify（已跳過：未指定 scope）")
+                progress(f"[步驟 4/{_TOTAL_STEPS}] ⊘ scope_verify（已跳過：未指定 scope）")
             else:
-                progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：scope_verify...")
+                _running(4, "scope_verify")
                 step, scope_result = self._run_scope_step(
                     config.scope_name, config.new_path, new_analyze_result.l1_output,
                 )
                 steps.append(step)
-                self._report_step_done(progress, step_num, step)
+                self._report_step_done(progress, 4, step)
 
-            # ── Step 5: timeline ─────────────────────────────────────
+            # ── Step 5: timeline (optional) ──────────────────────────
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, old_snapshot, new_snapshot,
-                    diff_result, scope_result, None,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 5
+                return _partial(True)
             if config.skip_timeline:
                 steps.append(PipelineStep(step_name="timeline", status="skipped"))
-                progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] ⊘ timeline（已跳過）")
+                progress(f"[步驟 5/{_TOTAL_STEPS}] ⊘ timeline（已跳過）")
             else:
-                progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] 正在執行：timeline...")
+                _running(5, "timeline")
                 step, timeline_result = self._run_timeline_step(config.new_path)
                 steps.append(step)
-                self._report_step_done(progress, step_num, step)
+                self._report_step_done(progress, 5, step)
 
             # ── Step 6: report (placeholder — actual rendering is external) ──
             if interrupted:
-                steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))
-                return self._build_result(
-                    config, steps, old_snapshot, new_snapshot,
-                    diff_result, scope_result, timeline_result,
-                    old_analyze_result, new_analyze_result,
-                    pipeline_start, True,
-                )
-
-            step_num = 6
+                return _partial(True)
             report_start = time.monotonic()
             report_started_at = _now_iso()
             # Report step is a marker — actual rendering happens in CLI/MCP layer
@@ -299,7 +253,7 @@ class PipelineOrchestrator:
                 completed_at=_now_iso(),
                 duration_ms=_elapsed_ms(report_start),
             ))
-            progress(f"[步驟 {step_num}/{_TOTAL_STEPS}] ✓ report（耗時 0.0s）")
+            progress(f"[步驟 6/{_TOTAL_STEPS}] ✓ report（耗時 0.0s）")
 
             result = self._build_result(
                 config, steps, old_snapshot, new_snapshot,
@@ -310,7 +264,6 @@ class PipelineOrchestrator:
 
             # ── Summary ──────────────────────────────────────────────
             self._report_summary(progress, result)
-
             return result
 
         finally:
