@@ -91,5 +91,5 @@
 - [❌] ~~T1 guidance dead-code~~ — **2026-06-02 證偽、關閉**（guidance 是活碼，無死碼可刪）
 - [ ] T2 models.py 套件化（需獨立 spec；size 依據 2026-06-02 已重驗）
 - [ ] T3 report_renderer 長函式（901 行 ✓ 已重驗）
-- [ ] T4 pipeline_orchestrator 長函式（724 行 ✓ 已重驗）
+- [x] T4 pipeline_orchestrator 長函式 — 已實作（run() 拉直：8 提早離場收斂為單一 _partial 閉包）
 - [ ] T5 store 內部整理（snapshot_store 522 / doubt_store 534 ✓ 已重驗）

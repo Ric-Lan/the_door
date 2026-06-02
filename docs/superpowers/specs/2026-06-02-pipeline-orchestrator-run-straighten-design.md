@@ -1,6 +1,6 @@
 # 第二刀 · `pipeline_orchestrator.run()` 長函式拉直 — 設計
 
-> **日期**：2026-06-02　**狀態**：設計核准、待寫 plan
+> **日期**：2026-06-02　**狀態**：已實作（plan: docs/superpowers/plans/2026-06-02-pipeline-orchestrator-run-straighten/）
 > **這刀做什麼（一句話）**：把 `PipelineOrchestrator.run()`（~220 行、6 次重複中斷守衛）
 > 在**行為完全不變**前提下拉直成一條乾淨的線性序列（~80 行）。
 > **這刀不做什麼**：不改 `_build_result` 簽名、不碰 `_try_cached_analyze`、不做 step 分發引擎。
