@@ -26,6 +26,8 @@
 - **子模組內維持 `models.py` 的相對定義順序**（spec §6.3：`default_factory=<裸類別名>` 在 class 定義期求值，被引用者須先定義）。
 - 不為資料契約引入抽象介面（spec §8.1 SAP）。
 - 不改任何其他 `.py`（門面保證消費端零改）。
+- **檔案邊界 = spec §5.1 對照表（10 子模組）為唯一真相；不得自行合併/拆分任何子模組**（含 `config.py` 維持獨立，見 spec §8.2 鎖定裁定）。
+- **本刀為維護性刀、執行期資源中性**（eager 門面、不採 lazy）；**產出不得宣稱效能/資源收益**（spec §1.2.1）。
 
 **依賴脊椎（本質結構，須保留）**：`vulnerability → snapshot → diff → pipeline`；其餘 7 領域為 L0 孤島。安全建檔順序（拓樸序）：先 L0（extraction/analysis/config/vulnerability/scope/doubt/timeline），再 snapshot → diff → pipeline。
 
