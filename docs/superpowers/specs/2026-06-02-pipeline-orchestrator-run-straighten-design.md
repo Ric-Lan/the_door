@@ -63,9 +63,12 @@
 ### 2.4 其他已驗證的不變量
 
 - 8 個提早離場（#1–#8）**全都**先 `steps.extend(self._skip_remaining(_STEP_DEFS, len(steps)))` 再 `_build_result`，`_skip_remaining` 參數一致 ⇒ 可安全統一。
-- **只有 analyze_old / analyze_new 兩步會「失敗即終止」**；diff / scope / timeline 失敗**不終止**（標 failed 繼續，符合檔頭 docstring 14–16 行）。run() 在 diff/scope/timeline 後**沒有** `status == "failed"` 守衛。
+- **只有 analyze_old / analyze_new 兩步會「失敗即終止」**；diff / scope / timeline 失敗**不終止**（標 failed 繼續，符合檔頭 docstring 14–16 行）。run() 在 diff/scope/timeline 後**沒有** `status == "failed"` 守衛。（grep 註：`status == "failed"` 在檔內另有 658 / 672 行，但屬 `_report_step_done` / `_report_summary`，**不在 run() 內**，不計入。）
 - 正常完成（#9）的 `_build_result` 傳的是 **`interrupted` 變數**（非字面 False）：若 SIGINT 在最後一個守衛（282）之後、step 6 執行期間到達，最終結果的 `interrupted` 會是 `True`。**這條路徑要保留。**
-- `run()` 用 `try/finally`（316–319）還原原本的 SIGINT handler，且 handler **只在 main thread 安裝**（143–145）。重構須完整保留 try/finally 與 main-thread 判斷。
+- **step 6（report）結構與前 5 步不同**：它**不呼叫 `_run_*_step`**，而是 281–301 行**內聯**附加一個 `PipelineStep(step_name="report", status="completed", …)` marker（含 `report_start` / `report_started_at` 計時），實際渲染在外層 CLI/MCP。⇒ §5 的「統一膠水」**不得**把 step 6 硬套進前 5 步的 `_run_X_step` 形狀。
+- **`_report_summary`（312 行）只在正常完成（#9）路徑呼叫**；8 條提早離場（#1–#8）**都不發 summary**。這是經由 `progress` callback 可觀察的行為差異，重構須保留「早退不發 summary、正常完成才發」。
+- `run()` 的 SIGINT 還原用 **try（164 行）/ finally（316–319 行）**：finally 內 `signal.signal(SIGINT, original_handler)` 還原原 handler，且 handler **只在 main thread 安裝**（144–145 行 `if on_main_thread:`）。重構須完整保留 try/finally 結構與 main-thread 判斷。
+- **第 10 條離場（不在 9 個 `_build_result` 內）**：`_validate_paths(config)`（132 行，在 164 行 try **之前**）路徑驗證失敗會 **raise `PipelineError`** 並向外傳遞，不產生 `PipelineResult`。此呼叫位置與行為**原樣保留**，不屬本刀拉直範圍；Phase A 若既有測試已涵蓋則不需重補（plan 確認）。
 
 ### 2.5 安全網現況（為何 Phase A 是真需求，非儀式）
 
@@ -135,6 +138,8 @@
 3. **統一步驟膠水（輕量、有界）**：把每步重複的「報進度 announce → `_report_step_done`」記帳收斂（例如一個 `_announce`/`_report` 小 helper 或一致內聯形狀）。
    - **邊界**：各步的 `self._run_X_step(...)` 呼叫**保持顯式、各自具名參數**（analyze/diff/scope/timeline 參數異質）。**不得**抽象成「吃 callable 的通用 step runner」或 step 定義表迴圈——那會滑向被否決的分發引擎。
    - scope（無 `scope_name` 則 skipped）與 timeline（`skip_timeline` 則 skipped）的條件分支**保留語意**。
+   - **step 6（report）不納入 `_run_X_step` 形狀的統一**（見 §2.4）：它是內聯 marker append，膠水統一最多套用其 announce/計時記帳，**不得**為了一致性硬造一個 `_run_report_step`。
+   - 正常完成路徑末端的 `self._report_summary(progress, result)`（312 行）**只在 #9 呼叫**，早退路徑不呼叫——保留此不對稱（見 §2.4）。
 
 4. **`_build_result` 簽名不動**（決策）：§2.3 證明 snapshot 參數技術上冗餘（恆可從 analyze_result 導出），但收斂它**對 run() 可讀性幾無貢獻**（run() 只是傳 locals），卻要改 internal helper 簽名 + 9 個呼叫點、擴大改動面換邊際效益 ⇒ 判定為**過度設計/資源浪費，砍掉**。`run()` 以提頂 locals 呼叫現有 `_build_result`。
 
