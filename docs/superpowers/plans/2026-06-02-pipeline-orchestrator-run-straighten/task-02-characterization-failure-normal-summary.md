@@ -201,7 +201,7 @@ Run（cwd = `the_door/`）：
 ```
 PYTHONUTF8=1 python -m pytest tests/unit/core/pipeline/test_pipeline_orchestrator_run_paths.py -v
 ```
-Expected: **11 passed**（task-01 的 6 條中斷 + 本任務 5 條）。
+Expected: **12 passed**（task-01 的 6 條中斷 + 本任務 6 條）。
 若 FAIL，停下檢查對現行行為的假設，不要改 src。
 
 - [ ] **Step 4: Commit**

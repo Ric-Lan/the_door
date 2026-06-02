@@ -8,7 +8,7 @@
 **Files:**
 - Modify: `the_door/src/the_door/core/pipeline/pipeline_orchestrator.py`（整個 `run()` 方法，現約 102–319 行）
 
-**前置**：Task 01–02 的 11 條刻畫測試已 commit 並全綠。
+**前置**：Task 01–02 的 12 條刻畫測試已 commit 並全綠。
 
 **關鍵等價性（務必理解再動）**：因 `_run_analyze_step` 失敗回 `(step, None)`，把 `old_snapshot = old_analyze_result.snapshot` 移到「analyze_old 失敗檢查**通過後**」賦值，可讓失敗時 `old_snapshot` 維持 `None`、成功後等於 `result.snapshot` —— 與現行每個離場點傳的值逐點一致。`new_snapshot` 同理。`_partial` 閉包讀「當下 locals」，於各守衛點自動得到正確子集。
 
@@ -200,7 +200,7 @@ Run（cwd = `the_door/`）：
 ```
 PYTHONUTF8=1 python -m pytest tests/unit/core/pipeline/test_pipeline_orchestrator_run_paths.py -v
 ```
-Expected: **11 passed**（與 Task 02 後相同）。
+Expected: **12 passed**（與 Task 02 後相同）。
 若任何一條 FAIL → 拉直破壞了該離場路徑的行為，**回頭比對該路徑的 snapshot/result/steps 與 `_partial` 讀到的 locals**，修到綠。不可改測試來迎合。
 
 - [ ] **Step 3: 跑既有 orchestrator 相關測試（確認沒踩到 reporter/cache 行為）**

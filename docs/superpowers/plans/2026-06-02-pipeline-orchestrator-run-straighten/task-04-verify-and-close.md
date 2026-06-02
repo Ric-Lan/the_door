@@ -81,7 +81,7 @@ git commit -m "docs: mark T4 (run straighten) implemented"
 
 本刀完成。回報：
 - `self._build_result(` 9 → 2、`self._skip_remaining(` 8 → 1；
-- 11 條刻畫測試 + 既有 pipeline 測試全綠、全套件零回歸、覆蓋不降；
+- 12 條刻畫測試 + 既有 pipeline 測試全綠、全套件零回歸、覆蓋不降；
 - `_build_result` 簽名與 `_try_cached_analyze` 未動。
 
 接著等使用者決定 merge（依偏好：本地 merge、不主動 push）。後續可動 backlog 的 **T2（models.py 套件化，需獨立 spec）**。
