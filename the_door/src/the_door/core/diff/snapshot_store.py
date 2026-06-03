@@ -33,6 +33,27 @@ from the_door.models import (
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Schema loading — same pattern as core/scope/doubt_store.py
+# ---------------------------------------------------------------------------
+_SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent.parent / "schemas"
+_SNAPSHOT_SCHEMA_PATH = _SCHEMAS_DIR / "snapshot.schema.json"
+_snapshot_schema: dict | None = None
+
+
+def _load_snapshot_schema() -> dict:
+    """Load the snapshot JSON schema."""
+    with open(_SNAPSHOT_SCHEMA_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _get_snapshot_schema() -> dict:
+    """Return the cached snapshot schema, loading on first access."""
+    global _snapshot_schema  # noqa: PLW0603
+    if _snapshot_schema is None:
+        _snapshot_schema = _load_snapshot_schema()
+    return _snapshot_schema
+
 
 @dataclass(frozen=True)
 class SnapshotEntry:
