@@ -177,11 +177,14 @@ def _resolve_baseline(store: SnapshotStore, baseline_ref: str) -> VersionSnapsho
 
 **(d) 不改碼者**：`cli/diff_cmd.py`、`cli/extract_cmd.py`、`mcp/diff_tool.py`、`mcp/analyze_changes_tool.py` 維持單一 `resolve_baseline` 呼叫，行為自動擴成接受 UUID（嚴格超集）。
 
+**(e) 內部呼叫端 `patch_snapshot`（snapshot_store.py:234）**：委派 `resolve_baseline`，B 下一併繼承 version_id 超集，**無需改碼、無測試影響**（已驗：patch 測試全用 label `"v1.0.0"`，`test_patch_unknown_version_ref_raises` 用 `"v-nonexistent"` 在 B 下仍 raise）。
+
 ### §4.4 測試遷移（B 的必要連動）
 
 - **刪除** `tests/unit/core/ui/api/handlers/test_diff.py::test_resolve_falls_back_to_get_snapshot`（line 86-95）：它專測被移除的消費者層 get_snapshot 後援。其守護行為（UUID 解析）下移 resolver，由 §6 新測試覆蓋。
 - `test_diff.py` 的 `test_baseline_not_found_returns_404`(19)、`test_current_not_found_returns_404`(28)：**不改**仍綠（mock `resolve_baseline` 回 `None`，新 adapter 對 None 回 None → 404；`get_snapshot` mock 設定變死碼但無害）。
 - scenario `tests/scenario/test_v105_incremental_flow.py:130`（current 端傳 raw version_id）：**不改斷言、仍綠**（version_id 改由統一 resolver 解）；更新 line 135 stale 註解「→ get_snapshot fallback」為「→ unified BaselineResolver (version_id grammar)」。
+- **§4.3(b) snapshot_write 收斂的安全網（必盯、不改、B 下仍綠）**：`tests/unit/mcp/test_snapshot_write_inherit.py`（`inherit_from=<version_id>` ×6：58/71/90/108/128/147）、`tests/integration/test_mcp_flow_guard.py:85`、`tests/contract/test_flow_guard_contract.py:89`。它們今天靠被移除的 get_snapshot 後援才綠；B 下改靠 `resolve_baseline` 的 version_id 分支才綠（§4.1）。**故 (b) 的 fallback 移除必須與 version_id 分支同刀落地**，否則這些測試紅。
 
 ---
 
@@ -206,7 +209,7 @@ def _resolve_baseline(store: SnapshotStore, baseline_ref: str) -> VersionSnapsho
 
 **整合層（證 B 行為擴張）：** `SnapshotStore.resolve_baseline(<version_id>)` 回該 snapshot（證 §2.3 那 4 個舊拒 UUID 入口現已支援）。
 
-**回歸：** 全套件零回歸（基準＝當下 main）；§4.4 的刪除/註解更新後綠。
+**回歸：** 全套件零回歸（基準＝當下 main）；§4.4 的刪除/註解更新後綠。**消費者收斂的既有安全網**（無新測、必須維持綠）：snapshot_write→§4.4 列的 inherit_from=vid 測試組；api/diff→`test_diff.py` 19/28 + scenario step6；pipeline→`test_v105_incremental_flow` 端對端。
 
 ---
 
