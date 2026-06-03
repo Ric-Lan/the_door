@@ -1,6 +1,6 @@
 # T2：`models.py` 套件化（god-module 依領域拆分）— 設計
 
-> **日期**：2026-06-02　**狀態**：設計核准、待寫 plan
+> **日期**：2026-06-02　**狀態**：已實作（plan: docs/superpowers/plans/2026-06-02-models-package-split/）
 > **刀序**：第二刀第二段（T4 `run()` 拉直已實作並 merge；本刀承 backlog T2）
 > **目標檔**：`the_door/src/the_door/models.py`（1004 行、79 個型別）
 > **設計依據**：本 session 的兩支結構測繪腳本（純 AST 分析，已跑、結果內嵌於本文件第 4、5 節，腳本用完即刪、零版控污染）

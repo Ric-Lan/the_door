@@ -89,7 +89,7 @@
 
 - [x] **api_handlers.py 拆分（第一刀）— 已實作 + merge（`core/ui/api/` package）**
 - [❌] ~~T1 guidance dead-code~~ — **2026-06-02 證偽、關閉**（guidance 是活碼，無死碼可刪）
-- [ ] T2 models.py 套件化（需獨立 spec；size 依據 2026-06-02 已重驗）
+- [x] T2 models.py 套件化 — 已實作（1004 行單檔 → models/ 套件 10 子模組 + 門面 re-export；CRP 拆出 snapshot；欄位零變更、消費端零改；DSM 不變量測試守住 DAG+邊集+SDP）
 - [ ] T3 report_renderer 長函式（901 行 ✓ 已重驗）
 - [x] T4 pipeline_orchestrator 長函式 — 已實作（run() 拉直：8 提早離場收斂為單一 _partial 閉包）
 - [ ] T5 store 內部整理（snapshot_store 522 / doubt_store 534 ✓ 已重驗）
