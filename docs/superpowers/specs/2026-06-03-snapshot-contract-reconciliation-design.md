@@ -96,23 +96,26 @@ snapshot 落盤格式**維持語言／廠商中立**：存的是 functional feat
 
 ## 4. 可行性驗證事實（spike 已跑，四項全綠）
 
-> 本 session 對**真實** `SnapshotStore._serialize_snapshot`/`_deserialize_snapshot` 與 §5.1 修正後 schema 跑的一次性 spike（腳本用完即棄、未 commit）。建一個「最大化 snapshot」（每個選填欄位都填值，逐一踩亮 serialize 的三個條件式分支 `trigger_description is not None` / `source_nodes` 非空 / `confidence_reason is not None`），結果：
+> 本 session 對**真實** `SnapshotStore._serialize_snapshot`/`_deserialize_snapshot` 與 §5.1 修正後 schema 跑的一次性 spike（腳本用完即棄、未 commit）。**跑兩個 fixture**：
+> - **maximal/manual**：`trigger='manual'`、label 為字串、每個選填欄位都填值（踩亮 serialize 三個條件式分支 `trigger_description is not None` / `source_nodes` 非空 / `confidence_reason is not None`）。
+> - **minimal/commit**：`trigger='commit'`、**`label=None`**、無選填 L1 欄、空集合、`vulnerability_db_freshness=None`（這是預設、最常見的寫入路徑）。
 
-| 檢查 | 結果 |
-|---|---|
-| (1) strict schema 驗證最大化 snapshot 的序列化輸出 | **PASS** |
-| (2a) 頂層雙射：emitted keys == declared properties（兩向差集皆空） | **True** |
-| (2b) L1-entry 雙射 | **True** |
-| (3) round-trip：`serialize(deserialize(data)) == data` | **True** |
-| (4) 負向：序列化輸出塞入未知欄位 → strict schema 拋 `ValidationError` | **PASS（被擋）** |
+| 檢查 | maximal/manual | minimal/commit |
+|---|---|---|
+| (1) strict schema 驗證序列化輸出 | **PASS** | **PASS**（label=null） |
+| (3) round-trip：`serialize(deserialize(data)) == data` | **True** | **True** |
+| (2a) 頂層雙射：emitted keys == declared properties（兩向差集皆空） | **True**（聯集基準＝maximal） | — |
+| (2b) L1-entry 雙射 | **True**（聯集基準＝maximal） | — |
+| (4) 負向：塞入未知欄位 → strict schema 拋 `ValidationError` | **PASS（被擋）** | — |
 
-**結論**：§5.1 的 schema delta **精確且完整**；最大化 snapshot **確實踩到所有條件式分支**（故雙射定義在聯集上是 well-defined）；strict 模式**確實會咬**；round-trip 對稱。`trigger='manual'` + `label` 的最大化 fixture 也證明 `additionalProperties:false` 與既有 `if/then`（manual→require label）**可共存無衝突**。
+**結論**：§5.1 的 schema delta **精確且完整**；雙射定義在「可吐欄位聯集（maximal）」上是 well-defined；strict 模式**確實會咬**；round-trip 對稱。`additionalProperties:false` 與既有 `if/then`（manual→require label）**可共存無衝突**。
+> ⚠️ **審查中抓到並修正的 bug（已重驗）**：`label` 型別原寫成 `{type:"string"}`，但 commit-trigger snapshot 的 `label` 是 `None`（line 90-91 只在 manual 才自動生成、line 331 無條件吐 `label`）→ 會讓**所有 commit 寫入**驗證失敗。第一版 spike 只測 manual+字串 label 而漏掉。已改為 `{type:["string","null"]}` 並用 minimal/commit fixture 重驗通過。**這是「minimal/commit fixture」必須進測試（§6 測試 1/3）的直接理由**。
 
 ### 4.1 逐層欄位對賬（已驗，實作者無須重驗）
 
 | 層級 | serialize 實際吐出 | 原 schema 狀態 | delta |
 |---|---|---|---|
-| 頂層 | …+ `codebase_path` | 缺 `codebase_path`；無 strict | **加 `codebase_path`、加 `additionalProperties:false`** |
+| 頂層 | …+ `codebase_path`；`label` 可為 `null`（commit） | 缺 `codebase_path`；`label` 誤標 `string`；無 strict | **加 `codebase_path`、`label`→`["string","null"]`、加 `additionalProperties:false`** |
 | l1 entry | label/description/source_node_count/confidence + 選填 trigger_description/source_nodes/confidence_reason | 只列前 4；無 strict | **加 3 選填欄、加 `additionalProperties:false`** |
 | l1_5 entry | label/responsibility/confidence | 已列三者 | **僅加 `additionalProperties:false`** |
 | relation item | from_feature/to_feature/relation | 已列三者 | **僅加 `additionalProperties:false`** |
@@ -140,7 +143,7 @@ snapshot 落盤格式**維持語言／廠商中立**：存的是 functional feat
     "trigger": { "type": "string", "enum": ["commit", "manual"] },
     "commit_hash": { "type": ["string", "null"] },
     "git_tags": { "type": "array", "items": { "type": "string" } },
-    "label": { "type": "string" },
+    "label": { "type": ["string", "null"] },
     "codebase_path": { "type": ["string", "null"] },
     "l1_snapshot": {
       "type": "object",
@@ -246,6 +249,7 @@ def _get_snapshot_schema() -> dict:
 **(b) 抽單一落盤口 `_write_snapshot`**：消除 `create_snapshot`(line 111–112) 與 `patch_snapshot`(line 248–250) 重複的 serialize+write，並在此處唯一校驗：
 ```python
 def _write_snapshot(self, snapshot: VersionSnapshot) -> None:
+    self._snapshots_dir.mkdir(parents=True, exist_ok=True)
     data = self._serialize_snapshot(snapshot)
     jsonschema.validate(data, _get_snapshot_schema(),
                         cls=jsonschema.Draft202012Validator)   # fail-closed
@@ -253,8 +257,8 @@ def _write_snapshot(self, snapshot: VersionSnapshot) -> None:
     file_path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
                          encoding="utf-8")
 ```
-`create_snapshot` 與 `patch_snapshot` 改為呼叫 `self._write_snapshot(snap)`（取代各自的 serialize+write 兩行）。其餘行為（回傳值、目錄建立 `mkdir`）不變。
-> ⚠️ `create_snapshot` 目前在 write 前有 `self._snapshots_dir.mkdir(parents=True, exist_ok=True)`（line 109）；`_write_snapshot` 內或呼叫前須保留此 mkdir，避免目錄不存在。
+`create_snapshot` 與 `patch_snapshot` 改為呼叫 `self._write_snapshot(snap)`（取代各自的 serialize+write）。其餘行為（回傳值）不變。
+> ⚠️ `mkdir` **收進 `_write_snapshot`**（取代 `create_snapshot` line 109 的 mkdir）：`create_snapshot` 原本有 mkdir、`patch_snapshot` 沒有（它假設目錄已存在）；集中進落盤口後兩者一致、`exist_ok=True` 對 patch 無害。`json.dumps(..., indent=2, ensure_ascii=False)` 與兩處原寫法（line 112、250）**參數一致**。
 
 **(c) 讀取路徑不動**：`get_snapshot` 等**不加** validate（向後相容，§7.2）。
 
@@ -276,17 +280,17 @@ def audit_conformance(self) -> list[dict]:
 
 > 全部已由 §4 spike 證明可行。完整測試碼於 plan 階段給出；此處定義**意圖與所釘不變量**，消除歧義。
 
-1. **`test_maximal_snapshot_validates_against_schema`**（strict 驗證）
-   - 建 §4 的最大化 snapshot（每選填欄位皆填）→ `_serialize_snapshot` → `jsonschema.validate(..., Draft202012Validator)` 須通過。
-   - 釘：schema 涵蓋程式能吐的所有欄位 + 型別正確。
+1. **`test_snapshots_validate_against_schema`**（strict 驗證，**兩個 fixture 都要**）
+   - **maximal/manual**（每選填欄位皆填）**與 minimal/commit**（`trigger='commit'`、`label=None`、無選填 L1 欄、空集合、freshness=None）兩者 → `_serialize_snapshot` → `jsonschema.validate(..., Draft202012Validator)` 皆須通過。
+   - 釘：schema 涵蓋程式能吐的所有欄位 + 型別正確，**且涵蓋 commit/label=null 這條最常見路徑**（§4 抓到的 bug 類別的回歸守門）。
 
 2. **`test_schema_serialize_field_bijection`**（雙向欄位雙射 = 核心 drift guard）
    - 對**每個設了 `additionalProperties:false` 的 object 層級**（頂層 / l1-entry / l1_5-entry / relation-item / vuln-item / freshness），斷言 `schema 該層 properties 的鍵集 == 最大化 snapshot 該層實際 key 集`（兩向差集皆空）。
    - 釘：①程式加欄位忘改 schema → strict 驗證會在既有寫 snapshot 測試紅；②schema 宣告了 serialize 不吐的幽靈欄位 → 此測試紅。**兩個方向都守住**。
 
-3. **`test_snapshot_round_trip_equivalence`**（序列化對稱）
-   - `serialize(deserialize(serialize(maximal))) == serialize(maximal)`。
-   - 釘：serialize/deserialize 不對稱漂移。
+3. **`test_snapshot_round_trip_equivalence`**（序列化對稱，**兩個 fixture 都要**）
+   - 對 maximal/manual 與 minimal/commit 皆斷言 `serialize(deserialize(serialize(x))) == serialize(x)`。
+   - 釘：serialize/deserialize 不對稱漂移（含 label=null、選填欄位缺席的路徑）。
 
 4. **`test_strict_schema_rejects_unknown_field`**（負向 / fail-closed 證明）
    - 在合法序列化輸出加一個未知欄位 → `jsonschema.validate` 須拋 `ValidationError`。
@@ -317,7 +321,13 @@ def audit_conformance(self) -> list[dict]:
 ### 7.5 稽核不可做成 CI 斷言
 §5.3 稽核驗的是磁碟上 `.the-door/snapshots/`——gitignored、每台機器/worktree 不同、隨時生滅。**做成 CI 測試＝對機器專屬資料下斷言＝必 flaky、不可攜**。故它是**按需呼叫的工具**；CI 只測它的**邏輯**（測試 5，用 fixture 檔）。
 
-### 7.6 jsonschema 已是依賴、`Draft202012Validator` 已在用
+### 7.6 strict 化會「啟用」原 schema 既有的 enum 約束（已知、可接受）
+原 schema 已有 enum 約束：`trigger`∈{commit,manual}、l1/l1_5 entry 的 `confidence`∈{high,medium,low}、vuln `severity`∈{critical,high,medium,low}、freshness `mode`∈{online,offline}。這些**不是本刀新增**，但因 schema 過去是孤兒、從未被執行，等於從未生效。本刀接上 persist 校驗後，它們**首次被強制**——任何 code path 若吐出 enum 外的值，落盤即 `ValidationError`。這對「契約誠實」是正確的（值本就該在 enum 內），且既有全套件（§6 測試 6）會立刻揭露是否有違規路徑。**若實作時發現某既有路徑確實吐 enum 外的值**：依 §7.3 逃生閥——停下、surface、評估是「碼該修」還是「enum 該放寬」，**不可**為了過關靜默拿掉 enum。
+
+### 7.7 `label=null` 是合法值（commit-trigger 的常態）
+`label` 型別為 `["string","null"]`：commit snapshot 的 label 為 `None`（line 90-91 僅 manual 自動生成），serialize line 331 無條件吐 `label`。strict schema **必須**允許 null，否則 commit 寫入全爆（§4 已抓修）。`if/then`（manual→required label）只檢查 key 存在（label key 恆存在），不檢查非空，故與 `["string","null"]` 不衝突。
+
+### 7.8 jsonschema 已是依賴、`Draft202012Validator` 已在用
 `doubt_store.py` line 15/126/505/518 已 import 並使用 `jsonschema.Draft202012Validator`。本刀**零新依賴**。schema 用了 `if/then`（Draft 2019-09+）與 `format: date-time`，`Draft202012Validator` 均支援（§4 spike 已實證通過）。
 
 ---
