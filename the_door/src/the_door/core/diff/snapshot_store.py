@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import jsonschema
 import logging
 import re
 import uuid
@@ -127,10 +128,7 @@ class SnapshotStore:
             codebase_path=self._project_root,
         )
 
-        self._snapshots_dir.mkdir(parents=True, exist_ok=True)
-        file_path = self._snapshots_dir / f"{version_id}.json"
-        data = self._serialize_snapshot(snapshot)
-        file_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._write_snapshot(snapshot)
 
         return snapshot
 
@@ -266,9 +264,7 @@ class SnapshotStore:
             snap_kwargs["analyzed_files"] = analyzed_files
         snap = dataclasses.replace(snap, **snap_kwargs)
 
-        data = self._serialize_snapshot(snap)
-        file_path = self._snapshots_dir / f"{snap.version_id}.json"
-        file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._write_snapshot(snap)
 
         return snap, skipped
 
@@ -307,6 +303,22 @@ class SnapshotStore:
             except json.JSONDecodeError:
                 logger.warning("Skipping corrupted snapshot file: %s", file_path)
         return snapshots
+
+    def _write_snapshot(self, snapshot: VersionSnapshot) -> None:
+        """Serialize, validate against the schema (fail-closed), then write.
+
+        The single chokepoint for persisting a snapshot to disk. Validation
+        is intentionally on persist only — the read path stays tolerant of
+        legacy snapshots (see spec §7.2)."""
+        self._snapshots_dir.mkdir(parents=True, exist_ok=True)
+        data = self._serialize_snapshot(snapshot)
+        jsonschema.validate(
+            data, _get_snapshot_schema(), cls=jsonschema.Draft202012Validator
+        )
+        file_path = self._snapshots_dir / f"{snapshot.version_id}.json"
+        file_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     def _serialize_snapshot(self, snapshot: VersionSnapshot) -> dict:
         """Convert VersionSnapshot to JSON-serializable dict."""

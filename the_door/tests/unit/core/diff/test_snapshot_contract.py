@@ -110,3 +110,30 @@ def test_strict_schema_rejects_unknown_field(tmp_path):
     data["junk_field"] = "x"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(data, _get_snapshot_schema(), cls=_V)
+
+
+def test_create_snapshot_rejects_out_of_contract_value(tmp_path):
+    """Persist-time validation is wired & fail-closed: an out-of-enum
+    confidence makes the serialized snapshot violate the schema, so the
+    write must raise (not silently persist invalid data)."""
+    store = _store(tmp_path)
+    with pytest.raises(jsonschema.ValidationError):
+        store.create_snapshot(
+            l1_snapshot={"f": FeatureSummary(
+                feature_id="f", label="L", description="D",
+                source_node_count=0, confidence="BOGUS")},  # not in enum
+            feature_relations=[], analyzed_files=[], trigger="commit",
+        )
+
+
+def test_create_snapshot_normal_commit_path_unaffected(tmp_path):
+    """A normal commit snapshot (label=None) still persists & reloads."""
+    store = _store(tmp_path)
+    snap = store.create_snapshot(
+        l1_snapshot={"f": FeatureSummary(
+            feature_id="f", label="L", description="D",
+            source_node_count=0, confidence="low")},
+        feature_relations=[], analyzed_files=["a.py"], trigger="commit",
+    )
+    assert snap.label is None
+    assert store.get_snapshot(snap.version_id) is not None
