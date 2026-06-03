@@ -132,7 +132,7 @@ def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot
 
     Step 5 creates the new snapshot without an explicit label, so we drive the
     /api/diff resolver via raw version_id for the current side (still exercises
-    the O2 resolve_baseline → get_snapshot fallback). Baseline uses the
+    the O2 unified BaselineResolver via the version_id grammar). Baseline uses the
     label "v1.0.0" to prove label resolution works end-to-end.
     """
     from the_door.core.ui.api.context import APIContext

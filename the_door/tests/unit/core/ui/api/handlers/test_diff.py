@@ -20,7 +20,6 @@ class TestVersions:
         h = DiffHandlers(_ctx(tmp_path))
         with patch("the_door.core.ui.api.handlers.diff.SnapshotStore") as mock_ss:
             mock_ss.return_value.resolve_baseline.return_value = None
-            mock_ss.return_value.get_snapshot.return_value = None
             status, body = h.versions(baseline="v0", current="v1")
         assert status == 404
         assert body["error"]["code"] == "snapshot_not_found"
@@ -31,7 +30,6 @@ class TestVersions:
         with patch("the_door.core.ui.api.handlers.diff.SnapshotStore") as mock_ss:
             # resolve_baseline returns baseline for first call, None for current
             mock_ss.return_value.resolve_baseline.side_effect = [baseline_snap, None]
-            mock_ss.return_value.get_snapshot.return_value = None
             status, body = h.versions(baseline="v0", current="v1")
         assert status == 404
 
@@ -82,17 +80,6 @@ class TestVersions:
             status, body = h.versions(baseline="v0", current="v1")
         assert status == 500
         assert body["error"]["code"] == "diff_error"
-
-    def test_resolve_falls_back_to_get_snapshot(self, tmp_path):
-        from the_door.models import SnapshotNotFoundError
-        h = DiffHandlers(_ctx(tmp_path))
-        snap = MagicMock()
-        with patch("the_door.core.ui.api.handlers.diff.SnapshotStore") as mock_ss:
-            store = mock_ss.return_value
-            store.resolve_baseline.side_effect = SnapshotNotFoundError("nope", [])
-            store.get_snapshot.return_value = snap
-            result = h._resolve_snapshot(store, "v1")
-        assert result is snap
 
 
 class TestGetExplanation:

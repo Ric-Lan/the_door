@@ -132,12 +132,9 @@ class DiffHandlers:
 
     def _resolve_snapshot(self, store: SnapshotStore, ref: str):
         try:
-            result = store.resolve_baseline(ref)
-            if result is not None:
-                return result
+            return store.resolve_baseline(ref)
         except SnapshotNotFoundError:
-            pass
-        return store.get_snapshot(ref)
+            return None
 
     # ------------------------------------------------------------------
     # GET /api/diff-explanations/<feature_id>

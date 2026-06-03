@@ -20,7 +20,7 @@ from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.guidance.actions import NextAction
 from the_door.core.guidance.remediation import Remediation
-from the_door.models import StructureJSON, VersionSnapshot
+from the_door.models import SnapshotNotFoundError, StructureJSON, VersionSnapshot
 
 
 @dataclass(frozen=True)
@@ -45,15 +45,14 @@ class IncrementalAnalysisError(Exception):
 
 
 def _resolve_baseline(store: SnapshotStore, baseline_ref: str) -> VersionSnapshot | None:
-    """Resolve ``baseline_ref`` via tag/date/label, then fall back to version_id.
+    """Resolve ``baseline_ref`` (all 5 grammars). None if no snapshot matches.
 
-    Returns ``None`` if no snapshot matches — the orchestrator turns that into
-    the ``baseline_not_found`` remediation.
+    The orchestrator turns None into the ``baseline_not_found`` remediation.
     """
     try:
         return store.resolve_baseline(baseline_ref)
-    except Exception:
-        return store.get_snapshot(baseline_ref)
+    except SnapshotNotFoundError:
+        return None
 
 
 def _extraction_result_to_structure(result) -> StructureJSON:

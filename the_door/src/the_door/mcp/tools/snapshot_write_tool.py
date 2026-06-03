@@ -174,8 +174,6 @@ async def execute(arguments: dict) -> dict:
         except SnapshotNotFoundError:
             baseline_snap = None
         if baseline_snap is None:
-            baseline_snap = store.get_snapshot(inherit_from)
-        if baseline_snap is None:
             rem = Remediation(
                 code="baseline_not_found",
                 message=f"Cannot resolve baseline {inherit_from!r}",
