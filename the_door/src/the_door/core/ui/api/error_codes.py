@@ -88,6 +88,28 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/analysis.py",
         desc="Job not found.",
     ),
+    "job_already_running": ErrCode(
+        http=409,
+        file="core/ui/api/handlers/analysis.py",
+        desc="A pipeline job is already running. Please wait for it to complete.",
+    ),
+
+    # --- analysis input validation ------------------------------------------
+    "missing_required_field": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/analysis.py",
+        desc="A required request field is missing.",
+    ),
+    "invalid_path": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/analysis.py",
+        desc="The provided path is invalid.",
+    ),
+    "same_path": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/analysis.py",
+        desc="old_path and new_path must be different directories.",
+    ),
 
     # --- diff domain --------------------------------------------------------
     "diff_error": ErrCode(
@@ -100,6 +122,11 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/diff.py",
         desc="Failed to read doubt/explanation data.",
     ),
+    "provider_not_configured": ErrCode(
+        http=503,
+        file="core/ui/api/handlers/diff.py",
+        desc="LLM provider is not configured.",
+    ),
 
     # --- structure / graph domain -------------------------------------------
     "structure_read_error": ErrCode(
@@ -107,12 +134,47 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/graph.py",
         desc="Failed to read structure data.",
     ),
+    "no_structure_data": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/graph.py",
+        desc="Structure data not found. Run 'the-door extract' first.",
+    ),
+    "invalid_layer": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/graph.py",
+        desc="Invalid analysis layer requested.",
+    ),
+    "no_l1_data": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/graph.py",
+        desc="No L1 analysis data is available for this project yet.",
+    ),
+    "l1_read_error": ErrCode(
+        http=500,
+        file="core/ui/api/handlers/graph.py",
+        desc="Failed to read L1 analysis data.",
+    ),
+    "l2_read_error": ErrCode(
+        http=500,
+        file="core/ui/api/handlers/graph.py",
+        desc="Failed to read L2 analysis data.",
+    ),
+    "l2_not_generated": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/graph.py",
+        desc="L2 analysis has not been generated yet.",
+    ),
 
     # --- diff-explanation domain --------------------------------------------
     "explanation_read_error": ErrCode(
         http=500,
         file="core/ui/api/handlers/diff.py",
         desc="Failed to read diff explanation.",
+    ),
+    "explanation_not_cached": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/graph.py",
+        desc="No cached diff explanation is available for the requested version.",
     ),
 
     # --- timeline domain ----------------------------------------------------
@@ -127,6 +189,33 @@ ERROR_CODES: dict[str, ErrCode] = {
         http=500,
         file="core/ui/api/handlers/graph.py",
         desc="LLM generation failed.",
+    ),
+
+    # --- annotation domain --------------------------------------------------
+    "empty_name": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/annotation.py",
+        desc="Name must not be empty.",
+    ),
+    "name_too_long": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/annotation.py",
+        desc="Name exceeds the maximum allowed length.",
+    ),
+    "empty_comment": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/annotation.py",
+        desc="Comment text must not be empty.",
+    ),
+    "comment_too_long": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/annotation.py",
+        desc="Comment exceeds the maximum allowed length.",
+    ),
+    "invalid_mode": ErrCode(
+        http=400,
+        file="core/ui/api/handlers/annotation.py",
+        desc="Invalid mode requested.",
     ),
 }
 
