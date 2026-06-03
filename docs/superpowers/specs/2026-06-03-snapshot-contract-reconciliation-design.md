@@ -1,6 +1,6 @@
 # Snapshot 持久化契約對賬（Finding A）— 設計
 
-> **日期**：2026-06-03　**狀態**：設計核准、待寫 plan
+> **日期**：2026-06-03　**狀態**：已實作（plan: docs/superpowers/plans/2026-06-03-snapshot-contract-reconciliation.md）
 > **刀序**：重構 backlog 之外的「契約誠實化」第一刀（承 2026-06-03 探查的 Finding A）
 > **目標檔**：`the_door/schemas/snapshot.schema.json`、`the_door/src/the_door/core/diff/snapshot_store.py`
 > **設計依據**：本 session 對真實程式碼跑的可行性 spike（§4，已跑、四項全綠，腳本用完即棄、零版控污染）
