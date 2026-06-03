@@ -14,7 +14,7 @@
 
 ## 關鍵事實（執行前必讀）
 
-- **測試 cwd**：所有 pytest/git 在**內層** `the_door/` 執行（`testpaths=["tests"]`）。Windows console cp950，跑測試前置 `PYTHONUTF8=1`。docs 在**外層** repo root 的 `docs/`（git 操作用 `git -C <worktree-root>`）。
+- **測試 cwd**：所有 pytest/git 在**內層** `the_door/` 執行（`testpaths=["tests"]`）。Windows console cp950，跑測試前置 `PYTHONUTF8=1`。docs 在**外層** repo root 的 `docs/`（涉及 `docs/` 的 git 操作從 worktree 根目錄執行＝`git rev-parse --show-toplevel` 的輸出，不要在內層 `the_door/` 下 add 外層路徑）。
 - **目標檔**：`the_door/schemas/snapshot.schema.json`、`the_door/src/the_door/core/diff/snapshot_store.py`、新測試 `the_door/tests/unit/core/diff/test_snapshot_contract.py`。
 - **⚠️ 順序鐵則**：schema 必須**先**修對（Task 1），**才**接上落盤校驗（Task 2）。若先對舊 schema（`label:{type:string}`）接校驗，commit-trigger snapshot（label=null）會全爆。
 - **⚠️ 護欄**：`additionalProperties:false` 是防線核心，**任何時候不得為了讓測試/寫入通過改回 `true`**；落盤校驗失敗**讓它拋**（fail-closed），不得 try/except 吞。schema 只「補既有 serialize 已吐欄位 + 收緊」，不增不減欄位。不動讀取路徑、不碰 `core/datamodel/`、不改 `VersionSnapshot` 模型。
