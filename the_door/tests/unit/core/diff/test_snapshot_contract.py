@@ -137,3 +137,30 @@ def test_create_snapshot_normal_commit_path_unaffected(tmp_path):
     )
     assert snap.label is None
     assert store.get_snapshot(snap.version_id) is not None
+
+
+def test_audit_conformance_reports_only_nonconforming(tmp_path):
+    """Read-only audit: lists on-disk snapshots that fail the current schema,
+    leaves everything untouched. (Tests the tool's logic via fixtures — never
+    asserts on a machine's real .the-door/ data; see spec §7.5.)"""
+    store = _store(tmp_path)
+    # one conforming snapshot, written through the validated path
+    good = store.create_snapshot(
+        l1_snapshot={"f": FeatureSummary(
+            feature_id="f", label="L", description="D",
+            source_node_count=0, confidence="low")},
+        feature_relations=[], analyzed_files=["a.py"], trigger="commit",
+    )
+    # one non-conforming file written directly (bypasses validation)
+    bad_path = store._snapshots_dir / "bad.json"
+    bad_path.write_text(json.dumps({
+        "version_id": "bad-id", "timestamp": "2026-06-03T00:00:00+00:00",
+        "trigger": "commit", "l1_snapshot": {}, "analyzed_files": [],
+        "junk_field": 1,  # violates additionalProperties:false
+    }), encoding="utf-8")
+
+    report = store.audit_conformance()
+
+    assert {r["version_id"] for r in report} == {"bad-id"}
+    assert store.get_snapshot(good.version_id) is not None  # untouched
+    assert bad_path.exists()  # not deleted

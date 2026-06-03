@@ -277,6 +277,33 @@ class SnapshotStore:
         if file_path.exists():
             file_path.unlink()
 
+    def audit_conformance(self) -> list[dict]:
+        """Read-only: validate every on-disk snapshot against the current schema.
+
+        Returns a list of {"version_id", "file", "error"} for NON-conforming
+        snapshots (empty list = all conform). Does not modify, reject, or
+        delete anything. Intended for on-demand use (not the hot path; not a
+        CI assertion — see spec §7.5)."""
+        schema = _get_snapshot_schema()
+        report: list[dict] = []
+        if not self._snapshots_dir.is_dir():
+            return report
+        for path in sorted(self._snapshots_dir.glob("*.json")):
+            version_id = None
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                version_id = data.get("version_id")
+                jsonschema.validate(
+                    data, schema, cls=jsonschema.Draft202012Validator
+                )
+            except (json.JSONDecodeError, jsonschema.ValidationError) as exc:
+                report.append({
+                    "version_id": version_id,
+                    "file": str(path),
+                    "error": str(exc),
+                })
+        return report
+
     def get_structure(self, version_id: str) -> StructureJSON | None:
         """Load a persisted gzipped structure by version_id. Returns None if missing or corrupt."""
         path = self._structures_dir / f"{version_id}.json.gz"
