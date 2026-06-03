@@ -264,11 +264,7 @@ Expected: **ImportError / collection error**（`cannot import name '_get_snapsho
 
 - [ ] **Step 4: 加 schema 載入器到 `snapshot_store.py`**
 
-在 `the_door/src/the_door/core/diff/snapshot_store.py` 頂部 import 區（現有 import 之後、`logger = ...` 之前）加：
-
-```python
-import jsonschema
-```
+> ⚠️ **本 task 不要 import jsonschema**——載入器只用 `json`（已 import）。`import jsonschema` 留到 Task 2（其首次使用點 `_write_snapshot`）一起加，避免本 commit 留下未使用 import。
 
 在 `logger = logging.getLogger(__name__)` 之後、第一個 class 之前，加模組級 schema 載入器（比照 `core/scope/doubt_store.py` line 32–48）：
 
@@ -304,8 +300,13 @@ PYTHONUTF8=1 python -m pytest tests/unit/core/diff/test_snapshot_contract.py -q
 Expected: **全 PASS**（2 validate-參數化 ×2 + bijection + round-trip ×2 + negative = 6 個）。
 若 `test_schema_serialize_field_bijection` 報差集非空 → schema 與 serialize 欄位不符，對照 spec §4.1 修 schema（不可改 serialize）。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 記下改動面基準，然後 Commit**
 
+先記下「動工前」的 HEAD（供 Task 4 改動面驗收用，避免猜 commit 範圍）：
+```
+git rev-parse HEAD
+```
+把輸出的 SHA 記為 `BASELINE_SHA`（即本計畫第一個程式變更之前的 commit）。然後：
 ```
 git add the_door/schemas/snapshot.schema.json the_door/src/the_door/core/diff/snapshot_store.py the_door/tests/unit/core/diff/test_snapshot_contract.py
 git commit -m "fix(snapshot): correct + tighten snapshot schema, add loader + contract tests"
@@ -359,7 +360,12 @@ PYTHONUTF8=1 python -m pytest tests/unit/core/diff/test_snapshot_contract.py::te
 ```
 Expected: **FAIL**（目前 `create_snapshot` 不校驗，bogus confidence 被靜默寫入、不拋）。
 
-- [ ] **Step 3: 加 `_write_snapshot` 方法**
+- [ ] **Step 3: 加 `import jsonschema` + `_write_snapshot` 方法**
+
+先在 `snapshot_store.py` 頂部 import 區（現有 import 之後）加（Task 1 刻意未加、此處首次使用）：
+```python
+import jsonschema
+```
 
 在 `SnapshotStore` 內、`_serialize_snapshot` 方法**之前**（緊接在最後一個 public 方法之後、private 區開頭即可），加：
 
@@ -553,9 +559,9 @@ Expected: 全 PASS；`snapshot_store.py` 覆蓋率不低於改前（新增的 `_
 
 - [ ] **Step 2: 確認改動面**
 
-Run（cwd = worktree root）：
+Run（cwd = worktree root；`BASELINE_SHA` = Task 1 Step 6 記下的 SHA。若無記錄，此計畫為線性 4 commit、此刻 HEAD=Task 3 commit，則 `BASELINE_SHA` 即 `HEAD~3`）：
 ```
-git diff --stat <task1之前的commit>..HEAD
+git diff --stat <BASELINE_SHA>..HEAD
 ```
 Expected：僅 `the_door/schemas/snapshot.schema.json`、`the_door/src/the_door/core/diff/snapshot_store.py`、`the_door/tests/unit/core/diff/test_snapshot_contract.py`。**不得有其他 `.py` 被改**（讀取路徑、`core/datamodel/`、`VersionSnapshot` 模型皆未動）。若有他檔變更 → 回報。
 
@@ -572,9 +578,10 @@ Expected：僅 `the_door/schemas/snapshot.schema.json`、`the_door/src/the_door/
 
 - [ ] **Step 4: Commit**
 
+`docs/` 在**外層** repo root（非內層 `the_door/`）。從 worktree 根目錄（`git rev-parse --show-toplevel` 的輸出）執行：
 ```
-git -C <worktree-root> add docs/superpowers/specs/2026-06-03-snapshot-contract-reconciliation-design.md
-git -C <worktree-root> commit -m "docs: mark snapshot contract reconciliation implemented"
+git add docs/superpowers/specs/2026-06-03-snapshot-contract-reconciliation-design.md
+git commit -m "docs: mark snapshot contract reconciliation implemented"
 ```
 
 - [ ] **Step 5: 收尾回報**
@@ -586,5 +593,6 @@ git -C <worktree-root> commit -m "docs: mark snapshot contract reconciliation im
 ## Self-Review（已執行）
 
 - **Spec coverage**：§5.1 schema→Task1 Step3；§5.2 載入器+`_write_snapshot`+rewire→Task1 Step4 + Task2；§5.3 稽核→Task3；§6 測試 1–5→Task1/2/3（test 1 含 maximal+minimal 參數化、test 2 雙射六層、test 3 round-trip 兩 fixture、test 4 負向、test 5 稽核）；§7.3 逃生閥→Task2 Step7；§7.6 enum→Task2 Step7；§9 驗收→Task4。全覆蓋。
-- **Placeholder scan**：無 TBD；所有 step 有完整碼/指令/預期輸出。`<task1之前的commit>`/`<worktree-root>` 是執行期實值佔位（指令說明），非邏輯佔位。
+- **Placeholder scan**：無 TBD；所有 step 有完整碼/指令/預期輸出。改動面基準改為 Task 1 Step 6 記下的 `BASELINE_SHA`（並給 `HEAD~3` 後備）、docs commit 改為「從 worktree 根目錄執行」——皆 agent 可機械解析，無待猜佔位。
+- **Code-review 修正（2026-06-03）**：①`import jsonschema` 從 Task 1 移到 Task 2 首次使用點（避免未使用 import）；②改動面 diff 基準從佔位符改為記錄式 `BASELINE_SHA`。核心碼經 spike + 簽名/欄位對碼核對：無邏輯 bug、無幻覺、參數對齊、無過度設計。
 - **Type/簽名一致**：`_get_snapshot_schema()`、`_write_snapshot(self, snapshot)`、`audit_conformance(self) -> list[dict]`、`jsonschema.Draft202012Validator`、`SnapshotStore(tmp_path, store_root=tmp_path)`、`create_snapshot(l1_snapshot=, feature_relations=, analyzed_files=, trigger=)`——跨 task 一致，且與 §4 spike 實際呼叫一致。
