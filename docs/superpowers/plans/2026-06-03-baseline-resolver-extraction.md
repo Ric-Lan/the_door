@@ -387,12 +387,28 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 
 - [ ] **Step 2: 移除 `snapshot_write_tool.py` 的 get_snapshot 後援**
 
-刪除這兩行（約 line 176–177）：
+⚠️ **此處有相鄰重複行陷阱**：line 176 與 line 178 都是 `if baseline_snap is None:`，只刪 176-177（get_snapshot 後援），**保留 178 的 remediation guard**。用下方完整 before/after 對位，勿用單行匹配。
+
+把現有（約 line 172–179）：
 ```python
+        try:
+            baseline_snap = store.resolve_baseline(inherit_from)
+        except SnapshotNotFoundError:
+            baseline_snap = None
         if baseline_snap is None:
             baseline_snap = store.get_snapshot(inherit_from)
+        if baseline_snap is None:
+            rem = Remediation(
 ```
-（保留其上的 `try/except SnapshotNotFoundError: baseline_snap = None` 與其下的 `if baseline_snap is None: rem = Remediation(...)` remediation。）
+替換為（移除中間那組 `if ... get_snapshot`，remediation `if` 緊接 except 之後）：
+```python
+        try:
+            baseline_snap = store.resolve_baseline(inherit_from)
+        except SnapshotNotFoundError:
+            baseline_snap = None
+        if baseline_snap is None:
+            rem = Remediation(
+```
 
 - [ ] **Step 3: 收窄 `incremental_pipeline.py` 例外 + 補 import**
 
@@ -433,7 +449,13 @@ def _resolve_baseline(store: SnapshotStore, baseline_ref: str) -> VersionSnapsho
             result = h._resolve_snapshot(store, "v1")
         assert result is snap
 ```
-（它測的消費者層後援已移除；version_id 解析改由 `test_baseline_resolver.py::test_store_resolve_baseline_accepts_version_id` 覆蓋。`test_baseline_not_found_returns_404`/`test_current_not_found_returns_404` **不動**——mock `resolve_baseline` 回 None，新 adapter 對 None 回 None → 404。）
+（它測的消費者層後援已移除；version_id 解析改由 `test_baseline_resolver.py::test_store_resolve_baseline_accepts_version_id` 覆蓋。）
+
+同檔順手清掉兩行死 mock 設定（Task 2 後 `_resolve_snapshot` 不再呼叫 get_snapshot，故這兩行恆不被觸發）：在 `test_baseline_not_found_returns_404`（約 line 23）與 `test_current_not_found_returns_404`（約 line 34）各刪除一行：
+```python
+            mock_ss.return_value.get_snapshot.return_value = None
+```
+其餘斷言不動——兩測試仍綠（mock `resolve_baseline` 回 None，新 adapter 對 None 回 None → 404）。
 
 - [ ] **Step 5: 更新 scenario stale 註解**
 
