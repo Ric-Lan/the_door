@@ -1,6 +1,6 @@
 # BaselineResolver 抽出 + UUID 文法收編（Finding B-1）— 設計
 
-> **日期**：2026-06-03　**狀態**：設計核准、待寫 plan
+> **日期**：2026-06-03　**狀態**：已實作（plan: docs/superpowers/plans/2026-06-03-baseline-resolver-extraction.md）
 > **刀序**：Finding B 第一刀（store 各藏一個子元件 → 顯性化）。承 2026-06-03 探查；與 B-2（doubt 轉移表）獨立、命題不同（B-1=差異/參照解析，B-2=範圍/狀態機）。
 > **目標檔**：`the_door/src/the_door/core/diff/baseline_resolver.py`（新）、`the_door/src/the_door/core/diff/snapshot_store.py`、3 個消費者、1 新測試檔。
 > **scope**：B（抽出 + 收編 UUID），非 A（純搬移）。經使用者拍板。
