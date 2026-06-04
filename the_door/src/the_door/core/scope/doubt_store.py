@@ -151,7 +151,7 @@ class DoubtStore:
         if source_node is not None:
             doubts = [d for d in doubts if d.source_node == source_node]
         if active_only:
-            doubts = [d for d in doubts if d.current_state not in self._lifecycle.TERMINAL_STATES]
+            doubts = [d for d in doubts if not self._lifecycle.is_terminal(d.current_state)]
 
         # Sort by created_at descending (newest first)
         doubts.sort(key=lambda d: d.created_at, reverse=True)
@@ -168,7 +168,7 @@ class DoubtStore:
         for d in doubts:
             by_state[d.current_state] = by_state.get(d.current_state, 0) + 1
             by_type[d.doubt_type] = by_type.get(d.doubt_type, 0) + 1
-            if d.current_state not in self._lifecycle.TERMINAL_STATES:
+            if not self._lifecycle.is_terminal(d.current_state):
                 total_active += 1
 
         return DoubtSummary(
@@ -183,7 +183,7 @@ class DoubtStore:
         return any(
             d.source_node == source_node
             and d.doubt_type == doubt_type
-            and d.current_state not in self._lifecycle.TERMINAL_STATES
+            and not self._lifecycle.is_terminal(d.current_state)
             for d in doubts
         )
 
