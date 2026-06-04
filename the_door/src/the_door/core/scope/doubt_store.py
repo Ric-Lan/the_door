@@ -23,6 +23,7 @@ from the_door.models import (
     Resolution,
     StateTransition,
 )
+from the_door.core.scope.doubt_lifecycle import DoubtLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -57,21 +58,9 @@ class DoubtStore:
     疑義記錄存為 .the-door/doubts/<doubt_id>.json。
     """
 
-    # 有效狀態轉換表
-    VALID_TRANSITIONS: dict[str, set[str]] = {
-        "discovered": {"investigating", "escalated"},
-        "investigating": {"explained", "fixed", "escalated"},
-        "escalated": {"explained", "fixed", "accepted_risk"},
-        # 終態：不允許任何轉換
-        "explained": set(),
-        "fixed": set(),
-        "accepted_risk": set(),
-    }
-
-    TERMINAL_STATES: set[str] = {"explained", "fixed", "accepted_risk"}
-
     def __init__(self, project_root: Path) -> None:
         self._doubts_dir = project_root / ".the-door" / "doubts"
+        self._lifecycle = DoubtLifecycle()
 
     # =================================================================
     # CRUD methods
@@ -162,7 +151,7 @@ class DoubtStore:
         if source_node is not None:
             doubts = [d for d in doubts if d.source_node == source_node]
         if active_only:
-            doubts = [d for d in doubts if d.current_state not in self.TERMINAL_STATES]
+            doubts = [d for d in doubts if d.current_state not in self._lifecycle.TERMINAL_STATES]
 
         # Sort by created_at descending (newest first)
         doubts.sort(key=lambda d: d.created_at, reverse=True)
@@ -179,7 +168,7 @@ class DoubtStore:
         for d in doubts:
             by_state[d.current_state] = by_state.get(d.current_state, 0) + 1
             by_type[d.doubt_type] = by_type.get(d.doubt_type, 0) + 1
-            if d.current_state not in self.TERMINAL_STATES:
+            if d.current_state not in self._lifecycle.TERMINAL_STATES:
                 total_active += 1
 
         return DoubtSummary(
@@ -194,7 +183,7 @@ class DoubtStore:
         return any(
             d.source_node == source_node
             and d.doubt_type == doubt_type
-            and d.current_state not in self.TERMINAL_STATES
+            and d.current_state not in self._lifecycle.TERMINAL_STATES
             for d in doubts
         )
 
@@ -209,11 +198,7 @@ class DoubtStore:
         actor: str,
     ) -> DoubtRecord:
         """discovered → investigating：指派調查者。"""
-        doubt = self.get_doubt(doubt_id)
-        doubt = self._transition(doubt, "investigating", actor)
-        doubt.assigned_to = assignee
-        self._persist(doubt)
-        return doubt
+        return self.transition(doubt_id, "investigating", actor=actor, assignee=assignee)
 
     def explain(
         self,
@@ -222,16 +207,7 @@ class DoubtStore:
         resolved_by: str,
     ) -> DoubtRecord:
         """investigating → explained：確認為誤報。"""
-        doubt = self.get_doubt(doubt_id)
-        doubt = self._transition(doubt, "explained", resolved_by)
-        doubt.resolution = Resolution(
-            type="explained",
-            description=description,
-            resolved_by=resolved_by,
-            resolved_at=datetime.now(timezone.utc).isoformat(),
-        )
-        self._persist(doubt)
-        return doubt
+        return self.transition(doubt_id, "explained", actor=resolved_by, description=description)
 
     def fix(
         self,
@@ -240,16 +216,7 @@ class DoubtStore:
         resolved_by: str,
     ) -> DoubtRecord:
         """investigating → fixed：問題已修正。"""
-        doubt = self.get_doubt(doubt_id)
-        doubt = self._transition(doubt, "fixed", resolved_by)
-        doubt.resolution = Resolution(
-            type="fixed",
-            description=description,
-            resolved_by=resolved_by,
-            resolved_at=datetime.now(timezone.utc).isoformat(),
-        )
-        self._persist(doubt)
-        return doubt
+        return self.transition(doubt_id, "fixed", actor=resolved_by, description=description)
 
     def escalate(
         self,
@@ -258,9 +225,7 @@ class DoubtStore:
         actor: str,
     ) -> DoubtRecord:
         """discovered/investigating → escalated：升級至管理層。"""
-        doubt = self.get_doubt(doubt_id)
-        doubt = self._transition(doubt, "escalated", actor, reason=reason)
-        return doubt
+        return self.transition(doubt_id, "escalated", actor=actor, reason=reason)
 
     def resolve_escalation(
         self,
@@ -270,16 +235,7 @@ class DoubtStore:
         resolved_by: str,
     ) -> DoubtRecord:
         """escalated → explained/fixed/accepted_risk：管理層決策。"""
-        doubt = self.get_doubt(doubt_id)
-        doubt = self._transition(doubt, resolution_type, resolved_by)
-        doubt.resolution = Resolution(
-            type=resolution_type,
-            description=description,
-            resolved_by=resolved_by,
-            resolved_at=datetime.now(timezone.utc).isoformat(),
-        )
-        self._persist(doubt)
-        return doubt
+        return self.transition(doubt_id, resolution_type, actor=resolved_by, description=description)
 
     # =================================================================
     # Timeout mechanism
@@ -312,10 +268,8 @@ class DoubtStore:
             created_at = datetime.fromisoformat(created_at_str)
             elapsed = now - created_at
             if elapsed.total_seconds() >= discovery_timeout_days * 86400:
-                return self._transition(
-                    doubt,
-                    "escalated",
-                    "system_timeout",
+                return self._apply_transition(
+                    doubt, "escalated", "system_timeout",
                     reason=f"Auto-escalated: no investigator assigned within {discovery_timeout_days} days",
                 )
             return None
@@ -331,10 +285,8 @@ class DoubtStore:
             last_ts = datetime.fromisoformat(last_ts_str)
             elapsed = now - last_ts
             if elapsed.total_seconds() >= investigation_timeout_days * 86400:
-                return self._transition(
-                    doubt,
-                    "escalated",
-                    "system_timeout",
+                return self._apply_transition(
+                    doubt, "escalated", "system_timeout",
                     reason=f"Auto-escalated: no progress in {investigation_timeout_days} days",
                 )
             return None
@@ -374,51 +326,28 @@ class DoubtStore:
     # Internal methods
     # =================================================================
 
-    def _transition(
-        self,
-        doubt: DoubtRecord,
-        to_state: str,
-        actor: str,
-        reason: str | None = None,
-    ) -> DoubtRecord:
-        """執行狀態轉換並持久化。
+    def transition(self, doubt_id, target_state, *, actor,
+                   reason=None, assignee=None, description=None):
+        """Single public entry: load, plan & apply any transition by target state."""
+        doubt = self.get_doubt(doubt_id)
+        return self._apply_transition(doubt, target_state, actor,
+                                      reason=reason, assignee=assignee,
+                                      description=description)
 
-        1. 驗證轉換合法性（VALID_TRANSITIONS）
-        2. 建立 StateTransition 記錄
-        3. 更新 current_state, updated_at, state_history
-        4. 寫入 JSON 檔案
-
-        Raises:
-            DoubtTerminalError: 疑義已在終態
-            InvalidTransitionError: 不合法的狀態轉換
-        """
-        from_state = doubt.current_state
-
-        # Check terminal state first
-        if from_state in self.TERMINAL_STATES:
-            raise DoubtTerminalError(doubt.doubt_id, from_state)
-
-        # Check valid transition
-        valid_targets = self.VALID_TRANSITIONS.get(from_state, set())
-        if to_state not in valid_targets:
-            raise InvalidTransitionError(from_state, to_state)
-
-        # Create transition record
-        now = datetime.now(timezone.utc).isoformat()
-        transition = StateTransition(
-            from_state=from_state,
-            to_state=to_state,
-            timestamp=now,
-            actor=actor,
-            reason=reason,
+    def _apply_transition(self, doubt, to_state, actor, *, reason=None,
+                          assignee=None, description=None):
+        plan = self._lifecycle.plan(
+            doubt_id=doubt.doubt_id, from_state=doubt.current_state,
+            to_state=to_state, actor=actor, reason=reason,
+            assignee=assignee, description=description,
         )
-
-        # Update doubt
         doubt.current_state = to_state
-        doubt.updated_at = now
-        doubt.state_history.append(transition)
-
-        # Persist
+        doubt.updated_at = plan.transition.timestamp
+        doubt.state_history.append(plan.transition)
+        if plan.resolution is not None:
+            doubt.resolution = plan.resolution
+        if plan.set_assigned_to:
+            doubt.assigned_to = plan.assigned_to
         self._persist(doubt)
         return doubt
 
