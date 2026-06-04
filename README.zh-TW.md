@@ -171,6 +171,8 @@ Viewer 的版本選擇器優先用 `git_tags[0]` → `label` → `version_id`，
 
 同一個前段、兩條後段路徑：LLM 路徑（首次分析或重分析）、增量路徑（比對當前 AST 對既有 baseline，不呼叫 LLM）。快照本地優先存放；唯一的網路呼叫是 LLM 本身。
 
+> **v1.6.0 — 內部結構強化（零行為改動）。** HTTP API 層、資料模型、快照參照解析、疑義生命週期各自收斂成單一真相來源模組（`core/ui/api/`、`models/`、`BaselineResolver`、`DoubtLifecycle`），快照持久化改走單一 fail-closed 契約 chokepoint。CLI / MCP / viewer 行為逐位元不變；完整重構歷程見 [CHANGELOG](CHANGELOG.md)。
+
 ---
 
 ## 授權

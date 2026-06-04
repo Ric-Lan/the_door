@@ -10,6 +10,33 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.6.0 — 2026-06-04
+
+**內部維護性釋出（refactoring campaign）。** 本版主體是一輪「逐刀 spec → plan → TDD → 本地 merge」的內部重構：把過大的模組與寫了多遍的政策，逐一收斂成單一真相來源（single source of truth）的結構。**對使用者面（CLI / MCP / viewer）的行為與輸出逐位元不變**，唯一的對外新增是下方 Added 列出的唯讀稽核與 API 文件產生器。全程以 characterization / TDD 安全網先行，**1447 passed、零回歸**，新模組覆蓋率補到 100%。
+
+### Added
+- **`audit_conformance()` — 唯讀快照契約稽核**：對既有 / legacy snapshot 做唯讀的契約符合度檢查，不重產、不改 schema（為後續 output-direction 工作預留的稽核入口；目前為 snapshot store 內部能力）。
+- **AI-agent API index + 錯誤碼目錄產生器**：doc generators 從 `core/ui/api/` 自動產出路由索引與錯誤碼目錄，供 agent 讀取。
+- **集中式 `ERROR_CODES` 登記表**：21 個 HTTP 端點的錯誤碼集中登記（回應值英文、route summary 維持繁中），補登先前 17 + 18 個缺漏碼並加上 drift guard 防再度漂移。
+
+### Changed（內部結構 — 零行為改動）
+- **HTTP API 層拆分**：`api_handlers.py`（1234 行 / 21 端點）→ `core/ui/api/` 套件 —— `APIContext` 共享依賴袋 + 集中 `ROUTES` 路由表 + 6 個領域 handler（Project / Analysis / Catalog / Graph / Diff / Annotation），`server.py` 縮成純殼、只做 router 分派。
+- **`models.py` 套件化**：1004 行單檔 → `models/` 每領域子模組 + re-export 門面（公開 surface 不變、DRIFT=0），新增 DSM 結構不變式測試（無環 + 邊集 + SDP）守住相依方向。
+- **pipeline `run()` 拉直**：把分散的中斷守衛收斂進單一 `_partial` 路徑，正常 / 失敗 / 中斷 / summary / validate 五條路徑全 characterize。
+- **`BaselineResolver` 抽出（Finding B-1）**：把分散 5 處的快照參照文法（label / git tag / date / SHA / UUID，含 UUID 分支）收編成單一純解析器，消費端去重。
+- **`DoubtLifecycle` 抽出（Finding B-2）**：把疑義狀態轉換政策（原寫四遍：轉換表 / 5 個動詞 / tool if-elif / CLI if-elif）收成單一宣告式生命週期（純零 I/O、效果 by-target），落盤集中為單次，tool 與 CLI 共讀 `store.transition`，5 個動詞留薄殼，行為 / 輸出逐字不變。
+
+### Hardened
+- **快照持久化契約對賬（Finding A）**：snapshot schema 改 strict + 新增 `_get_snapshot_schema` loader；所有寫入收斂進單一 `_write_snapshot` chokepoint 做 fail-closed 契約校驗，杜絕繞過驗證的落盤路徑。
+
+### Removed
+- 清掉無參照的自我分析 dogfood 殘留檔。
+
+### Tests
+- 1447 passed、46 skipped、1 xfailed、**零回歸**；新增 / 改動模組（`core/ui/api/`、`models/`、pipeline run、BaselineResolver、DoubtLifecycle）覆蓋率補到 100%。
+
+---
+
 ## v1.5.6 — 2026-05-31
 
 ### Added

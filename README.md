@@ -172,6 +172,8 @@ Code → AST extraction (tree-sitter, 305+ languages)
 
 Two paths from the same front-end: the LLM-driven path (first analysis or re-analysis) and the incremental path (compare current AST to a persisted baseline, no LLM). Snapshots are local-first; the only network call is the LLM itself.
 
+> **v1.6.0 — internals hardening (no behavior change).** The HTTP API layer, data models, snapshot reference resolution, and doubt lifecycle were each decomposed into single-source-of-truth modules (`core/ui/api/`, `models/`, `BaselineResolver`, `DoubtLifecycle`), and snapshot persistence now passes through one fail-closed contract chokepoint. CLI / MCP / viewer behavior is byte-for-byte unchanged; see the [CHANGELOG](CHANGELOG.md) for the full campaign log.
+
 ---
 
 ## License
