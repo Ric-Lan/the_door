@@ -171,29 +171,18 @@ def doubt_resolve(doubt_id: str, resolution_type: str, reason: str, codebase_pat
         sys.exit(1)
 
     try:
-        # State-based dispatch
-        if doubt.current_state == "investigating" and resolution_type == "explained":
-            updated = store.explain(resolved_id, reason, resolved_by="cli_user")
-        elif doubt.current_state == "investigating" and resolution_type == "fixed":
-            updated = store.fix(resolved_id, reason, resolved_by="cli_user")
-        elif doubt.current_state == "escalated":
-            updated = store.resolve_escalation(resolved_id, resolution_type, reason, resolved_by="cli_user")
-        else:
-            click.echo(
-                f"Error: Cannot resolve as '{resolution_type}' from state '{doubt.current_state}'. "
-                f"Expected: investigating + explained/fixed, or escalated + any resolution type.",
-                err=True,
-            )
-            sys.exit(1)
-
+        updated = store.transition(
+            resolved_id, resolution_type, actor="cli_user", description=reason,
+        )
         click.echo(f"Doubt {updated.doubt_id[:8]} resolved as {resolution_type} (state: {updated.current_state})")
         from the_door.cli.post_run_hook import cli_post_run_hook
         cli_post_run_hook(codebase_path, json_mode_active=False)
-    except DoubtTerminalError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-    except InvalidTransitionError as e:
-        click.echo(f"Error: {e}", err=True)
+    except (DoubtTerminalError, InvalidTransitionError):
+        click.echo(
+            f"Error: Cannot resolve as '{resolution_type}' from state '{doubt.current_state}'. "
+            f"Expected: investigating + explained/fixed, or escalated + any resolution type.",
+            err=True,
+        )
         sys.exit(1)
 
 

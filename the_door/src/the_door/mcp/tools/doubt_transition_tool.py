@@ -53,44 +53,18 @@ async def execute(arguments: dict) -> dict:
     project_root = Path(codebase_path)
     store = DoubtStore(project_root)
 
+    if target_state == "investigating" and not assignee:
+        return {"error": True, "message": "assignee is required for investigating transition"}
+    if target_state in ("explained", "fixed", "escalated", "accepted_risk") and not reason:
+        return {"error": True, "message": f"reason is required for {target_state} transition"}
+    if target_state not in ("investigating", "explained", "fixed", "escalated", "accepted_risk"):
+        return {"error": True, "message": f"Unknown target_state: {target_state}"}
+
     try:
-        if target_state == "investigating":
-            if not assignee:
-                return {"error": True, "message": "assignee is required for investigating transition"}
-            doubt = store.assign(doubt_id, assignee, actor)
-
-        elif target_state == "explained":
-            if not reason:
-                return {"error": True, "message": "reason is required for explained transition"}
-            # Check current state to decide which method to use
-            current = store.get_doubt(doubt_id)
-            if current.current_state == "escalated":
-                doubt = store.resolve_escalation(doubt_id, "explained", reason, actor)
-            else:
-                doubt = store.explain(doubt_id, reason, actor)
-
-        elif target_state == "fixed":
-            if not reason:
-                return {"error": True, "message": "reason is required for fixed transition"}
-            current = store.get_doubt(doubt_id)
-            if current.current_state == "escalated":
-                doubt = store.resolve_escalation(doubt_id, "fixed", reason, actor)
-            else:
-                doubt = store.fix(doubt_id, reason, actor)
-
-        elif target_state == "escalated":
-            if not reason:
-                return {"error": True, "message": "reason is required for escalated transition"}
-            doubt = store.escalate(doubt_id, reason, actor)
-
-        elif target_state == "accepted_risk":
-            if not reason:
-                return {"error": True, "message": "reason is required for accepted_risk transition"}
-            doubt = store.resolve_escalation(doubt_id, "accepted_risk", reason, actor)
-
-        else:
-            return {"error": True, "message": f"Unknown target_state: {target_state}"}
-
+        doubt = store.transition(
+            doubt_id, target_state, actor=actor,
+            reason=reason, assignee=assignee, description=reason,
+        )
     except DoubtNotFoundError:
         return {"error": True, "message": f"Doubt not found: {doubt_id}"}
     except DoubtTerminalError as e:
