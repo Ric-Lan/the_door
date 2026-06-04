@@ -1,6 +1,6 @@
 # DoubtLifecycle 抽出 + 轉換規範單一真相（Finding B-2，甲案）— 設計
 
-> **日期**：2026-06-04　**狀態**：設計中、待審（spike 已對真實碼完成）
+> **日期**：2026-06-04　**狀態**：已實作（plan: docs/superpowers/plans/2026-06-04-doubt-lifecycle-extraction.md）
 > **刀序**：Finding B 第二刀（store 各藏一個子元件 → 顯性化）。承 B-1（BaselineResolver）同型；命題不同（B-1=差異/參照解析，B-2=範圍/狀態機）。
 > **scope = 甲案（純內部、零輸出改動、行為保留）**。經使用者拍板。乙案（把意義經 tile schema/結構送達 agent）**明確延後**至重構 campaign 結束後的全專案輸出 pass，見 memory `todo_output_direction_assessment`，本刀不碰。
 > **目標檔**：新 `core/scope/doubt_lifecycle.py`；改 `core/scope/doubt_store.py`、`mcp/tools/doubt_transition_tool.py`、`cli/doubt_cmd.py`；新測試 + characterization 測試。
