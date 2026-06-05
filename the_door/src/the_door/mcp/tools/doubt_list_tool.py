@@ -1,6 +1,8 @@
 """MCP tool: doubt_list — list doubt records with optional filters."""
 from __future__ import annotations
 
+from the_door.core.scope import doubt_membrane
+
 TOOL_SCHEMA = {
     "type": "object",
     "properties": {
@@ -8,14 +10,8 @@ TOOL_SCHEMA = {
             "type": "string",
             "description": "Codebase 根目錄路徑（預設 '.'）",
         },
-        "state": {
-            "type": "string",
-            "description": "依狀態篩選",
-        },
-        "type": {
-            "type": "string",
-            "description": "依類型篩選",
-        },
+        "state": doubt_membrane.state_filter_schema(),
+        "type": doubt_membrane.type_filter_schema(),
     },
 }
 

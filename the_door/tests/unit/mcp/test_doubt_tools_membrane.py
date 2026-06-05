@@ -26,3 +26,19 @@ def test_transition_output_current_state_is_bare(tmp_path):
     assert out["current_state"] == "explained"
     assert out["doubt_type"] == "anomaly"
     assert out["resolution"]["type"] == "explained"
+
+
+from the_door.mcp.tools import doubt_transition_tool, doubt_list_tool
+from the_door.core.scope.doubt_lifecycle import DoubtLifecycle
+
+
+def test_transition_target_state_has_enum():
+    sch = doubt_transition_tool.TOOL_SCHEMA["properties"]["target_state"]
+    assert set(sch["enum"]) == {"investigating", "explained", "fixed", "escalated", "accepted_risk"}
+    assert "investigating" in sch["description"]
+
+
+def test_list_state_and_type_have_enum():
+    props = doubt_list_tool.TOOL_SCHEMA["properties"]
+    assert set(props["state"]["enum"]) == set(DoubtLifecycle.VALID_TRANSITIONS.keys())
+    assert set(props["type"]["enum"]) == {"out_of_scope", "in_scope_incomplete", "anomaly", "low_confidence"}

@@ -1,6 +1,8 @@
 """MCP tool: doubt_transition — transition a doubt to a new state."""
 from __future__ import annotations
 
+from the_door.core.scope import doubt_membrane
+
 TOOL_SCHEMA = {
     "type": "object",
     "required": ["doubt_id", "target_state", "actor"],
@@ -9,10 +11,7 @@ TOOL_SCHEMA = {
             "type": "string",
             "description": "疑義 ID",
         },
-        "target_state": {
-            "type": "string",
-            "description": "目標狀態",
-        },
+        "target_state": doubt_membrane.target_state_schema(),
         "actor": {
             "type": "string",
             "description": "操作者",
