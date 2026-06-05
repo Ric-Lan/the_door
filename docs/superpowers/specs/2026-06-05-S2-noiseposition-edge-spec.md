@@ -164,11 +164,6 @@ _RESIDUE_GAP_KIND = {
     "skipped_dynamic": "indeterminate",
 }
 
-# indeterminate 殘餘的極短 gloss（人類意圖殘餘，語法捕不到）。
-_GAP_KIND_GLOSS = {
-    "indeterminate": "動態派發、無法靜態解析的呼叫（保留為不確定，非遺漏）",
-}
-
 
 def is_residue(resolution: str) -> bool:
     """此 resolution 是否為格外殘餘（→NoisePosition）。"""
@@ -180,13 +175,17 @@ def indeterminate_residue_element(
 ) -> MembraneElement:
     """skipped_dynamic 殘餘（單一 caller、聚合）→ NoisePosition element。
 
-    payload＝殘餘本體（caller＋逐 method 計數，基數保留）；
+    payload＝殘餘本體（caller＋逐 method 計數，基數保留、**method 鍵排序**＝決定性）；
     position＝NoisePosition（gap_kind=indeterminate, cardinality=Σcount, proportion）。
+    意義由 gap_kind（結構）＋ prompt 教學（§3.4）承載——payload **不**塞 gloss
+    （NoisePosition＝純殘餘描述子無 gloss 欄；gloss 在 payload 會與膜模型自相矛盾＋雙源）。
+    proportion 分母＝**本批全 edge**（total_edges＝len(edges)）：語意＝此 caller 的
+    indeterminate 殘餘佔整批呼叫圖的比例。
     """
     cardinality = sum(method_counts.values())
     proportion = (cardinality / total_edges) if total_edges else 0.0
     return MembraneElement(
-        payload={"caller": caller, "methods": dict(method_counts), "gloss": _GAP_KIND_GLOSS["indeterminate"]},
+        payload={"caller": caller, "methods": dict(sorted(method_counts.items()))},
         position=NoisePosition(
             gap_kind="indeterminate",
             cardinality=cardinality,
@@ -245,7 +244,8 @@ def project_edges_for_prompt(
             for caller, counts in sorted(indeterminate_counts.items())
         ],
         "low_confidence_ambiguous": {
-            caller: dict(counts) for caller, counts in sorted(ambiguous_counts.items())
+            caller: dict(sorted(counts.items()))
+            for caller, counts in sorted(ambiguous_counts.items())
         },
     }
     return kept, residue
@@ -268,7 +268,7 @@ def _method_name_from_to(to_node: str) -> str:
 
 教學要點（散文由實作者依風格落筆，要點固定）：
 - 欄位改名 `aggregate_call_residue`，含兩鍵：
-  - `indeterminate`：每筆＝`{value:{caller,methods:{方法:次數},gloss}, position:{kind:"noise", gap_kind:"indeterminate", cardinality:N, proportion:p, aggregated:true}}`。語意＝「動態派發、靜態無法解析的呼叫，**保留為不確定（非遺漏）**；caller 共 N 筆、佔本批 edge 比例 p」。
+  - `indeterminate`：每筆＝`{value:{caller, methods:{方法:次數}}, position:{kind:"noise", gap_kind:"indeterminate", cardinality:N, proportion:p, aggregated:true}}`。語意（由 prompt 散文教，非塞進 payload）＝「動態派發、靜態無法解析的呼叫，**保留為不確定（非遺漏）**；caller 共 N 筆、佔本批 edge 比例 p」。
 - `low_confidence_ambiguous`：`{caller:{方法:次數}}`。語意＝「裸名高 fanout 匹配、低信心」。
 - **保留既有紀律**（逐字搬，不鬆動）：兩者皆**不可**當「呼叫了某 feature」依據、**不可**據以加 `depends_on`；description 必須提時限泛稱、寧可不提。
 - LLM 可用基數/佔比判斷「殘餘是否顯著」（如 50 筆 indeterminate vs 1 筆），但仍不寫成依賴——**資訊增益用於更準的保守判斷，非放寬紀律**（§8.2 fact-finder：結構化讓判斷更準、不替它預先裁決）。
@@ -310,7 +310,7 @@ S1 已立五律（`{domain}_membrane.py`／input 衍生／output 投影／schema
   - `tests/integration/test_batch_reader_projection.py`：payload 鍵 `aggregate_call_hints`→`aggregate_call_residue`＋形狀斷言更新（含 minimal mode 無此鍵的負斷言改鍵名）。
   - `tests/unit/core/llm/test_prompt{s_resolution,_resolution_section}.py`：斷言 prompt 含 `aggregate_call_residue` ＋兩座標詞（取代 `aggregate_call_hints`）。
 - **單元**（`tests/unit/core/membrane/test_noise_position.py`）：N1（aggregated 缺 cardinality/proportion→ValueError）／N2（gap_kind 非法→ValueError、合法 4 值可構造）／cardinality 負→ValueError／proportion 越界→ValueError／`to_json` noise 鍵集；`is_flag` happy-path。
-- **單元**（`tests/unit/core/llm/test_edge_membrane.py`）：`is_residue`（skipped_dynamic True、其餘 False）／`indeterminate_residue_element` 計數正確（同名不折）＋proportion＝cardinality/total＋`to_json` 形狀。
+- **單元**（`tests/unit/core/llm/test_edge_membrane.py`）：`is_residue`（skipped_dynamic True、其餘 False）／`indeterminate_residue_element` 計數正確（同名不折）＋proportion＝cardinality/total（分母＝本批全 edge）＋`to_json` 形狀＋**method 鍵排序決定性**（亂序輸入→相同 sorted 輸出）。
 - **F5 修正 characterization**（`tests/unit/core/llm/test_edge_projection.py` 更新＋新 case）：
   - N3：同一 caller 同名 method 50 筆 skipped_dynamic → cardinality=50（**非 1**）。
   - N4：caller 同時有 skipped_dynamic＋name_match_ambiguous → 分落 `indeterminate`／`low_confidence_ambiguous` 兩鍵（不混）。
