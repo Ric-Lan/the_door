@@ -412,6 +412,18 @@ def test_to_node_without_dot_uses_whole_id_as_method_name():
     assert residue["low_confidence_ambiguous"] == {"caller": {"bare": 1}}
 
 
+def test_indeterminate_list_sorted_by_caller_deterministic():
+    """清單順序依 caller 排序＝prompt 跨次穩定（亂序輸入→相同順序輸出）。"""
+    edges = [
+        _edge("zeta", "B.f", "skipped_dynamic"),
+        _edge("alpha", "B.g", "skipped_dynamic"),
+        _edge("mu", "B.h", "skipped_dynamic"),
+    ]
+    _kept, residue = project_edges_for_prompt(edges)
+    callers = [el["value"]["caller"] for el in residue["indeterminate"]]
+    assert callers == ["alpha", "mu", "zeta"]
+
+
 def test_empty_edges_returns_empty():
     kept, residue = project_edges_for_prompt([])
     assert kept == []
@@ -548,9 +560,9 @@ Expected: FAIL — prompt 仍含舊詞 `aggregate_call_hints`、新詞 `aggregat
 
 - [ ] **Step 3: Write minimal implementation**
 
-`src/the_door/core/llm/prompts.py`：把 `:45-65`（「你不會在 `edges` 內看到…」起、整個 `## aggregate_call_hints 欄位` 段，到 `對 aggregate_call_hints 不寫成依賴。` 止）**整段替換**為下文。**保留 `:39-43` 的三 label 段不動**（高信心/低信心/per-edge label 在那）。**禁** 在新段使用 `` `skipped_dynamic` ``/`` `name_match_ambiguous` `` backtick：
+`src/the_door/core/llm/prompts.py`：把 `:45-65`（「你不會在 `edges` 內看到…」起、整個 `## aggregate_call_hints 欄位` 段，到 `對 aggregate_call_hints 不寫成依賴。` 止）**整段替換**為下方四反引號區塊內的文字（外層用四反引號是為了讓內含的三反引號 JSON 範例乾淨巢狀——**貼入 prompt 時不含最外層四反引號**）。**保留 `:39-43` 的三 label 段不動**（高信心/低信心/per-edge label 在那）。**禁** 在新段使用 `` `skipped_dynamic` ``/`` `name_match_ambiguous` `` backtick：
 
-```text
+````text
 你不會在 `edges` 內看到「高候選量裸名匹配」或「動態 dispatch」邊 — 它們已在輸入端被聚合成 `aggregate_call_residue` 欄位。
 
 ## `aggregate_call_residue` 欄位
@@ -582,7 +594,7 @@ payload 內額外提供「無法精確定位的呼叫殘餘」，**按性質分�
 - 寧可不提，不要勉強寫出帶有不確定性的依賴敘述
 
 撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `aggregate_call_residue`（兩座標）不寫成依賴。
-```
+````
 
 - [ ] **Step 4: Run tests to verify they pass**
 
