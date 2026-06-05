@@ -297,14 +297,14 @@ class BatchReader:
             for e in self._structure.edges
             if e.from_node in batch_node_set and e.to_node in batch_node_set
         ]
-        # Step 2: projection — drop ambiguous, aggregate dynamic into hints.
-        kept_edges, aggregate_hints = project_edges_for_prompt(edge_dicts)
+        # Step 2: projection — split off-grid residue into membrane coordinates.
+        kept_edges, aggregate_residue = project_edges_for_prompt(edge_dicts)
         return {
             "batch": batch_num,
             "context_mode": "detail",
             "nodes": node_dicts,
             "edges": kept_edges,
-            "aggregate_call_hints": aggregate_hints,
+            "aggregate_call_residue": aggregate_residue,
         }
 
     def _serialize_payload(self, node_ids: list[str], batch_num: int) -> str:

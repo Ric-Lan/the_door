@@ -21,16 +21,18 @@ def _reader(structure: StructureJSON, mode: str = "detail") -> BatchReader:
     return BatchReader(_StubProvider(), structure, context_mode=mode)
 
 
-def test_detail_payload_includes_aggregate_call_hints_key():
-    """Even when no edges trigger aggregation, the key exists as empty dict."""
+def test_detail_payload_includes_aggregate_call_residue_key():
+    """Even when no edges trigger aggregation, the key exists as empty residue."""
     nodes = [_node("caller", "caller"), _node("target", "target")]
     edges = [Edge(from_node="caller", to_node="target",
                   type="calls", resolution="scope_rule")]
     payload = _reader(_make_structure(nodes, edges))._build_payload(
         ["caller", "target"], batch_num=0
     )
-    assert "aggregate_call_hints" in payload
-    assert payload["aggregate_call_hints"] == {}
+    assert "aggregate_call_residue" in payload
+    assert payload["aggregate_call_residue"] == {
+        "indeterminate": [], "low_confidence_ambiguous": {}
+    }
     assert len(payload["edges"]) == 1
     assert payload["edges"][0]["resolution"] == "scope_rule"
 
@@ -51,8 +53,11 @@ def test_ambiguous_edges_dropped_and_hint_populated():
     # No ambiguous edges leaked through
     assert all(e["resolution"] != "name_match_ambiguous"
                for e in payload["edges"])
-    # Caller has a hint
-    assert payload["aggregate_call_hints"] == {"caller": ["write"]}
+    # Caller's ambiguous residue is counted (4 same-name → count 4)
+    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == {
+        "caller": {"write": 4}
+    }
+    assert payload["aggregate_call_residue"]["indeterminate"] == []
 
 
 def test_dynamic_edges_aggregated_into_hints():
@@ -63,18 +68,20 @@ def test_dynamic_edges_aggregated_into_hints():
         ["caller", "Bus.send"], batch_num=0
     )
     assert payload["edges"] == []
-    assert payload["aggregate_call_hints"] == {"caller": ["send"]}
+    ind = payload["aggregate_call_residue"]["indeterminate"]
+    assert ind[0]["value"] == {"caller": "caller", "methods": {"send": 1}}
+    assert ind[0]["position"]["gap_kind"] == "indeterminate"
 
 
-def test_minimal_mode_has_no_aggregate_call_hints_key():
-    """minimal mode payload must NOT contain aggregate_call_hints."""
+def test_minimal_mode_has_no_aggregate_call_residue_key():
+    """minimal mode payload must NOT contain aggregate_call_residue."""
     nodes = [_node("a", "a"), _node("b", "b")]
     edges = [Edge(from_node="a", to_node="b",
                   type="calls", resolution="name_match_ambiguous")]
     payload = _reader(_make_structure(nodes, edges), mode="minimal")._build_payload(
         ["a", "b"], batch_num=0
     )
-    assert "aggregate_call_hints" not in payload
+    assert "aggregate_call_residue" not in payload
     assert payload == {"batch": 0, "context_mode": "minimal",
                        "nodes": ["a", "b"]}
 
@@ -95,5 +102,7 @@ def test_batch_local_filter_applied_before_projection():
     payload = _reader(_make_structure(nodes, edges))._build_payload(
         ["caller", "In.x"], batch_num=0
     )
-    # Only the in-batch edge fed projection → only 'x' in hint, not 'y'
-    assert payload["aggregate_call_hints"] == {"caller": ["x"]}
+    # Only the in-batch edge fed projection → only 'x' in residue, not 'y'
+    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == {
+        "caller": {"x": 1}
+    }

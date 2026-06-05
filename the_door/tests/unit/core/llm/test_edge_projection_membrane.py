@@ -7,13 +7,21 @@ def _edge(from_, to, res):
     return {"from": from_, "to": to, "type": "calls", "resolution": res}
 
 
-def test_f5_current_conflates_and_dedups():
-    """CHARACTERIZATION（Task 3 現狀＝F5 病灶）：兩 gap-kind 併一桶 + 同名去重。"""
+def test_f5_retrofit_splits_and_counts():
+    """retrofit 後：座標分流（N4）+ 真實基數（N3）。"""
     edges = [
         _edge("a", "Bus.send", "skipped_dynamic"),
+        _edge("a", "Bus.send", "skipped_dynamic"),     # 同名 2 筆 → cardinality=2
         _edge("a", "F.write", "name_match_ambiguous"),
-        _edge("a", "G.write", "name_match_ambiguous"),     # 同名 write → 去重成 1
+        _edge("a", "G.write", "name_match_ambiguous"),
+        _edge("a", "b", "scope_rule"),
     ]
-    kept, hints = project_edges_for_prompt(edges)
-    assert kept == []
-    assert hints == {"a": ["send", "write"]}   # send(dynamic)+write(ambiguous) 混桶、write 去重
+    kept, residue = project_edges_for_prompt(edges)
+    assert [e["to"] for e in kept] == ["b"]
+    ind = residue["indeterminate"]
+    assert len(ind) == 1 and ind[0]["value"]["caller"] == "a"
+    assert ind[0]["value"]["methods"] == {"send": 2}        # 真實基數、不去重
+    assert ind[0]["position"]["gap_kind"] == "indeterminate"
+    assert ind[0]["position"]["cardinality"] == 2
+    assert ind[0]["position"]["proportion"] == 2 / 5
+    assert residue["low_confidence_ambiguous"] == {"a": {"write": 2}}   # 座標分流、基數保留
