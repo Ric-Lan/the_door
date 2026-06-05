@@ -386,6 +386,10 @@ provenance 主軸需要 snapshot 記錄**出生時的契約/schema 版本戳**�
 | §3 schema 演化四類（並列） | §8.9 re-partition | `domain_violation`＝**格內**（歸主軸）；僅 forward_noise/missing_required(→evolutionary)/corrupt 在格外。 |
 | §3「❌ risk_level 平禁」 | §8.12 修正③ | 禁**自鑄**裁決；**轉述外部裁決（CVSS）＝帶 provenance 事實、可轉述**。 |
 | §1/§3「audit 是首個試點」 | §8.10 翻轉③ | doubt＝整張膜典範整合試點；audit 是 4 個 retrofit 之一。 |
+| **§8.3「三主軸格內」↔§8.10「A＝膜外/格外」直接矛盾** | **S0 spec 驗證（2026-06-05）** | **膜的切線是 per-value（格內 vs 格外）、非 per-field。** 同一欄位：落在閉集的值＝**格內 Signal**（含 confidence/provenance/scope 的 current/high…，帶 contrasts+gloss）；其格外殘餘（unrecognized/無法分類/無界）＝**格外 Noise**。§8.3「三主軸格內」對的是**值**；§8.10「A 處理格外」對的是**殘餘**；錯在把軸整個歸一側。 |
+| **NoisePosition＝「三閉集座標的袋子」** | 同上（per-value 推論） | NoisePosition 縮成**純殘餘描述子** `{gap_kind, cardinality, proportion, is_flag}`——丟掉 confidence/provenance/scope 三欄（那些是 Signal 值）。**剛好吻合 §8.3「殘餘格恆帶 性質+基數+比例」**，比塞三閉集更自洽。provenance/scope 的 enum 各含一個 off-grid 哨兵值（unknown/unrecognized）＝格內對格外的命名橋（§8.10 接點② reserved 之通則）。 |
+| **§8.12「RelayedVerdict 強制外部 provenance＝非空 provenance」** | S0 spec 驗證（2026-06-05，grep `vulnerability_scanner.py:167,174-177,189`） | 守衛要的是**外部證據本體（CVSS vector），非來源標籤**。實證：scanner 鑄 `CVSS_MIDPOINTS` 中點、甚至**丟棄 OSV 真 vector**（`:177 pass`），卻一律蓋 `source="osv-scanner"` → 非空 source 對真假分**零鑑別力**。型別＝`RelayedVerdict{score, authority, evidence}`，evidence 非空（vector）方可構造；無 vector ⟹ 退 `NoisePosition(indeterminate)`。F6 才真不可構造。**通則：凡來源沒實際給的值一律退 Noise(unknown/indeterminate)，不出成「看似有來源」的值。** |
+| **「自鑄處方」要不要第 5 變體** | S0 spec 驗證（2026-06-05，`vulnerability_renderer.py:131-136`） | **不加。** `_get_action`（severity→「立即更新」）＝脈絡盲自鑄處方、越界裁決（違 §8.13-O1 上界）；它既非 Signal/Noise 也非外部 Verdict → **膜內無家＝正確**。union 維持 4 變體；「沒有處方變體」即 fact-finder 上界的型別體現。S3 移除/降級 `_get_action`。 |
 
 ### 三、遺漏核對（原 §0–§7 理論點是否被 §8 吞掉）
 逐項核對，**三點需明確接回**（其餘已被涵蓋）：
