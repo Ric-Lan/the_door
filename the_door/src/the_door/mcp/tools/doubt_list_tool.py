@@ -33,29 +33,9 @@ async def execute(arguments: dict) -> dict:
 
     doubts = store.list_doubts(states=states, types=types)
 
+    from the_door.core.scope.doubt_membrane import project_doubt
+
     return wrap({
-        "doubts": [
-            {
-                "doubt_id": d.doubt_id,
-                "source_node": d.source_node,
-                "doubt_type": d.doubt_type,
-                "current_state": d.current_state,
-                "created_by": d.created_by,
-                "created_at": d.created_at,
-                "updated_at": d.updated_at,
-                "assigned_to": d.assigned_to,
-                "resolution": (
-                    {
-                        "type": d.resolution.type,
-                        "description": d.resolution.description,
-                        "resolved_by": d.resolution.resolved_by,
-                        "resolved_at": d.resolution.resolved_at,
-                    }
-                    if d.resolution is not None
-                    else None
-                ),
-            }
-            for d in doubts
-        ],
+        "doubts": [project_doubt(d) for d in doubts],
         "total": len(doubts),
     }, project_path=project_root, context="mcp")

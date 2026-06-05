@@ -16,16 +16,48 @@ def _seed_explained(tmp_path):
     return store, d
 
 
-def test_transition_output_current_state_is_bare(tmp_path):
-    """CHARACTERIZATION（Task 2 現狀）：current_state 為 bare str。"""
+def test_transition_output_projects_membrane(tmp_path):
+    """投影後：三 enum 為 {value, position}；description 為 reserved（整膜）。"""
     store, d = _seed_explained(tmp_path)
     out = asyncio.run(transition_exec({
         "doubt_id": d.doubt_id, "target_state": "explained", "actor": "a",
         "reason": "fp", "codebase_path": str(tmp_path),
     }))
-    assert out["current_state"] == "explained"
-    assert out["doubt_type"] == "anomaly"
-    assert out["resolution"]["type"] == "explained"
+    assert out["current_state"]["value"] == "explained"
+    assert out["current_state"]["position"]["kind"] == "signal"
+    assert "investigating" in out["current_state"]["position"]["preconditions"]
+    assert out["doubt_type"]["value"] == "anomaly"
+    assert out["resolution"]["type"]["value"] == "explained"
+    assert out["resolution"]["description"]["position"]["kind"] == "reserved"  # J5 reserved
+
+
+def test_list_output_projects_membrane(tmp_path):
+    store, d = _seed_explained(tmp_path)
+    asyncio.run(transition_exec({
+        "doubt_id": d.doubt_id, "target_state": "explained", "actor": "a",
+        "reason": "fp", "codebase_path": str(tmp_path),
+    }))
+    out = asyncio.run(list_exec({"codebase_path": str(tmp_path)}))
+    row = out["doubts"][0]
+    assert row["current_state"]["position"]["kind"] == "signal"
+    assert row["doubt_type"]["position"]["kind"] == "signal"
+    assert isinstance(out["total"], int)        # total 維持裸 int（J5：非有損聚合）
+
+
+def test_j5_emit_only_signal_or_reserved(tmp_path):
+    """J5：doubt emit 的 position kind ∈ {signal, reserved}，無 noise/verdict。"""
+    store, d = _seed_explained(tmp_path)
+    out = asyncio.run(transition_exec({
+        "doubt_id": d.doubt_id, "target_state": "explained", "actor": "a",
+        "reason": "fp", "codebase_path": str(tmp_path),
+    }))
+    kinds = {
+        out["current_state"]["position"]["kind"],
+        out["doubt_type"]["position"]["kind"],
+        out["resolution"]["type"]["position"]["kind"],
+        out["resolution"]["description"]["position"]["kind"],
+    }
+    assert kinds <= {"signal", "reserved"}
 
 
 from the_door.mcp.tools import doubt_transition_tool, doubt_list_tool

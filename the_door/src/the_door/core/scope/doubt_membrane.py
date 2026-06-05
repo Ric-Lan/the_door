@@ -76,6 +76,34 @@ def free_text_element(text: str) -> MembraneElement:
     return MembraneElement(payload=text, position=ReservedPassthrough())
 
 
+def project_doubt(d) -> dict:
+    """單一 per-doubt LLM-facing 投影（transition／list 共用、單一來源）。
+
+    三 enum 經 MembraneElement→{value,position}（Signal）；resolution.description
+    經 reserved 窗；其餘標量裸傳。新增/改 doubt 投影欄只改此處。
+    """
+    return {
+        "doubt_id": d.doubt_id,
+        "source_node": d.source_node,
+        "doubt_type": doubt_type_element(d.doubt_type).to_json(),
+        "current_state": current_state_element(d.current_state).to_json(),
+        "created_by": d.created_by,
+        "created_at": d.created_at,
+        "updated_at": d.updated_at,
+        "assigned_to": d.assigned_to,
+        "resolution": (
+            {
+                "type": resolution_type_element(d.resolution.type).to_json(),
+                "description": free_text_element(d.resolution.description).to_json(),
+                "resolved_by": d.resolution.resolved_by,
+                "resolved_at": d.resolution.resolved_at,
+            }
+            if d.resolution is not None
+            else None
+        ),
+    }
+
+
 # === input schema 衍生（零副本：input 的 enum+description 從 gloss 建構，非手抄）===
 _TARGET_STATES = ("investigating", "explained", "fixed", "escalated", "accepted_risk")  # discovered 非 target
 

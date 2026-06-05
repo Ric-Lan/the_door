@@ -71,23 +71,10 @@ async def execute(arguments: dict) -> dict:
     except InvalidTransitionError as e:
         return {"error": True, "message": str(e)}
 
-    return wrap({
-        "doubt_id": doubt.doubt_id,
-        "source_node": doubt.source_node,
-        "doubt_type": doubt.doubt_type,
-        "current_state": doubt.current_state,
-        "created_by": doubt.created_by,
-        "created_at": doubt.created_at,
-        "updated_at": doubt.updated_at,
-        "assigned_to": doubt.assigned_to,
-        "resolution": (
-            {
-                "type": doubt.resolution.type,
-                "description": doubt.resolution.description,
-                "resolved_by": doubt.resolution.resolved_by,
-                "resolved_at": doubt.resolution.resolved_at,
-            }
-            if doubt.resolution is not None
-            else None
-        ),
-    }, project_path=project_root, context="mcp")
+    from the_door.core.scope.doubt_membrane import project_doubt
+
+    return wrap(
+        project_doubt(doubt),
+        project_path=project_root,
+        context="mcp",
+    )
