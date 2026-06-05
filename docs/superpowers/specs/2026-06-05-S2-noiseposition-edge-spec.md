@@ -90,13 +90,14 @@ class NoisePosition:
     （種子檔 §8.3：殘餘格恆帶三件）。聚合殘餘（多筆併報）必帶基數與比例，
     否則就是偷渡減法（§8.12／§8.14）——型別強制，不帶基數不能 emit 聚合殘餘。
 
-    is_flag＝presence-only 殘餘（僅標記存在、無基數語意，如單筆 off-grid 哨兵）。
+    （presence-only 旗標〔S0 §3a 曾草擬 is_flag〕**不在 S2 建**：edge 殘餘恆聚合、
+    無生產者；單筆 off-grid 哨兵以 aggregated=False＋無 cardinality 表達即足。
+    照 spec 自身「不預建死碼」原則，待首個 presence-only 生產者〔S4/S5 哨兵〕落地再加。）
     """
-    gap_kind: str | None = None          # ∈ GAP_KIND_PRIORITY（或 None＝未分類旗標）
+    gap_kind: str | None = None          # ∈ GAP_KIND_PRIORITY（或 None＝未分類）
     cardinality: int | None = None       # 殘餘筆數（真實計數、不去重）
     proportion: float | None = None      # 佔全體比例 [0,1]
-    is_flag: bool = False                # presence-only（無基數語意）
-    aggregated: bool = False             # 是否為多筆聚合殘餘
+    aggregated: bool = False             # 是否為多筆聚合殘餘（True ⟹ 必帶基數比例）
 
     def __post_init__(self) -> None:
         if self.gap_kind is not None and self.gap_kind not in GAP_KIND_PRIORITY:
@@ -131,7 +132,6 @@ def _position_to_json(position: Position) -> dict:
             "gap_kind": position.gap_kind,
             "cardinality": position.cardinality,
             "proportion": position.proportion,
-            "is_flag": position.is_flag,
             "aggregated": position.aggregated,
         }
     raise TypeError(f"未知 position 變體：{type(position).__name__}")
@@ -309,7 +309,7 @@ S1 已立五律（`{domain}_membrane.py`／input 衍生／output 投影／schema
   - `tests/property/test_edge_projection_properties.py`（4 測）：`test_high_confidence_always_kept`/`test_ambiguous_and_dynamic_never_in_kept` **不變**（kept 語意未動）；`test_idempotent` 的 `hints2=={}` → 改「空殘餘」（`indeterminate==[] and low_confidence_ambiguous=={}`）；**`test_hint_method_lists_sorted_and_unique` 移除/改寫**——它直接斷言去重（`len==len(set)`），正是病灶①、不可保留；改為「indeterminate cardinality＝該 caller skipped_dynamic 真實筆數」的反向 property。
   - `tests/integration/test_batch_reader_projection.py`：payload 鍵 `aggregate_call_hints`→`aggregate_call_residue`＋形狀斷言更新（含 minimal mode 無此鍵的負斷言改鍵名）。
   - `tests/unit/core/llm/test_prompt{s_resolution,_resolution_section}.py`：斷言 prompt 含 `aggregate_call_residue` ＋兩座標詞（取代 `aggregate_call_hints`）。
-- **單元**（`tests/unit/core/membrane/test_noise_position.py`）：N1（aggregated 缺 cardinality/proportion→ValueError）／N2（gap_kind 非法→ValueError、合法 4 值可構造）／cardinality 負→ValueError／proportion 越界→ValueError／`to_json` noise 鍵集；`is_flag` happy-path。
+- **單元**（`tests/unit/core/membrane/test_noise_position.py`）：N1（aggregated 缺 cardinality/proportion→ValueError）／N2（gap_kind 非法→ValueError、合法 4 值可構造）／cardinality 負→ValueError／proportion 越界→ValueError／`to_json` noise 鍵集；非聚合單筆殘餘（aggregated=False、不要求基數）可構造。
 - **單元**（`tests/unit/core/llm/test_edge_membrane.py`）：`is_residue`（skipped_dynamic True、其餘 False）／`indeterminate_residue_element` 計數正確（同名不折）＋proportion＝cardinality/total（分母＝本批全 edge）＋`to_json` 形狀＋**method 鍵排序決定性**（亂序輸入→相同 sorted 輸出）。
 - **F5 修正 characterization**（`tests/unit/core/llm/test_edge_projection.py` 更新＋新 case）：
   - N3：同一 caller 同名 method 50 筆 skipped_dynamic → cardinality=50（**非 1**）。

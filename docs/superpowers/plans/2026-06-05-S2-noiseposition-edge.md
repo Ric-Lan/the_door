@@ -106,9 +106,10 @@ def test_proportion_in_range():
         NoisePosition(gap_kind="indeterminate", proportion=1.5)
 
 
-def test_flag_happy_path():
-    np = NoisePosition(is_flag=True)             # presence-only、gap_kind=None 合法
-    assert np.is_flag is True and np.gap_kind is None
+def test_non_aggregated_single_residue_ok():
+    """單筆殘餘＝aggregated=False、不要求基數（presence 情境，取代舊 is_flag）。"""
+    np = NoisePosition(gap_kind="indeterminate")
+    assert np.aggregated is False and np.cardinality is None
 
 
 def test_to_json_noise_shape():
@@ -119,7 +120,7 @@ def test_to_json_noise_shape():
     j = el.to_json()
     assert j["position"] == {
         "kind": "noise", "gap_kind": "indeterminate",
-        "cardinality": 2, "proportion": 0.4, "is_flag": False, "aggregated": True,
+        "cardinality": 2, "proportion": 0.4, "aggregated": True,
     }
     assert j["value"] == {"caller": "c", "methods": {"send": 2}}
 ```
@@ -133,7 +134,7 @@ Expected: FAIL — `ImportError: cannot import name 'NoisePosition'`（或 `GAP_
 
 `src/the_door/core/membrane/primitive.py`：在 `ReservedPassthrough` 之後、`Position = ...` 之前，貼入 **spec §3.1 的 exact code**（`GAP_KIND_PRIORITY` 常數 ＋ `NoisePosition` dataclass 含 `__post_init__` 四守衛）。然後：
 - 改 `Position` union 為 `SignalPosition | ReservedPassthrough | NoisePosition`。
-- 在 `_position_to_json` 的 `ReservedPassthrough` 分支後、`raise TypeError` 前，加 spec §3.1 的 `NoisePosition` 分支（回 `{"kind":"noise", gap_kind, cardinality, proportion, is_flag, aggregated}`）。
+- 在 `_position_to_json` 的 `ReservedPassthrough` 分支後、`raise TypeError` 前，加 spec §3.1 的 `NoisePosition` 分支（回 `{"kind":"noise", gap_kind, cardinality, proportion, aggregated}`）。
 
 `src/the_door/core/membrane/__init__.py`：`from ...primitive import (... NoisePosition, GAP_KIND_PRIORITY ...)` 並加入 `__all__`。
 
@@ -649,7 +650,7 @@ S2 完成 → 進 S3（RelayedVerdict／vulnerability cvss）spec。起 S3 前�
 
 **2. Placeholder scan：** 無 TBD；每 step 含完整 test code＋exact 指令＋預期輸出；impl code 引 spec §3.x（線性相依、單一 code 來源，仿 S1）。
 
-**3. Type consistency：** `NoisePosition(gap_kind,cardinality,proportion,is_flag,aggregated)`／`GAP_KIND_PRIORITY`／`_position_to_json`→`{kind:"noise",...}`／`is_residue`/`indeterminate_residue_element(caller,method_counts,total_edges)`／`project_edges_for_prompt(edges)->(kept, residue{indeterminate:[...], low_confidence_ambiguous:{...}})`／batch_reader payload `aggregate_call_residue`／prompt 同名——跨 Task 1-5 一致 ✓。resolution 5 值對齊 `edge_builder.py:46-49` ✓。
+**3. Type consistency：** `NoisePosition(gap_kind,cardinality,proportion,aggregated)`／`GAP_KIND_PRIORITY`／`_position_to_json`→`{kind:"noise",...}`／`is_residue`/`indeterminate_residue_element(caller,method_counts,total_edges)`／`project_edges_for_prompt(edges)->(kept, residue{indeterminate:[...], low_confidence_ambiguous:{...}})`／batch_reader payload `aggregate_call_residue`／prompt 同名——跨 Task 1-5 一致 ✓。resolution 5 值對齊 `edge_builder.py:46-49` ✓。
 
 **4. 依賴順序：** Task 1（NoisePosition）→ Task 2（edge_membrane 用之）→ Task 4（edge_projection 用 edge_membrane）；Task 3（釘現狀）→ Task 4（flip）；Task 4（結構+鍵改名）→ Task 5（prompt 教新鍵）。無逆序 ✓。
 
