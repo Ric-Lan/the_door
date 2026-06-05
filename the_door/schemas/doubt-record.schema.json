@@ -26,23 +26,23 @@
     },
     "doubt_type": {
       "type": "string",
-      "enum": [
-        "out_of_scope",
-        "in_scope_incomplete",
-        "anomaly",
-        "low_confidence"
+      "oneOf": [
+        { "const": "out_of_scope", "description": "超出已宣告範圍" },
+        { "const": "in_scope_incomplete", "description": "範圍內但不完整" },
+        { "const": "anomaly", "description": "異常、與預期不符" },
+        { "const": "low_confidence", "description": "抽取信心低" }
       ],
       "description": "疑義類型"
     },
     "current_state": {
       "type": "string",
-      "enum": [
-        "discovered",
-        "investigating",
-        "explained",
-        "fixed",
-        "escalated",
-        "accepted_risk"
+      "oneOf": [
+        { "const": "discovered", "description": "剛發現、未調查" },
+        { "const": "investigating", "description": "調查中（已指派）" },
+        { "const": "escalated", "description": "已升級待裁決" },
+        { "const": "explained", "description": "已查證為預期行為、非缺陷（終態）" },
+        { "const": "fixed", "description": "已修復（終態）" },
+        { "const": "accepted_risk", "description": "風險已接受（終態）" }
       ],
       "description": "當前狀態"
     },
@@ -126,10 +126,10 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": [
-                "explained",
-                "fixed",
-                "accepted_risk"
+              "oneOf": [
+                { "const": "explained", "description": "查證為預期行為" },
+                { "const": "fixed", "description": "已修復" },
+                { "const": "accepted_risk", "description": "風險已接受" }
               ]
             },
             "description": {
