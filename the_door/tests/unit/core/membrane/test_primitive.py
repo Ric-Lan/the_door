@@ -110,3 +110,21 @@ def test_i3_unknown_position_variant_raises():
 
     with pytest.raises(TypeError, match="未知 position"):
         _position_to_json(_Fake())
+
+
+def test_facade_exports():
+    """門面匯出 4 符號，從套件根可直接 import。"""
+    from the_door.core import membrane
+
+    assert set(membrane.__all__) == {
+        "MembraneElement",
+        "Position",
+        "ReservedPassthrough",
+        "SignalPosition",
+    }
+    # 確認可從門面取用（非僅 primitive 模組）
+    el = membrane.MembraneElement(
+        payload="high",
+        position=membrane.SignalPosition(contrasts=("high", "low"), gloss="x"),
+    )
+    assert el.to_json()["value"] == "high"
