@@ -71,3 +71,22 @@ class MembraneElement:
                     f"payload {self.payload!r} 不在其 SignalPosition.contrasts "
                     f"{self.position.contrasts!r} 中——值必須定位於自己的封閉兄弟集"
                 )
+
+    def to_json(self) -> dict:
+        """唯一受祝福的投影路徑（§8.11 affordance）。意義不靠 prompt。"""
+        return {"value": self.payload, "position": _position_to_json(self.position)}
+
+
+def _position_to_json(position: Position) -> dict:
+    if isinstance(position, SignalPosition):
+        return {
+            "kind": "signal",
+            "contrasts": list(position.contrasts),
+            "gloss": position.gloss,
+            "preconditions": list(position.preconditions),
+            "consequences": list(position.consequences),
+            "co_requires": list(position.co_requires),
+        }
+    if isinstance(position, ReservedPassthrough):
+        return {"kind": "reserved"}
+    raise TypeError(f"未知 position 變體：{type(position).__name__}")

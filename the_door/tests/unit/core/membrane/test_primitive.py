@@ -70,3 +70,43 @@ def test_i2_membrane_element_has_no_score_field():
                          position=SignalPosition(contrasts=("high",), gloss="x"))
     assert not hasattr(el, "score")
     assert not hasattr(el, "risk")
+
+
+def test_to_json_signal_full_shape():
+    el = MembraneElement(
+        payload="explained",
+        position=SignalPosition(
+            contrasts=("discovered", "investigating", "explained"),
+            gloss="已查證為預期行為",
+            preconditions=("investigating",),
+            consequences=("terminal",),
+            co_requires=("reason",),
+        ),
+    )
+    assert el.to_json() == {
+        "value": "explained",
+        "position": {
+            "kind": "signal",
+            "contrasts": ["discovered", "investigating", "explained"],
+            "gloss": "已查證為預期行為",
+            "preconditions": ["investigating"],
+            "consequences": ["terminal"],
+            "co_requires": ["reason"],
+        },
+    }
+
+
+def test_to_json_reserved_shape():
+    el = MembraneElement(payload="自由文字", position=ReservedPassthrough())
+    assert el.to_json() == {"value": "自由文字", "position": {"kind": "reserved"}}
+
+
+def test_i3_unknown_position_variant_raises():
+    """I3：未知 position 變體顯式拋 TypeError（防 S2/S3 擴 union 漏更新投影）。"""
+    from the_door.core.membrane.primitive import _position_to_json
+
+    class _Fake:
+        pass
+
+    with pytest.raises(TypeError, match="未知 position"):
+        _position_to_json(_Fake())
