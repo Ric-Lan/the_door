@@ -42,27 +42,37 @@ L1_SYSTEM_PROMPT = """\
 - `import_alias`：透過 import 別名解到目標。**高信心**，同上可採用。
 - `name_match`：裸名匹配找到，候選數已在低門檻內。**低信心**，撰寫 description 時持保守態度，若會造成模糊就不要提。
 
-你不會在 `edges` 內看到「高候選量裸名匹配」或「動態 dispatch」邊 — 它們已在輸入端被聚合成 `aggregate_call_hints` 欄位。
+你不會在 `edges` 內看到「高候選量裸名匹配」或「動態 dispatch」邊 — 它們已在輸入端被聚合成 `aggregate_call_residue` 欄位。
 
-## `aggregate_call_hints` 欄位
+## `aggregate_call_residue` 欄位
 
-payload 內額外提供：
+payload 內額外提供「無法精確定位的呼叫殘餘」，**按性質分成兩座標**（不混為一桶）：
 
 ```
-"aggregate_call_hints": {
-  "feat-x-caller-node-id": ["write", "get", "handle"]
+"aggregate_call_residue": {
+  "indeterminate": [
+    {
+      "value": {"caller": "feat-x-caller-node-id", "methods": {"send": 12, "write": 3}},
+      "position": {"kind": "noise", "gap_kind": "indeterminate",
+                   "cardinality": 15, "proportion": 0.21, "aggregated": true}
+    }
+  ],
+  "low_confidence_ambiguous": {
+    "feat-x-caller-node-id": {"handle": 2, "get": 1}
+  }
 }
 ```
 
-這代表 caller 端呼叫了若干「無法精確定位的方法名」（包含高 fanout 與動態 dispatch 來源）。
+- `indeterminate`：**動態 dispatch、靜態無法解析**的呼叫，**刻意保留為不確定（非遺漏）**。每筆是某 caller 的殘餘聚合：`methods` 列各方法名與**真實次數**（不去重）；`cardinality` 是該 caller 殘餘總筆數、`proportion` 是佔本批呼叫的比例。基數／比例供你判斷「殘餘是否顯著」（如 cardinality=50 vs 1），但**不放寬下列紀律**。
+- `low_confidence_ambiguous`：**高候選量裸名匹配**（低信心），結構為 `{caller: {方法名: 次數}}`。
 
-撰寫 description 時的紀律：
-- **不可** 把 hint 內的方法名當成「呼叫了某 feature」的依據
-- **不可** 因為 hint 內有某方法名，就在 `feature_relations` 加上 `depends_on`
+撰寫 description 時的紀律（對上述兩者皆適用）：
+- **不可** 把殘餘內的方法名當成「呼叫了某 feature」的依據
+- **不可** 因為殘餘內有某方法名，就在 `feature_relations` 加上 `depends_on`
 - 若 description 必須提到，限定為「執行了一些（寫入 / 讀取 / 處理）動作」這種泛稱
 - 寧可不提，不要勉強寫出帶有不確定性的依賴敘述
 
-撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `aggregate_call_hints` 不寫成依賴。
+撰寫 description 時，優先以 `scope_rule` / `import_alias` 高信心邊為依據；對 `name_match` 持保守態度；對 `aggregate_call_residue`（兩座標）不寫成依賴。
 
 ## 風格規則（硬性）
 

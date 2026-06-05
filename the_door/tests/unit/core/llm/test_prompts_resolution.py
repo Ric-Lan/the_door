@@ -17,11 +17,11 @@ class TestPromptMentionsResolution:
     def test_prompt_mentions_name_match_label(self):
         assert "name_match" in L1_SYSTEM_PROMPT
 
-    def test_prompt_mentions_aggregate_call_hints_instead_of_skipped_dynamic(self):
-        # skipped_dynamic edges are now folded into aggregate_call_hints;
+    def test_prompt_mentions_aggregate_call_residue_instead_of_skipped_dynamic(self):
+        # skipped_dynamic edges are now folded into aggregate_call_residue;
         # the prompt no longer lists skipped_dynamic as a per-edge label.
         assert "`skipped_dynamic`" not in L1_SYSTEM_PROMPT
-        assert "aggregate_call_hints" in L1_SYSTEM_PROMPT
+        assert "aggregate_call_residue" in L1_SYSTEM_PROMPT
 
     def test_prompt_distinguishes_high_low_confidence(self):
         """Prompt must teach LLM that scope_rule/import_alias are high confidence

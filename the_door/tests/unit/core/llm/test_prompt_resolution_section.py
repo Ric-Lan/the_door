@@ -11,10 +11,10 @@ def test_prompt_does_not_list_ambiguous_as_per_edge_label():
     assert "`name_match_ambiguous`" not in text
 
 
-def test_prompt_explains_aggregate_call_hints():
-    """Prompt teaches LLM what aggregate_call_hints means."""
+def test_prompt_explains_aggregate_call_residue():
+    """Prompt teaches LLM what aggregate_call_residue means."""
     text = L1_FEATURE_EXTRACTION_PROMPT
-    assert "aggregate_call_hints" in text
+    assert "aggregate_call_residue" in text
 
 
 def test_prompt_forbids_dependency_inference_from_hints():
