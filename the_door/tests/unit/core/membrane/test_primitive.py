@@ -113,11 +113,13 @@ def test_i3_unknown_position_variant_raises():
 
 
 def test_facade_exports():
-    """門面匯出 4 符號，從套件根可直接 import。"""
+    """門面匯出符號，從套件根可直接 import（S2 加 NoisePosition、GAP_KIND_PRIORITY）。"""
     from the_door.core import membrane
 
     assert set(membrane.__all__) == {
+        "GAP_KIND_PRIORITY",
         "MembraneElement",
+        "NoisePosition",
         "Position",
         "ReservedPassthrough",
         "SignalPosition",

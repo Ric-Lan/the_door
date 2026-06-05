@@ -43,8 +43,48 @@ class ReservedPassthrough:
     pass
 
 
-# Position union——S0 階段 2 變體；S2 加 NoisePosition、S3 加 RelayedVerdict。
-Position = SignalPosition | ReservedPassthrough
+# === gap-kind 優先序：膜核心單一來源（種子檔 §8.8 F1）===
+# 知識上被迫的偏序：corrupt 讀不出 → 無法得知是否也 evolutionary，故 corrupt 優先。
+# 多 gap-kind 共現時取最高優先者（單值、非子集）。edge 域只觸發 indeterminate；
+# 共現解析由首個真觸發的試點實例化（S3+），此處只立來源 + 合法集。
+GAP_KIND_PRIORITY: tuple[str, ...] = ("corrupt", "indeterminate", "evolutionary", "reserved")
+
+
+@dataclass(frozen=True)
+class NoisePosition:
+    """A 側（OWA／格外／殘餘）：值落在契約閉集之外的純殘餘描述子。
+
+    非裁決、非分數——只報「殘餘的性質(gap_kind)＋量(cardinality)＋佔比(proportion)」
+    （種子檔 §8.3：殘餘格恆帶三件）。聚合殘餘（多筆併報）必帶基數與比例，
+    否則就是偷渡減法（§8.12／§8.14）——型別強制，不帶基數不能 emit 聚合殘餘。
+
+    （presence-only 旗標〔S0 §3a 曾草擬 is_flag〕**不在 S2 建**：edge 殘餘恆聚合、
+    無生產者；單筆 off-grid 哨兵以 aggregated=False＋無 cardinality 表達即足。
+    照 spec 自身「不預建死碼」原則，待首個 presence-only 生產者〔S4/S5 哨兵〕落地再加。）
+    """
+    gap_kind: str | None = None          # ∈ GAP_KIND_PRIORITY（或 None＝未分類）
+    cardinality: int | None = None       # 殘餘筆數（真實計數、不去重）
+    proportion: float | None = None      # 佔全體比例 [0,1]
+    aggregated: bool = False             # 是否為多筆聚合殘餘（True ⟹ 必帶基數比例）
+
+    def __post_init__(self) -> None:
+        if self.gap_kind is not None and self.gap_kind not in GAP_KIND_PRIORITY:
+            raise ValueError(
+                f"NoisePosition.gap_kind {self.gap_kind!r} 不在 GAP_KIND_PRIORITY "
+                f"{GAP_KIND_PRIORITY!r}（種子檔 §8.8 F1 單一來源）"
+            )
+        if self.cardinality is not None and self.cardinality < 0:
+            raise ValueError("NoisePosition.cardinality 不可為負")
+        if self.proportion is not None and not (0.0 <= self.proportion <= 1.0):
+            raise ValueError("NoisePosition.proportion 必須在 [0,1]")
+        if self.aggregated and (self.cardinality is None or self.proportion is None):
+            raise ValueError(
+                "聚合殘餘必帶 cardinality 與 proportion（不偷渡減法，§8.3/§8.12）"
+            )
+
+
+# Position union——S2 階段 3 變體；S3 加 RelayedVerdict。
+Position = SignalPosition | ReservedPassthrough | NoisePosition
 
 
 @dataclass(frozen=True)
@@ -89,4 +129,12 @@ def _position_to_json(position: Position) -> dict:
         }
     if isinstance(position, ReservedPassthrough):
         return {"kind": "reserved"}
+    if isinstance(position, NoisePosition):
+        return {
+            "kind": "noise",
+            "gap_kind": position.gap_kind,
+            "cardinality": position.cardinality,
+            "proportion": position.proportion,
+            "aggregated": position.aggregated,
+        }
     raise TypeError(f"未知 position 變體：{type(position).__name__}")
