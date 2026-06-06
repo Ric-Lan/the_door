@@ -61,7 +61,7 @@ def scan_cmd(codebase_path: str, output_json: bool, offline: bool, output_file: 
 
             # Details sorted by severity
             severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-            sorted_entries = sorted(result.entries, key=lambda e: (severity_order.get(e.severity, 9), -e.cvss))
+            sorted_entries = sorted(result.entries, key=lambda e: (severity_order.get(e.severity, 9), -(e.cvss or 0.0)))
             for e in sorted_entries:
                 action = "立即更新" if e.severity in ("critical", "high") else ("建議更新" if e.severity == "medium" else "留意追蹤")
                 lines.append(f"  {e.severity.upper():8s} {e.cve_id:20s} {e.package}@{e.version}  → {action}")
