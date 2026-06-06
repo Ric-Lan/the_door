@@ -7,12 +7,13 @@ from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.actions import NextAction
 from the_door.core.guidance.remediation import Remediation, make_error_envelope
+from the_door.core.reading.confidence_membrane import CONFIDENCE_CONTRASTS
 from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import FeatureSummary, RelationSummary, SnapshotNotFoundError
 
 _flow_guard = FlowGuard()
 
-VALID_CONFIDENCE = {"high", "medium", "low"}
+VALID_CONFIDENCE = set(CONFIDENCE_CONTRASTS)
 
 TOOL_SCHEMA = {
     "type": "object",
