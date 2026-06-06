@@ -25,3 +25,22 @@ def test_orthogonal_to_doubt_type():
     from the_door.core.scope.doubt_membrane import _TYPE_GLOSS
     assert set(SCOPE_CONTRASTS) != set(_TYPE_GLOSS)                       # 集不等
     assert {"out_of_scope", "in_scope_incomplete"} <= set(SCOPE_CONTRASTS) & set(_TYPE_GLOSS)  # 共享 2 字串
+
+
+# ── S8-report：scope 可空投影（report 面 l2_details scope_state 可空，§3.1）──
+
+
+def test_scope_or_indeterminate_value_is_signal():
+    from the_door.core.scope.scope_membrane import scope_element_or_indeterminate
+    j = scope_element_or_indeterminate("in_scope_complete").to_json()
+    assert j["value"] == "in_scope_complete"
+    assert j["position"]["kind"] == "signal"
+    assert j["position"]["contrasts"] == list(SCOPE_CONTRASTS)
+
+
+def test_scope_or_indeterminate_none_is_noise():
+    from the_door.core.scope.scope_membrane import scope_element_or_indeterminate
+    j = scope_element_or_indeterminate(None).to_json()
+    assert j["value"] is None
+    assert j["position"]["kind"] == "noise"
+    assert j["position"]["gap_kind"] == "indeterminate"

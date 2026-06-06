@@ -11,7 +11,7 @@ scope_state＝feature 對 ScopeDefinition 的範圍驗核分類（scope_verifier
 """
 from __future__ import annotations
 
-from the_door.core.membrane import MembraneElement, SignalPosition
+from the_door.core.membrane import MembraneElement, NoisePosition, SignalPosition
 
 # 唯一來源：scope_state 封閉 3 值（categorical、非全序——2×2 presence 分類）。
 SCOPE_CONTRASTS: tuple[str, ...] = (
@@ -40,3 +40,16 @@ def scope_element(value: str) -> MembraneElement:
     value ∉ SCOPE_CONTRASTS → _GLOSS[value] KeyError（防呆；正常經 verify 守住）。
     """
     return MembraneElement(payload=value, position=scope_signal(value))
+
+
+def scope_element_or_indeterminate(value: str | None) -> MembraneElement:
+    """report 面的 scope_state 可空（l2_details scope_map.get 可回 None）⟹ 缺值版。
+
+    值∈SCOPE_CONTRASTS → scope_element（格內 Signal）；
+    None（report 面未對該 feature 算 scope）→ NoisePosition(indeterminate)
+    （格外殘餘、不自鑄 default，復用 S4 confidence 缺值退路）。
+    S5 `scope_element`（恆有值版）保留給 scope_verify_tool。
+    """
+    if value is None:
+        return MembraneElement(payload=None, position=NoisePosition(gap_kind="indeterminate"))
+    return scope_element(value)

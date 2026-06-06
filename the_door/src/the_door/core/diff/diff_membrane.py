@@ -52,6 +52,31 @@ _EDGE_GLOSS = {
 }
 
 
+# S8-report：change_type（l1_changes/l2_details）＝diff 軸的 changed-only 閉集
+# （4-val、無 unchanged——l1/l2 只收變更項；schema update-report.schema.json:99,143 即此）。
+# S6 C4：契約閉集 ≠ node(5-val) ⟹ 獨立 contrasts、不複用 node element（否則謊報 unchanged 為兄弟值）。
+CHANGE_TYPE_CONTRASTS: tuple[str, ...] = (
+    "added",
+    "removed",
+    "attribute_changed",
+    "dependency_changed",
+)
+
+
+def change_type_signal(value: str) -> SignalPosition:
+    """change_type（4 值 categorical enum、無 unchanged）→ Signal。gloss 零副本＝_NODE_GLOSS 子集。"""
+    return SignalPosition(contrasts=CHANGE_TYPE_CONTRASTS, gloss=_NODE_GLOSS[value])
+
+
+def change_type_element(value: str) -> MembraneElement:
+    """單一 change_type 值 → MembraneElement（格內 Signal、4-val 閉集）。
+
+    value=="unchanged"：_NODE_GLOSS 有此鍵但 ∉ CHANGE_TYPE_CONTRASTS → MembraneElement I4 ValueError。
+    value 不明（如 bogus）：_NODE_GLOSS KeyError。
+    """
+    return MembraneElement(payload=value, position=change_type_signal(value))
+
+
 def node_diff_signal(value: str) -> SignalPosition:
     """NodeDiff.diff_state（5 值 categorical enum）→ Signal（contrasts 5-set+gloss）。"""
     return SignalPosition(contrasts=NODE_DIFF_CONTRASTS, gloss=_NODE_GLOSS[value])
