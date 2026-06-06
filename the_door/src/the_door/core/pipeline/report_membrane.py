@@ -14,6 +14,7 @@ from the_door.core.diff.diff_membrane import (
     edge_diff_element,
     node_diff_element,
 )
+from the_door.core.pipeline.risk_flag_membrane import risk_flags_element
 from the_door.core.scope.scope_membrane import scope_element_or_indeterminate
 
 
@@ -24,6 +25,8 @@ def project_report_for_agent(report: dict) -> dict:
     for e in r.get("l1_changes", []):
         if "change_type" in e:
             e["change_type"] = change_type_element(e["change_type"]).to_json()
+        if "risk_flags" in e:
+            e["risk_flags"] = risk_flags_element(e["risk_flags"]).to_json()
 
     for d in r.get("l2_details", []):
         if "change_type" in d:

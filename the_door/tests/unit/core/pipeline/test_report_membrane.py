@@ -16,6 +16,7 @@ def _sample_report() -> dict:
         "report_version": "1.0.0",
         "l1_changes": [
             {"feature_id": "f1", "change_type": "added", "risk_flags": [], "current_label": "F1", "baseline_label": None},
+            {"feature_id": "f2", "change_type": "attribute_changed", "risk_flags": ["out_of_scope", "vulnerability"], "current_label": "F2", "baseline_label": "F2"},
         ],
         "l2_details": [
             {"feature_id": "f1", "change_type": "attribute_changed", "scope_state": "in_scope_complete"},
@@ -99,3 +100,29 @@ def test_missing_keys_do_not_crash():
     assert "l3_appendix" not in project_report_for_agent({"l1_changes": []})
     project_report_for_agent({"l3_appendix": None})  # 不炸
     project_report_for_agent({"l3_appendix": {}})  # 不炸
+
+
+def test_risk_flags_projected_present_subset():
+    """P4：present 旗標升膜＝presence_flag、value＝present 子集、vocabulary 全曝。"""
+    r = project_report_for_agent(_sample_report())
+    rf = r["l1_changes"][1]["risk_flags"]
+    assert _is_membrane(rf)
+    assert rf["position"]["kind"] == "presence_flag"
+    assert rf["value"] == ["out_of_scope", "vulnerability"]
+    assert len(rf["position"]["vocabulary"]) == 3  # 封閉 3-詞彙全曝
+
+
+def test_risk_flags_empty_still_exposes_vocabulary():
+    """P4：空 risk_flags → value:[]＋vocabulary 全曝（agent 知封閉旗標全集；未舉旗 ≠ 已驗證 clear）。"""
+    r = project_report_for_agent(_sample_report())
+    rf = r["l1_changes"][0]["risk_flags"]
+    assert _is_membrane(rf)
+    assert rf["value"] == []
+    assert len(rf["position"]["vocabulary"]) == 3
+
+
+def test_risk_flags_input_not_mutated():
+    """R5：入參 l1_changes[].risk_flags 仍裸 list（純函式）。"""
+    original = _sample_report()
+    project_report_for_agent(original)
+    assert original["l1_changes"][1]["risk_flags"] == ["out_of_scope", "vulnerability"]
