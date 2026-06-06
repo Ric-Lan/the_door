@@ -134,6 +134,74 @@ class TestFeatureSummaryOnDiskShape:
         assert on_disk["l1_snapshot"]["feat-x"]["source_node_count"] == 2
 
 
+class TestContractVersionStamp:
+    """S7 P1/P2/P7：snapshot 出生契約戳（contract_version）持久化。
+
+    戳＝出生事實（與 commit_hash/timestamp 同類），在 create_snapshot 蓋戳、
+    serde round-trip 保真；舊快照（無 contract_version 鍵）deserialize→None＝
+    unknown（O3），schema additive 不拒。
+    """
+
+    def test_create_snapshot_stamps_current_contract_version(self, store):
+        """P1：新建快照蓋當前契約戳。"""
+        from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+        )
+        assert snap.contract_version == SNAPSHOT_CONTRACT_VERSION
+
+    def test_contract_version_round_trips(self, store):
+        """P2：戳寫入磁碟並讀回保真。"""
+        from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+
+        vid = _write_via_create_snapshot(store, {}, label="stamped")
+        loaded = store.get_snapshot(vid)
+        assert loaded is not None
+        assert loaded.contract_version == SNAPSHOT_CONTRACT_VERSION
+
+    def test_contract_version_serialized_on_disk(self, store, tmp_path):
+        """P2：on-disk JSON 帶 contract_version 鍵。"""
+        from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+
+        vid = _write_via_create_snapshot(store, {}, label="stamped")
+        snap_file = tmp_path / ".the-door" / "snapshots" / f"{vid}.json"
+        raw = json.loads(snap_file.read_text(encoding="utf-8"))
+        assert raw["contract_version"] == SNAPSHOT_CONTRACT_VERSION
+
+    def test_legacy_snapshot_without_contract_version_loads_as_none(self, tmp_path):
+        """P7/O3：舊快照（無 contract_version 鍵）→ None、schema validate 通過、不炸。"""
+        snapdir = tmp_path / ".the-door" / "snapshots"
+        snapdir.mkdir(parents=True)
+        legacy = {
+            "version_id": "v-prestamp",
+            "timestamp": "2025-01-01T00:00:00+00:00",
+            "trigger": "manual",
+            "commit_hash": None,
+            "git_tags": [],
+            "label": "prestamp",
+            "l1_snapshot": {},
+            "l1_5_snapshot": {},
+            "feature_relations_snapshot": [],
+            "vulnerabilities_snapshot": [],
+            "analyzed_files": [],
+        }
+        (snapdir / "v-prestamp.json").write_text(json.dumps(legacy), encoding="utf-8")
+
+        store = SnapshotStore(tmp_path)
+        loaded = store.get_snapshot("v-prestamp")
+        assert loaded is not None
+        assert loaded.contract_version is None
+
+    def test_stamped_snapshot_passes_schema_on_write(self, store):
+        """P7：帶 contract_version 的新快照經 _write_snapshot fail-closed schema 校驗通過。"""
+        # create_snapshot 內部呼 _write_snapshot（schema fail-closed）；不拋即通過。
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[], trigger="manual", label="x",
+        )
+        assert snap.contract_version is not None
+
+
 def test_deserialize_legacy_drift_warns_and_normalizes(tmp_path):
     snap_dir = tmp_path / ".the-door" / "snapshots"
     snap_dir.mkdir(parents=True)

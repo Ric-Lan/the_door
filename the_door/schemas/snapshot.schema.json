@@ -12,6 +12,7 @@
     "git_tags": { "type": "array", "items": { "type": "string" } },
     "label": { "type": ["string", "null"] },
     "codebase_path": { "type": ["string", "null"] },
+    "contract_version": { "type": ["string", "null"] },
     "l1_snapshot": {
       "type": "object",
       "additionalProperties": {

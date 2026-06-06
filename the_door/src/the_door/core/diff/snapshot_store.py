@@ -31,6 +31,7 @@ from the_door.models import (
     VersionSnapshot,
     VulnerabilityEntry,
 )
+from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,7 @@ class SnapshotStore:
             vulnerabilities_snapshot=vulnerabilities if vulnerabilities is not None else [],
             vulnerability_db_freshness=db_freshness,
             codebase_path=self._project_root,
+            contract_version=SNAPSHOT_CONTRACT_VERSION,  # 出生蓋戳（單一蓋戳點）
         )
 
         self._write_snapshot(snapshot)
@@ -370,6 +372,7 @@ class SnapshotStore:
             "git_tags": snapshot.git_tags,
             "label": snapshot.label,
             "codebase_path": str(snapshot.codebase_path) if snapshot.codebase_path else None,
+            "contract_version": snapshot.contract_version,
             "l1_snapshot": l1_data,
             "analyzed_files": snapshot.analyzed_files,
             "l1_5_snapshot": l1_5_data,
@@ -479,5 +482,6 @@ class SnapshotStore:
             vulnerabilities_snapshot=vulnerabilities,
             vulnerability_db_freshness=db_freshness,
             codebase_path=Path(raw_cp) if raw_cp else None,
+            contract_version=data.get("contract_version"),  # 缺鍵→None＝O3 舊快照
         )
 

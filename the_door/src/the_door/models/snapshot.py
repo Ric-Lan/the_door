@@ -6,6 +6,10 @@ from pathlib import Path
 
 from .vulnerability import DatabaseFreshness, VulnerabilityEntry
 
+# 單一來源：當前 snapshot 契約版本（契約變更〔snapshot schema 或分析語義〕時 bump；
+# 維護紀律＝provenance 資訊量前提，S7 spec §0/§5）。
+SNAPSHOT_CONTRACT_VERSION: str = "1"
+
 
 @dataclass(frozen=True)
 class FeatureSummary:
@@ -84,6 +88,7 @@ class VersionSnapshot:
     vulnerabilities_snapshot: list[VulnerabilityEntry] = field(default_factory=list)
     vulnerability_db_freshness: DatabaseFreshness | None = None
     codebase_path: Path | None = None
+    contract_version: str | None = None  # 出生契約戳（O3：舊快照 None＝unknown）
 
 
 class SnapshotError(Exception):

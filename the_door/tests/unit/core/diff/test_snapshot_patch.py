@@ -87,6 +87,30 @@ class TestPatchSnapshotSourceNodes:
         assert "feat-a" not in skipped
         assert snap.l1_snapshot["feat-a"].source_nodes == ("NodeA",)
 
+    def test_patch_preserves_contract_version_stamp(self, store):
+        """S7：patch 重寫 loaded snapshot 但不 re-stamp——保原出生戳。
+
+        確保 post-S7 stamped 快照經 patch 不掉戳→誤判 unknown。
+        """
+        from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+
+        created = store.create_snapshot(
+            l1_snapshot={
+                "feat-a": FeatureSummary(
+                    feature_id="feat-a", label="A", description="d",
+                    source_node_count=0, confidence="high", source_nodes=(),
+                )
+            },
+            feature_relations=[], analyzed_files=[], trigger="manual", label="stamped",
+        )
+        assert created.contract_version == SNAPSHOT_CONTRACT_VERSION
+
+        snap, _ = store.patch_snapshot(
+            version_ref=created.version_id,
+            source_nodes_by_feature={"feat-a": ["NodeA"]},
+        )
+        assert snap.contract_version == SNAPSHOT_CONTRACT_VERSION
+
     def test_patch_updates_analyzed_files(self, seeded):
         snap, _ = seeded.patch_snapshot(
             version_ref="v1.0.0",
