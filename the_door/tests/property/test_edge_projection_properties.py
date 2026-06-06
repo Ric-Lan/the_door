@@ -16,7 +16,7 @@ EDGE = st.fixed_dictionaries({
     "resolution": KNOWN_RESOLUTIONS,
 })
 EDGES = st.lists(EDGE, max_size=30)
-_EMPTY = {"indeterminate": [], "low_confidence_ambiguous": {}}
+_EMPTY = {"indeterminate": [], "low_confidence_ambiguous": []}
 
 
 @given(edges=EDGES)

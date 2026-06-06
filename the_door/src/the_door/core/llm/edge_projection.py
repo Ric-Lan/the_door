@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import Counter
 
 from the_door.core.llm.edge_membrane import indeterminate_residue_element, is_residue
+from the_door.core.reading.confidence_membrane import confidence_element
 
 _AMBIGUOUS = "name_match_ambiguous"   # 格內低信心（confidence 軸＝S4）
 
@@ -31,7 +32,9 @@ def project_edges_for_prompt(
       residue＝座標分明的格外/低信心殘餘（修 F5：基數保留、不併桶）：
         {
           "indeterminate": [<NoisePosition element .to_json()>, ...],  # skipped_dynamic
-          "low_confidence_ambiguous": {caller: {method: count}},       # name_match_ambiguous（S4 升 Signal）
+          "low_confidence_ambiguous": [                                # name_match_ambiguous（S4 升 confidence Signal）
+            {caller, methods, cardinality, confidence: <Signal element .to_json()>}, ...
+          ],
         }
     """
     kept: list[dict] = []
@@ -55,10 +58,15 @@ def project_edges_for_prompt(
             indeterminate_residue_element(caller, dict(counts), total).to_json()
             for caller, counts in sorted(indeterminate_counts.items())
         ],
-        "low_confidence_ambiguous": {
-            caller: dict(sorted(counts.items()))
+        "low_confidence_ambiguous": [
+            {
+                "caller": caller,
+                "methods": dict(sorted(counts.items())),          # 基數保留（method→count）
+                "cardinality": sum(counts.values()),              # 此 caller 低信心邊總數
+                "confidence": confidence_element("low").to_json(),  # value="low"（∈contrasts、I4 合法）＋position=signal
+            }
             for caller, counts in sorted(ambiguous_counts.items())
-        },
+        ],
     }
     return kept, residue
 

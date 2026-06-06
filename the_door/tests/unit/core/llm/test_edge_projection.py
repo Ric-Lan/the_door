@@ -1,11 +1,22 @@
 """Edge projection pure-function behavior (membrane residue shape)."""
 from the_door.core.llm.edge_projection import project_edges_for_prompt
+from the_door.core.reading.confidence_membrane import confidence_element
 
-_EMPTY = {"indeterminate": [], "low_confidence_ambiguous": {}}
+_EMPTY = {"indeterminate": [], "low_confidence_ambiguous": []}
 
 
 def _edge(from_, to, res):
     return {"from": from_, "to": to, "type": "calls", "resolution": res}
+
+
+def _low(caller, methods):
+    """S4：name_match_ambiguous 升巢狀 confidence Signal（payload="low" I4 合法）。"""
+    return {
+        "caller": caller,
+        "methods": methods,
+        "cardinality": sum(methods.values()),
+        "confidence": confidence_element("low").to_json(),
+    }
 
 
 def test_scope_rule_edges_kept():
@@ -33,7 +44,7 @@ def test_ambiguous_dropped_into_low_confidence_with_count():
     edges = [_edge("caller", "pkg.Foo.write", "name_match_ambiguous")]
     kept, residue = project_edges_for_prompt(edges)
     assert kept == []
-    assert residue["low_confidence_ambiguous"] == {"caller": {"write": 1}}
+    assert residue["low_confidence_ambiguous"] == [_low("caller", {"write": 1})]
     assert residue["indeterminate"] == []
 
 
@@ -48,7 +59,7 @@ def test_dynamic_dropped_into_indeterminate_noise():
     assert ind[0]["position"]["gap_kind"] == "indeterminate"
     assert ind[0]["position"]["cardinality"] == 1
     assert ind[0]["position"]["proportion"] == 1.0
-    assert residue["low_confidence_ambiguous"] == {}
+    assert residue["low_confidence_ambiguous"] == []
 
 
 def test_dynamic_same_method_counted_not_deduped():
@@ -68,7 +79,7 @@ def test_two_gap_kinds_split_not_conflated():
     ]
     _kept, residue = project_edges_for_prompt(edges)
     assert residue["indeterminate"][0]["value"]["methods"] == {"send": 1}
-    assert residue["low_confidence_ambiguous"] == {"a": {"write": 1}}
+    assert residue["low_confidence_ambiguous"] == [_low("a", {"write": 1})]
 
 
 def test_mixed_resolutions_partial_drop():
@@ -82,13 +93,13 @@ def test_mixed_resolutions_partial_drop():
     kept, residue = project_edges_for_prompt(edges)
     assert {e["to"] for e in kept} == {"b", "c", "f"}
     assert residue["indeterminate"][0]["value"]["methods"] == {"send": 1}
-    assert residue["low_confidence_ambiguous"] == {"a": {"write": 1}}
+    assert residue["low_confidence_ambiguous"] == [_low("a", {"write": 1})]
 
 
 def test_to_node_without_dot_uses_whole_id_as_method_name():
     edges = [_edge("caller", "bare", "name_match_ambiguous")]
     _kept, residue = project_edges_for_prompt(edges)
-    assert residue["low_confidence_ambiguous"] == {"caller": {"bare": 1}}
+    assert residue["low_confidence_ambiguous"] == [_low("caller", {"bare": 1})]
 
 
 def test_indeterminate_list_sorted_by_caller_deterministic():

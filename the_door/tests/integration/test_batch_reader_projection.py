@@ -1,6 +1,15 @@
 """BatchReader detail mode applies edge_projection at payload boundary."""
+from the_door.core.llm.edge_projection import project_edges_for_prompt  # noqa: F401
 from the_door.core.reading.batch_reader import BatchReader
+from the_door.core.reading.confidence_membrane import confidence_element
 from the_door.models import ASTNode, Edge, StructureJSON
+
+
+def _low(caller, methods):
+    return {
+        "caller": caller, "methods": methods, "cardinality": sum(methods.values()),
+        "confidence": confidence_element("low").to_json(),
+    }
 
 
 class _StubProvider:
@@ -31,7 +40,7 @@ def test_detail_payload_includes_aggregate_call_residue_key():
     )
     assert "aggregate_call_residue" in payload
     assert payload["aggregate_call_residue"] == {
-        "indeterminate": [], "low_confidence_ambiguous": {}
+        "indeterminate": [], "low_confidence_ambiguous": []
     }
     assert len(payload["edges"]) == 1
     assert payload["edges"][0]["resolution"] == "scope_rule"
@@ -54,9 +63,9 @@ def test_ambiguous_edges_dropped_and_hint_populated():
     assert all(e["resolution"] != "name_match_ambiguous"
                for e in payload["edges"])
     # Caller's ambiguous residue is counted (4 same-name → count 4)
-    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == {
-        "caller": {"write": 4}
-    }
+    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == [
+        _low("caller", {"write": 4})
+    ]
     assert payload["aggregate_call_residue"]["indeterminate"] == []
 
 
@@ -103,6 +112,6 @@ def test_batch_local_filter_applied_before_projection():
         ["caller", "In.x"], batch_num=0
     )
     # Only the in-batch edge fed projection → only 'x' in residue, not 'y'
-    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == {
-        "caller": {"x": 1}
-    }
+    assert payload["aggregate_call_residue"]["low_confidence_ambiguous"] == [
+        _low("caller", {"x": 1})
+    ]

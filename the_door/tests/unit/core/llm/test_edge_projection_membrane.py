@@ -1,6 +1,7 @@
 """S2 characterization + 膜投影：先釘 F5 併桶+去重現狀（Task 3），
 Task 4 retrofit 後改為座標分流+真實基數的 residue（見證契約變更）。"""
 from the_door.core.llm.edge_projection import project_edges_for_prompt
+from the_door.core.reading.confidence_membrane import confidence_element
 
 
 def _edge(from_, to, res):
@@ -24,4 +25,7 @@ def test_f5_retrofit_splits_and_counts():
     assert ind[0]["position"]["gap_kind"] == "indeterminate"
     assert ind[0]["position"]["cardinality"] == 2
     assert ind[0]["position"]["proportion"] == 2 / 5
-    assert residue["low_confidence_ambiguous"] == {"a": {"write": 2}}   # 座標分流、基數保留
+    assert residue["low_confidence_ambiguous"] == [{                   # 座標分流、基數保留、升 confidence Signal
+        "caller": "a", "methods": {"write": 2}, "cardinality": 2,
+        "confidence": confidence_element("low").to_json(),
+    }]

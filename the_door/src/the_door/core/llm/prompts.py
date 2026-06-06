@@ -57,14 +57,20 @@ payload 內額外提供「無法精確定位的呼叫殘餘」，**按性質分�
                    "cardinality": 15, "proportion": 0.21, "aggregated": true}
     }
   ],
-  "low_confidence_ambiguous": {
-    "feat-x-caller-node-id": {"handle": 2, "get": 1}
-  }
+  "low_confidence_ambiguous": [
+    {
+      "caller": "feat-x-caller-node-id",
+      "methods": {"handle": 2, "get": 1},
+      "cardinality": 3,
+      "confidence": {"value": "low", "position": {"kind": "signal",
+                     "contrasts": ["high", "medium", "low"], "gloss": "抽取信心低"}}
+    }
+  ]
 }
 ```
 
 - `indeterminate`：**動態 dispatch、靜態無法解析**的呼叫，**刻意保留為不確定（非遺漏）**。每筆是某 caller 的殘餘聚合：`methods` 列各方法名與**真實次數**（不去重）；`cardinality` 是該 caller 殘餘總筆數、`proportion` 是佔本批呼叫的比例。基數／比例供你判斷「殘餘是否顯著」（如 cardinality=50 vs 1），但**不放寬下列紀律**。
-- `low_confidence_ambiguous`：**高候選量裸名匹配**（低信心），結構為 `{caller: {方法名: 次數}}`。
+- `low_confidence_ambiguous`：**高候選量裸名匹配**（低信心），每筆是某 caller 的低信心殘餘：`methods` 列各方法名與次數、`cardinality` 是該 caller 低信心邊總數、`confidence` 是結構化信心軸（`value="low"`＋全序對比位置 high>medium>low）。`confidence` 經膜投影、非裸 enum。
 
 撰寫 description 時的紀律（對上述兩者皆適用）：
 - **不可** 把殘餘內的方法名當成「呼叫了某 feature」的依據
