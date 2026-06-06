@@ -110,8 +110,32 @@ class RelayedVerdict:
             raise ValueError("RelayedVerdict.score（CVSS）必須在 [0,10]")
 
 
-# Position union——S3 階段 4 變體（S0 §3a 完整 union）。
-Position = SignalPosition | ReservedPassthrough | NoisePosition | RelayedVerdict
+@dataclass(frozen=True)
+class PresenceFlagPosition:
+    """CWA 多選旗標：封閉詞彙集中的獨立 presence 旗標（非單選互斥）。
+
+    與 SignalPosition 區別：Signal＝單選（payload 是兄弟集中的『那一個』）；
+    PresenceFlag＝多選（payload 是詞彙集的『子集』、旗標可共現）。vocabulary 暴露
+    封閉旗標全集（agent 知可能性空間）；未列入 present 的旗標＝**未舉此旗標**
+    （fact-finder 守界：不自鑄「已驗證 clear」——生產者只條件式檢查）。
+    glosses＝per-flag 極短意義（tuple of (flag, gloss) pairs，frozen-hashable）。
+    """
+    vocabulary: tuple[str, ...]                 # 全部可能旗標（CWA 封閉詞彙）
+    glosses: tuple[tuple[str, str], ...] = ()   # per-flag (flag, 極短意義)
+
+    def __post_init__(self) -> None:
+        if not self.vocabulary:
+            raise ValueError("PresenceFlagPosition.vocabulary 必須非空（封閉詞彙集）")
+        gloss_keys = {k for k, _ in self.glosses}
+        if not gloss_keys <= set(self.vocabulary):
+            raise ValueError("PresenceFlagPosition.glosses 的 flag 必須 ⊆ vocabulary")
+
+
+# Position union——S3 階段 4 變體＋presence-flag 第 5 變體（S0 §3a 完整 union）。
+Position = (
+    SignalPosition | ReservedPassthrough | NoisePosition | RelayedVerdict
+    | PresenceFlagPosition
+)
 
 
 @dataclass(frozen=True)
@@ -137,6 +161,12 @@ class MembraneElement:
                 raise ValueError(
                     f"payload {self.payload!r} 不在其 SignalPosition.contrasts "
                     f"{self.position.contrasts!r} 中——值必須定位於自己的封閉兄弟集"
+                )
+        if isinstance(self.position, PresenceFlagPosition):
+            if not set(self.payload) <= set(self.position.vocabulary):
+                raise ValueError(
+                    f"payload {self.payload!r} 含 vocabulary 外旗標——"
+                    f"present 子集必須 ⊆ {self.position.vocabulary!r}"
                 )
 
     def to_json(self) -> dict:
@@ -170,5 +200,11 @@ def _position_to_json(position: Position) -> dict:
             "authority": position.authority,
             "evidence": position.evidence,
             "score": position.score,
+        }
+    if isinstance(position, PresenceFlagPosition):
+        return {
+            "kind": "presence_flag",
+            "vocabulary": list(position.vocabulary),
+            "glosses": {k: v for k, v in position.glosses},
         }
     raise TypeError(f"未知 position 變體：{type(position).__name__}")
