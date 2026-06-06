@@ -182,3 +182,23 @@ def test_vulnerability_cvss_nullable_and_evidence_roundtrip(tmp_path):
     assert back.vulnerabilities_snapshot[0].cvss is None
     assert back.vulnerabilities_snapshot[0].evidence == "CVSS:3.1/AV:N/AC:L"   # 事實層保真
     assert data["vulnerabilities_snapshot"][0]["cvss"] is None                 # 落盤 json null
+
+
+def test_confidence_nullable_roundtrip_and_schema_parity(tmp_path):
+    """confidence=None（未評估）通過 fail-closed schema 並 round-trip；schema const 與單一來源 parity。"""
+    from dataclasses import replace
+    from the_door.core.reading.confidence_membrane import CONFIDENCE_CONTRASTS
+    from the_door.models import FeatureSummary
+
+    store = _store(tmp_path)
+    snap = replace(_minimal_snapshot(), l1_snapshot={"feat-x": FeatureSummary(
+        feature_id="feat-x", label="L", description="D",
+        source_node_count=0, confidence=None)})       # 未評估
+    data = store._serialize_snapshot(snap)
+    jsonschema.validate(data, _get_snapshot_schema(), cls=_V)         # confidence=null 須過
+    back = store._deserialize_snapshot(data)
+    assert back.l1_snapshot["feat-x"].confidence is None
+    # schema const == 單一來源（C2 schema parity）
+    feat_schema = _get_snapshot_schema()["properties"]["l1_snapshot"]["additionalProperties"]["properties"]
+    consts = [o["const"] for o in feat_schema["confidence"]["oneOf"] if "const" in o]
+    assert consts == list(CONFIDENCE_CONTRASTS)

@@ -13,7 +13,7 @@ class Feature:
     description: str
     trigger: str  # "user_action" | "scheduled" | "auto_triggered"
     trigger_description: str
-    confidence: str  # "high" | "medium" | "low"
+    confidence: str | None  # "high" | "medium" | "low" | None（未評估）
     confidence_reason: str
     source_nodes: list[str] = field(default_factory=list)
     needs_source_review: bool = False
@@ -134,7 +134,7 @@ class L2Module:
     module_id: str
     label: str
     source_nodes: list[str] = field(default_factory=list)
-    confidence: str = "medium"  # "high" | "medium" | "low"
+    confidence: str | None = None  # "high" | "medium" | "low" | None（未評估）
     confidence_reason: str = ""
 
 
@@ -156,7 +156,7 @@ class Anomaly:
     anomaly_type: str  # "dead_code" | "logic_dead_end" | "uncertain_boundary" | "vuln_high" | "vuln_medium"
     affected_node_ids: list[str] = field(default_factory=list)
     explanation: str = ""
-    confidence: str = "medium"
+    confidence: str | None = None
 
 
 @dataclass

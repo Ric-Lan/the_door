@@ -60,11 +60,11 @@
                 "type": "string"
               },
               "confidence": {
-                "type": "string",
-                "enum": [
-                  "high",
-                  "medium",
-                  "low"
+                "oneOf": [
+                  { "const": "high", "description": "抽取信心高" },
+                  { "const": "medium", "description": "抽取信心中" },
+                  { "const": "low", "description": "抽取信心低" },
+                  { "type": "null", "description": "未評估（來源未給信心）" }
                 ]
               },
               "confidence_reason": {

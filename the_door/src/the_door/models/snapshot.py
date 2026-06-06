@@ -29,7 +29,7 @@ class FeatureSummary:
     label: str
     description: str
     source_node_count: int
-    confidence: str  # "high" | "medium" | "low"
+    confidence: str | None  # "high" | "medium" | "low" | None（未評估）
     trigger_description: str | None = None
     source_nodes: tuple[str, ...] = ()
     confidence_reason: str | None = None
@@ -42,7 +42,7 @@ class BlockSummary:
     block_id: str
     label: str
     responsibility: str
-    confidence: str = "medium"
+    confidence: str | None = None
 
 
 @dataclass(frozen=True)

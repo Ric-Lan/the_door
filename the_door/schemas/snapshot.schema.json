@@ -22,7 +22,12 @@
           "label": { "type": "string" },
           "description": { "type": "string" },
           "source_node_count": { "type": "integer", "minimum": 0 },
-          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "confidence": { "oneOf": [
+            { "const": "high", "description": "抽取信心高" },
+            { "const": "medium", "description": "抽取信心中" },
+            { "const": "low", "description": "抽取信心低" },
+            { "type": "null", "description": "未評估（來源未給信心）" }
+          ] },
           "trigger_description": { "type": ["string", "null"] },
           "source_nodes": { "type": "array", "items": { "type": "string" } },
           "confidence_reason": { "type": ["string", "null"] }
@@ -39,7 +44,12 @@
         "properties": {
           "label": { "type": "string" },
           "responsibility": { "type": "string" },
-          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+          "confidence": { "oneOf": [
+            { "const": "high", "description": "抽取信心高" },
+            { "const": "medium", "description": "抽取信心中" },
+            { "const": "low", "description": "抽取信心低" },
+            { "type": "null", "description": "未評估（來源未給信心）" }
+          ] }
         }
       }
     },

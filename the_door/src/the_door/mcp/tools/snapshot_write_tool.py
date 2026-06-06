@@ -44,7 +44,11 @@ TOOL_SCHEMA = {
                     "label": {"type": "string"},
                     "description": {"type": "string"},
                     "source_node_count": {"type": "integer"},
-                    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "confidence": {"oneOf": [
+                        {"const": "high", "description": "抽取信心高"},
+                        {"const": "medium", "description": "抽取信心中"},
+                        {"const": "low", "description": "抽取信心低"},
+                    ]},
                     "trigger_description": {"type": "string"},
                     "source_nodes": {
                         "type": "array",
@@ -87,7 +91,11 @@ TOOL_SCHEMA = {
                     "label": {"type": "string"},
                     "description": {"type": "string"},
                     "source_node_count": {"type": "integer"},
-                    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "confidence": {"oneOf": [
+                        {"const": "high", "description": "抽取信心高"},
+                        {"const": "medium", "description": "抽取信心中"},
+                        {"const": "low", "description": "抽取信心低"},
+                    ]},
                     "trigger_description": {"type": "string"},
                     "source_nodes": {
                         "type": "array",
