@@ -84,6 +84,21 @@ class TestBatchReaderRead:
         assert len(result.l1_output.features) == 1
         assert result.l1_output.features[0].feature_id == "feat-login"
 
+    def test_missing_confidence_retreats_to_none(self, mock_llm_with_responses):
+        """C4：LLM 省略 confidence → None（缺值不自鑄 medium）。characterization flip。"""
+        mock = mock_llm_with_responses({
+            "features": [{
+                "feature_id": "feat-x", "label": "X", "description": "D",
+                "trigger": "user_action", "trigger_description": "T",
+                # confidence 鍵刻意省略
+                "confidence_reason": "R", "source_nodes": ["app.py::f"],
+            }],
+            "feature_relations": [], "unclassified_nodes": [], "infrastructure_nodes": [],
+        })
+        structure = make_structure({1: ["app.py::f"]})
+        result = asyncio.run(BatchReader(llm_provider=mock, structure=structure).read())
+        assert result.l1_output.features[0].confidence is None   # C4：缺值不自鑄
+
     def test_multi_batch_processed_in_order(self, mock_llm_with_responses):
         """read() with multi-batch structure → batches processed in order."""
         responses = [

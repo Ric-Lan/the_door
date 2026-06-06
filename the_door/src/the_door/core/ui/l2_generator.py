@@ -162,7 +162,7 @@ class L2Generator:
                 L2Module(
                     module_id=m["module_id"],
                     label=m["label"],
-                    confidence=m.get("confidence", "medium"),
+                    confidence=m.get("confidence"),
                     source_nodes=list(m.get("source_nodes", [])),
                 )
                 for m in data.get("modules", [])
@@ -183,7 +183,7 @@ class L2Generator:
                     anomaly_type=a["anomaly_type"],
                     affected_node_ids=list(a.get("affected_node_ids", [])),
                     explanation=a.get("explanation", ""),
-                    confidence=a.get("confidence", "medium"),
+                    confidence=a.get("confidence"),
                 )
                 for a in data.get("anomalies", [])
             ]
@@ -257,7 +257,7 @@ class L2Generator:
             L2Module(
                 module_id=m["module_id"],
                 label=m["label"],
-                confidence=m.get("confidence", "medium"),
+                confidence=m.get("confidence"),
                 source_nodes=list(m.get("source_nodes", [])),
             )
             for m in data.get("modules", [])
@@ -278,7 +278,7 @@ class L2Generator:
                 anomaly_type=a["anomaly_type"],
                 affected_node_ids=list(a.get("affected_node_ids", [])),
                 explanation=a.get("explanation", ""),
-                confidence=a.get("confidence", "medium"),
+                confidence=a.get("confidence"),
             )
             for a in data.get("anomalies", [])
         ]

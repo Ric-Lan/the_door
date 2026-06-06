@@ -429,7 +429,7 @@ class SnapshotStore:
                 block_id=bid,
                 label=bdata["label"],
                 responsibility=bdata["responsibility"],
-                confidence=bdata.get("confidence", "medium"),
+                confidence=bdata.get("confidence"),
             )
 
         relations = [
