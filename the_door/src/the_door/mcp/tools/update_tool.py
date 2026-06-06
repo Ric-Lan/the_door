@@ -108,5 +108,6 @@ async def execute(arguments: dict) -> dict:
     elif output_format == "mermaid":
         return wrap({"mermaid": renderer.render_mermaid(result)}, project_path=project_root, context="mcp")
     else:
-        # Default: JSON
-        return wrap(renderer.render_json(result), project_path=project_root, context="mcp")
+        # Default: JSON — agent 邊界膜投影（S8-report；人類面 render_json 保持 bare）
+        from the_door.core.pipeline.report_membrane import project_report_for_agent
+        return wrap(project_report_for_agent(renderer.render_json(result)), project_path=project_root, context="mcp")
