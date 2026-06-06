@@ -521,3 +521,77 @@ class TestSelfDiffIdempotency:
             assert nd.diff_state == "unchanged"
         assert result.summary.total_changed_count == 0
         assert result.edge_diffs == []
+
+
+# ── S6 C2：diff_state 值域雙向釘樁（producer ↔ membrane CONTRASTS 單一來源）──
+
+
+class TestDiffStateValueDomainPinnedToMembrane:
+    """C2（spec §3.3/§4）：diff_engine 產出的 diff_state 值域與 diff_membrane 的
+    CONTRASTS 雙向相等——⊆ 抓 producer 冒未登錄值、⊇（聯集==）抓 CONTRASTS 列死值。
+    任一側漂移即測紅，強制 producer 與膜詞彙同步。
+
+    dependency_changed 僅 L1 路徑產（_upgrade_dependency_changed）；L1.5 不產
+    （無 edge diff）⟹ ⊇ 側的 dependency_changed 由 L1 fixture 取得（spec §3.3）。
+    """
+
+    def setup_method(self):
+        self.engine = DiffEngine()
+
+    def _all_node_states(self) -> set[str]:
+        """彙整涵蓋全 5 node 分類的 L1 案例，回傳產出值聯集。"""
+        states: set[str] = set()
+        # added / removed / unchanged / attribute_changed
+        baseline = _snap(l1={
+            "pure": _feat("pure", "P", "P"),          # → unchanged（不在任何變更邊）
+            "keep": _feat("keep", "K", "K"),          # dep 邊另一端（會升 dependency_changed）
+            "attr": _feat("attr", "X", "X"),          # → attribute_changed
+            "dep": _feat("dep", "D", "D"),            # → dependency_changed（邊變）
+            "gone": _feat("gone", "G", "G"),          # → removed
+        }, relations=[_rel("dep", "keep", "old")])
+        current = _snap(l1={
+            "pure": _feat("pure", "P", "P"),
+            "keep": _feat("keep", "K", "K"),
+            "attr": _feat("attr", "X2", "X2"),
+            "dep": _feat("dep", "D", "D"),
+            "new": _feat("new", "N", "N"),            # → added
+        }, relations=[_rel("dep", "keep", "new")])     # dep↔keep 邊 modified
+        result = self.engine.compute_l1_diff(baseline, current)
+        states.update(nd.diff_state for nd in result.node_diffs)
+        return states
+
+    def _all_edge_states(self) -> set[str]:
+        """彙整涵蓋全 3 edge 分類的案例，回傳產出值聯集。"""
+        states: set[str] = set()
+        baseline = _snap(l1={"a": _feat("a"), "b": _feat("b"), "c": _feat("c")},
+                         relations=[_rel("a", "b", "keep"), _rel("a", "c", "old")])
+        current = _snap(l1={"a": _feat("a"), "b": _feat("b"), "c": _feat("c")},
+                        relations=[_rel("a", "c", "changed"), _rel("b", "c", "fresh")])
+        # a→b removed、a→c modified、b→c added
+        result = self.engine.compute_l1_diff(baseline, current)
+        states.update(ed.diff_state for ed in result.edge_diffs)
+        return states
+
+    def test_node_diff_state_domain_equals_contrasts(self):
+        from the_door.core.diff.diff_membrane import NODE_DIFF_CONTRASTS
+
+        produced = self._all_node_states()
+        # ⊆：producer 不冒未登錄值
+        assert produced <= set(NODE_DIFF_CONTRASTS), (
+            f"producer 冒出未登錄 diff_state：{produced - set(NODE_DIFF_CONTRASTS)}"
+        )
+        # ⊇（聯集==）：CONTRASTS 無死值
+        assert produced == set(NODE_DIFF_CONTRASTS), (
+            f"CONTRASTS 列了 producer 不產的死值：{set(NODE_DIFF_CONTRASTS) - produced}"
+        )
+
+    def test_edge_diff_state_domain_equals_contrasts(self):
+        from the_door.core.diff.diff_membrane import EDGE_DIFF_CONTRASTS
+
+        produced = self._all_edge_states()
+        assert produced <= set(EDGE_DIFF_CONTRASTS), (
+            f"producer 冒出未登錄 edge diff_state：{produced - set(EDGE_DIFF_CONTRASTS)}"
+        )
+        assert produced == set(EDGE_DIFF_CONTRASTS), (
+            f"CONTRASTS 列了 producer 不產的死值：{set(EDGE_DIFF_CONTRASTS) - produced}"
+        )
