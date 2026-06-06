@@ -1,6 +1,8 @@
 """MCP tool: scope_verify — run scope verification against a scope definition."""
 from __future__ import annotations
 
+from the_door.core.scope.scope_membrane import scope_element
+
 TOOL_SCHEMA = {
     "type": "object",
     "required": ["scope_file"],
@@ -15,6 +17,17 @@ TOOL_SCHEMA = {
         },
     },
 }
+
+
+def _entry_to_json(e) -> dict:
+    """Project a ScopeEntry to JSON. scope_state 經膜投影（值→signal、3-state contrasts）＝
+    B 側送達無裸 enum（S5 C3）；feature_label/expected_label＝自由文字載體欄、保留。"""
+    return {
+        "feature_id": e.feature_id,
+        "scope_state": scope_element(e.scope_state).to_json(),
+        "feature_label": e.feature_label,
+        "expected_label": e.expected_label,
+    }
 
 
 async def execute(arguments: dict) -> dict:
@@ -57,15 +70,7 @@ async def execute(arguments: dict) -> dict:
     # Serialize ScopeResult
     return wrap({
         "scope_name": scope_result.scope_name,
-        "entries": [
-            {
-                "feature_id": e.feature_id,
-                "scope_state": e.scope_state,
-                "feature_label": e.feature_label,
-                "expected_label": e.expected_label,
-            }
-            for e in scope_result.entries
-        ],
+        "entries": [_entry_to_json(e) for e in scope_result.entries],
         "counts": {
             "in_scope_complete": scope_result.counts.in_scope_complete,
             "out_of_scope": scope_result.counts.out_of_scope,
