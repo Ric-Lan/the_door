@@ -19,6 +19,7 @@ async def execute(arguments: dict) -> dict:
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.diff.diff_engine import DiffEngine
     from the_door.core.diff.diff_renderer import DiffRenderer
+    from the_door.core.diff.diff_membrane import node_diff_element, edge_diff_element
     from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import SnapshotNotFoundError, DiffError, BaselineInfo, DiffResult
 
@@ -79,8 +80,8 @@ async def execute(arguments: dict) -> dict:
                 "attribute_changed_count": diff_result.summary.attribute_changed_count,
                 "total_changed_count": diff_result.summary.total_changed_count,
             },
-            "node_diffs": [{"node_id": nd.node_id, "diff_state": nd.diff_state} for nd in diff_result.node_diffs],
-            "edge_diffs": [{"from_node": ed.from_node, "to_node": ed.to_node, "diff_state": ed.diff_state} for ed in diff_result.edge_diffs],
+            "node_diffs": [{"node_id": nd.node_id, "diff_state": node_diff_element(nd.diff_state).to_json()} for nd in diff_result.node_diffs],
+            "edge_diffs": [{"from_node": ed.from_node, "to_node": ed.to_node, "diff_state": edge_diff_element(ed.diff_state).to_json()} for ed in diff_result.edge_diffs],
         }, project_path=project_root, context="mcp")
     else:
         renderer = DiffRenderer()
