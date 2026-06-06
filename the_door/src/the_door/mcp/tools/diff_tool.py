@@ -20,6 +20,7 @@ async def execute(arguments: dict) -> dict:
     from the_door.core.diff.diff_engine import DiffEngine
     from the_door.core.diff.diff_renderer import DiffRenderer
     from the_door.core.diff.diff_membrane import node_diff_element, edge_diff_element
+    from the_door.core.diff.provenance_membrane import provenance_element_for
     from the_door.mcp.tools._response_envelope import wrap
     from the_door.models import SnapshotNotFoundError, DiffError, BaselineInfo, DiffResult
 
@@ -71,8 +72,8 @@ async def execute(arguments: dict) -> dict:
     if output_format == "json":
         # Return structured diff result
         return wrap({
-            "baseline_info": {"version_id": diff_result.baseline_info.version_id, "timestamp": diff_result.baseline_info.timestamp},
-            "current_info": {"version_id": diff_result.current_info.version_id, "timestamp": diff_result.current_info.timestamp},
+            "baseline_info": {"version_id": diff_result.baseline_info.version_id, "timestamp": diff_result.baseline_info.timestamp, "provenance": provenance_element_for(baseline_snap.contract_version).to_json()},
+            "current_info": {"version_id": diff_result.current_info.version_id, "timestamp": diff_result.current_info.timestamp, "provenance": provenance_element_for(current.contract_version).to_json()},
             "summary": {
                 "added_count": diff_result.summary.added_count,
                 "removed_count": diff_result.summary.removed_count,

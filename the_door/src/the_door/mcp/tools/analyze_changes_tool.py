@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from the_door.core.diff.provenance_membrane import provenance_element_for
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.remediation import make_error_envelope
@@ -136,9 +137,15 @@ async def execute(arguments: dict) -> dict:
         )
 
     diff = result.diff
+    # baseline provenance：由 diff.baseline_version_id 穩健取 baseline snapshot
+    # （不依賴條件 `snap`，僅在無 source_path 分支綁定）；取不到→None→unknown（O3-safe）。
+    _bsnap = SnapshotStore(codebase_path).get_snapshot(diff.baseline_version_id)
     payload = {
         "baseline_version_id": diff.baseline_version_id,
         "baseline_label": result.baseline_label,
+        "baseline_provenance": provenance_element_for(
+            getattr(_bsnap, "contract_version", None)
+        ).to_json(),
         "inherited_features": [_feature_to_json(fs) for fs in diff.inherited_features],
         "affected_features": [_affected_to_json(af) for af in diff.affected_features],
         "unmapped_nodes": {

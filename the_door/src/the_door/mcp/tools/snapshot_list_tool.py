@@ -14,6 +14,7 @@ async def execute(arguments: dict) -> dict:
     """Execute the snapshot_list tool."""
     from pathlib import Path
     from the_door.core.diff.snapshot_store import SnapshotStore
+    from the_door.core.diff.provenance_membrane import provenance_element_for
     from the_door.mcp.tools._response_envelope import wrap
 
     codebase_path = arguments["codebase_path"]
@@ -30,6 +31,7 @@ async def execute(arguments: dict) -> dict:
                 "commit_hash": s.commit_hash,
                 "git_tags": s.git_tags,
                 "label": s.label,
+                "provenance": provenance_element_for(s.contract_version).to_json(),
             }
             for s in snapshots
         ]

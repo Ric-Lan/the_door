@@ -82,6 +82,53 @@ def test_diff_tool_json_projects_diff_state_to_membrane(diffable_project):
         assert "from_node" in ed and "to_node" in ed
 
 
+def test_diff_tool_json_projects_provenance_to_membrane(diffable_project):
+    """S7 P5：baseline_info/current_info 各帶 provenance 膜投影（signal、無裸值）。"""
+    from the_door.core.diff.provenance_membrane import PROVENANCE_CONTRASTS
+
+    result = asyncio.run(diff_tool.execute(
+        {"codebase_path": str(diffable_project), "baseline": "baseline-v1", "format": "json"}
+    ))
+    assert result.get("error") is None, result
+
+    for side in ("baseline_info", "current_info"):
+        prov = result[side]["provenance"]
+        assert isinstance(prov, dict), f"{side} provenance 仍裸值：{prov!r}"
+        assert prov["value"] in PROVENANCE_CONTRASTS
+        assert prov["position"]["kind"] == "signal"
+        assert prov["position"]["contrasts"] == list(PROVENANCE_CONTRASTS)
+    # 兩 snapshot 皆經 create_snapshot 蓋戳 ⟹ 同 footing
+    assert result["current_info"]["provenance"]["value"] == "current"
+
+
+def test_diff_tool_provenance_lights_up_across_contract_boundary(tmp_path):
+    """S7 §283：pre-stamp baseline(unknown) vs 新 current(current) → diff 當天點亮。"""
+    import json as _json
+
+    store = SnapshotStore(tmp_path)
+    base = store.create_snapshot(
+        l1_snapshot={"feat-a": _fs("feat-a", "A", "A")},
+        feature_relations=[], analyzed_files=[], trigger="manual", label="old-baseline",
+    )
+    # 模擬 pre-stamp 快照：把 baseline 的 contract_version 從磁碟移除（O3 舊資料）
+    base_file = tmp_path / ".the-door" / "snapshots" / f"{base.version_id}.json"
+    raw = _json.loads(base_file.read_text(encoding="utf-8"))
+    raw.pop("contract_version", None)
+    base_file.write_text(_json.dumps(raw), encoding="utf-8")
+    # current＝新蓋戳快照（get_latest）
+    store.create_snapshot(
+        l1_snapshot={"feat-a": _fs("feat-a", "A2", "A2")},
+        feature_relations=[], analyzed_files=[], trigger="manual", label="new-current",
+    )
+
+    result = asyncio.run(diff_tool.execute(
+        {"codebase_path": str(tmp_path), "baseline": "old-baseline", "format": "json"}
+    ))
+    assert result.get("error") is None, result
+    assert result["baseline_info"]["provenance"]["value"] == "unknown"
+    assert result["current_info"]["provenance"]["value"] == "current"
+
+
 def test_diff_tool_mermaid_format_unaffected(diffable_project):
     """投影隔離於 json 分支：mermaid 分支仍回純文字（人類面 out）。"""
     result = asyncio.run(diff_tool.execute(

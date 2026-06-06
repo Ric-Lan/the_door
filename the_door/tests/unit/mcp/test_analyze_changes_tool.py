@@ -150,6 +150,56 @@ async def test_analyze_changes_returns_incremental_diff(seeded_v105_fixture):
 
 
 @pytest.mark.asyncio
+async def test_analyze_changes_payload_carries_baseline_provenance(seeded_v105_fixture):
+    """S7 P5：payload 帶 baseline_provenance 膜（signal、無裸值）。"""
+    from the_door.core.diff.provenance_membrane import PROVENANCE_CONTRASTS
+    from the_door.mcp.tools import analyze_changes_tool
+
+    result = await analyze_changes_tool.execute({
+        "codebase_path": str(seeded_v105_fixture),
+        "baseline": "v1.0.0",
+    })
+
+    prov = result["baseline_provenance"]
+    assert prov["value"] in PROVENANCE_CONTRASTS
+    assert prov["position"]["kind"] == "signal"
+    # seeded baseline 經 create_snapshot 蓋戳 ⟹ current
+    assert prov["value"] == "current"
+
+
+@pytest.mark.asyncio
+async def test_analyze_changes_provenance_orthogonal_to_inherited_affected(seeded_v105_fixture):
+    """S7 P6：provenance ⊥ inherited/affected——三者同 payload 並存、互不干涉。"""
+    from the_door.mcp.tools import analyze_changes_tool
+
+    result = await analyze_changes_tool.execute({
+        "codebase_path": str(seeded_v105_fixture),
+        "baseline": "v1.0.0",
+    })
+
+    assert "baseline_provenance" in result
+    assert "inherited_features" in result
+    assert "affected_features" in result
+
+
+@pytest.mark.asyncio
+async def test_analyze_changes_provenance_robust_with_explicit_source_path(seeded_v105_fixture):
+    """S7 spec §3.6：baseline_provenance 由 diff.baseline_version_id 穩健取得，
+
+    不依賴條件 `snap`（僅在無 source_path 分支綁定）。顯式 source_path 時仍不炸。
+    """
+    from the_door.mcp.tools import analyze_changes_tool
+
+    result = await analyze_changes_tool.execute({
+        "codebase_path": str(seeded_v105_fixture),
+        "baseline": "v1.0.0",
+        "source_path": str(seeded_v105_fixture),
+    })
+    assert "baseline_provenance" in result
+    assert result["baseline_provenance"]["position"]["kind"] == "signal"
+
+
+@pytest.mark.asyncio
 async def test_analyze_changes_missing_structure_returns_error_envelope(tmp_path):
     _seed_project(tmp_path, baseline_label="v1.0.0", persist_structure=False)
 
