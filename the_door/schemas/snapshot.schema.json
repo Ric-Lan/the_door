@@ -78,7 +78,11 @@
           "cve_id": { "type": "string" },
           "package": { "type": "string" },
           "version": { "type": "string" },
-          "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+          "severity": { "oneOf": [
+            { "const": "critical" }, { "const": "high" },
+            { "const": "medium" }, { "const": "low" },
+            { "type": "null", "description": "OSV 未給 severity 類別（誠實缺席，不捏中點）" }
+          ] },
           "cvss": { "type": ["number", "null"], "minimum": 0.0, "maximum": 10.0 },
           "source": { "type": "string" },
           "evidence": { "type": "string" }

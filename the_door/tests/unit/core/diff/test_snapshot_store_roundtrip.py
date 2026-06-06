@@ -202,6 +202,27 @@ class TestContractVersionStamp:
         assert snap.contract_version is not None
 
 
+class TestNullSeverityRoundTrip:
+    """F-severity-default V3：None-severity 漏洞經 fail-closed 落盤口通過＋round-trip 保 None。"""
+
+    def test_none_severity_vuln_passes_failclosed_write_and_round_trips(self, store):
+        from the_door.models import VulnerabilityEntry
+
+        entry = VulnerabilityEntry(
+            cve_id="CVE-X", package="p", version="1",
+            severity=None, cvss=None, source="osv-scanner", evidence="",
+        )
+        # create_snapshot 內含 _write_snapshot fail-closed schema 校驗——None-severity 須通過
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+            trigger="manual", label="null-sev", vulnerabilities=[entry],
+        )
+        loaded = store.get_snapshot(snap.version_id)
+        assert loaded is not None
+        assert len(loaded.vulnerabilities_snapshot) == 1
+        assert loaded.vulnerabilities_snapshot[0].severity is None
+
+
 def test_deserialize_legacy_drift_warns_and_normalizes(tmp_path):
     snap_dir = tmp_path / ".the-door" / "snapshots"
     snap_dir.mkdir(parents=True)
