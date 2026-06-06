@@ -162,15 +162,19 @@ def confidence_schema_fragment() -> dict:
 
 ```python
 # analysis.py
-class Feature:        ... ; confidence: str | None   # None＝LLM 未評估（不自鑄 medium）
-class L2Module:       ... ; confidence: str | None    # default 移除（見下註）
-class Anomaly:        ... ; confidence: str | None
+class Feature:        ... ; confidence: str | None          # required-position：純放寬型別、無 default
+class L2Module:       ... ; confidence: str | None = None    # 欄序強制留 default（在 source_nodes 後）
+class Anomaly:        ... ; confidence: str | None = None    # 欄序強制留 default（在 explanation 後）
 # snapshot.py
-class FeatureSummary: ... ; confidence: str | None
-class BlockSummary:   ... ; confidence: str | None    # default "medium" 移除
+class FeatureSummary: ... ; confidence: str | None          # required-position（在 trigger_description 前）
+class BlockSummary:   ... ; confidence: str | None = None    # 末欄；default "medium"→None
 ```
 
-> **default 取捨（concept-review warning 修）**：原 `= "medium"`/`="low"` dataclass default＝「構造省略時靜默得 medium」＝**殘留自鑄路徑**，與 §0「自鑄不可構造」＋C3/C4 牴觸。故 **nullable 欄一律移除 dataclass default**（構造必須顯式傳值或 None）——「構造省略→自鑄」結構性消除。🟢 grep 驗全構造點皆顯式傳 confidence（`snapshot_store:428`／`l2_generator:162,182,257,277`），移 default 安全（plan 須處理 dataclass 欄序：無 default 欄須在有 default 欄前）。`pending_low_confidence`（`analysis.py:195`）＝既有 narrative 欄、與本軸無關，不動。
+> **default 取捨（concept-review warning 修＋寫 plan 時欄序精修）**：原 `= "medium"`/`="low"` default＝「構造省略時靜默得 **medium**」＝**自鑄一個假信心值**，與 §0/C3「不自鑄」牴觸。修法＝**消滅「自鑄假值」而非消滅 default**：
+> - **required-position 欄**（`Feature.confidence`〔在 source_nodes 前〕／`FeatureSummary.confidence`〔在 trigger_description 前〕）→ 純放寬 `str→str|None`、**無 default**（構造必傳）。
+> - **defaulted-position 欄**（`L2Module`〔在 `source_nodes` 後〕／`Anomaly`〔在 `explanation` 後〕／`BlockSummary`〔末欄〕）→ dataclass 欄序強制須有 default → **`default=None`**（None＝誠實「未評估」殘餘、**非**自鑄 medium，仍滿足 C3）。
+>
+> 🟢 grep 驗欄序（`analysis.py:16/137/159`、`snapshot.py:32/45`）＋全構造點顯式傳 confidence（`snapshot_store:428`／`l2_generator:162,182,257,277`）。`pending_low_confidence`（`analysis.py:195`）＝既有 narrative 欄、與本軸無關，不動。
 
 ### 3.5 閉集 enum 缺值誠實化（A 側、生產端、S4 通則）
 
@@ -287,7 +291,7 @@ S5＝scope 軸（三主軸之一，§181：in/out/unrecognized）。逐點驗：
 > **(地基)** 交付物 1（confidence_membrane＋有序來源）→ **(A 側·事實層)** 交付物 2+4+7-persist（模型 nullable＋生產端/反序列化缺值誠實化＋schema nullable，characterization 圈缺值）→ **(B 側·emit 層)** 交付物 3+5+6（input desc＋output 投影＋edge 升 Signal，characterization 圈 emit 形狀）。**A 側先（模型/schema 就緒容 None）於 B 側投影前**，否則 emit None 撞未放寬型別/schema（同 S3 Task2 先於 Task4 之理）。
 
 1. `core/reading/confidence_membrane.py`（`CONFIDENCE_CONTRASTS`＋`confidence_signal`/`confidence_element`/`confidence_reason_element`/`confidence_schema_fragment`）＋`tests/unit/core/reading/test_confidence_membrane.py`。
-2. `models/analysis.py`／`models/snapshot.py`（confidence `str→str|None`，**移除 dataclass default**＝消自鑄路徑）。
+2. `models/analysis.py`／`models/snapshot.py`（confidence `str→str|None`；required-position 無 default、defaulted-position `default=None`＝消「自鑄假 medium」、非消 default〔欄序，見 §3.4〕）。
 3. 單一來源收斂：`snapshot_write_tool.py:15`（`VALID_CONFIDENCE` 衍生）＋`:46,89`／`snapshot_patch_tool` input schema per-value desc。
 4. 生產端缺值誠實化：`batch_reader.py:190,345`／`l2_generator.py:165,186`＋`257,277` 鄰近（plan grep 全 `.get("confidence",...)`）／`snapshot_store.py:432`（反序列化向後相容）（移 `, "medium"`）＋characterization 更新。
 5. emit 膜投影：`analyze_tool.py:82`／`analyze_changes_tool.py:61`（confidence 走 `confidence_element`）＋characterization。
