@@ -83,8 +83,35 @@ class NoisePosition:
             )
 
 
-# Position union——S2 階段 3 變體；S3 加 RelayedVerdict。
-Position = SignalPosition | ReservedPassthrough | NoisePosition
+@dataclass(frozen=True)
+class RelayedVerdict:
+    """特例變體：忠實轉述外部權威的裁決（如 OSV/CVSS）。
+
+    fact-finder 禁「自鑄」裁決，但「轉述帶 provenance 的外部裁決」＝事實、可轉述
+    （種子檔 §8.12 修正③）。守衛＝evidence（外部證據本體，如 CVSS vector）非空方可構造：
+    非空 authority 標籤對真假分零鑑別力（scanner 實證：捏造中點也蓋 source="osv-scanner"），
+    故守衛切在證據本體（§8.13 勘誤「RelayedVerdict 強制外部 provenance」列）。
+    無 evidence ⟹ 不可構造 ⟹ 退 NoisePosition(indeterminate)（§8.13 通則）。
+
+    score 選填＝外部實際給的數值裁決（或 None＝只有 vector 無數值）；**不自行計算**
+    （自算 base score＝自鑄裁決，違 fact-finder）。只轉述外部給的。
+    """
+    authority: str            # 外部權威標籤（如 "osv-scanner"）
+    evidence: str             # 外部證據本體（如 CVSS vector string）——非空方可構造
+    score: float | None = None  # 外部給的數值裁決（或 None；不自算）
+
+    def __post_init__(self) -> None:
+        if not self.evidence:
+            raise ValueError(
+                "RelayedVerdict.evidence 必須非空（外部證據本體，如 CVSS vector）——"
+                "無證據不可鑄裁決，缺證據退 NoisePosition(indeterminate)（§8.13）"
+            )
+        if self.score is not None and not (0.0 <= self.score <= 10.0):
+            raise ValueError("RelayedVerdict.score（CVSS）必須在 [0,10]")
+
+
+# Position union——S3 階段 4 變體（S0 §3a 完整 union）。
+Position = SignalPosition | ReservedPassthrough | NoisePosition | RelayedVerdict
 
 
 @dataclass(frozen=True)
@@ -136,5 +163,12 @@ def _position_to_json(position: Position) -> dict:
             "cardinality": position.cardinality,
             "proportion": position.proportion,
             "aggregated": position.aggregated,
+        }
+    if isinstance(position, RelayedVerdict):
+        return {
+            "kind": "relayed_verdict",
+            "authority": position.authority,
+            "evidence": position.evidence,
+            "score": position.score,
         }
     raise TypeError(f"未知 position 變體：{type(position).__name__}")

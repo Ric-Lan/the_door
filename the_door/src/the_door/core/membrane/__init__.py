@@ -4,6 +4,7 @@ from the_door.core.membrane.primitive import (
     MembraneElement,
     NoisePosition,
     Position,
+    RelayedVerdict,
     ReservedPassthrough,
     SignalPosition,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "MembraneElement",
     "NoisePosition",
     "Position",
+    "RelayedVerdict",
     "ReservedPassthrough",
     "SignalPosition",
 ]

@@ -121,6 +121,7 @@ def test_facade_exports():
         "MembraneElement",
         "NoisePosition",
         "Position",
+        "RelayedVerdict",
         "ReservedPassthrough",
         "SignalPosition",
     }
