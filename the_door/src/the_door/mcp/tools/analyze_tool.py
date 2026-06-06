@@ -10,6 +10,7 @@ from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.llm.config_manager import ConfigManager
 from the_door.core.llm.provider import create_provider
 from the_door.core.reading.batch_reader import BatchReader
+from the_door.core.reading.confidence_membrane import confidence_element
 from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import StructureJSON
 
@@ -79,7 +80,7 @@ async def execute(arguments: dict) -> dict:
                     "feature_id": f.feature_id,
                     "label": f.label,
                     "description": f.description,
-                    "confidence": f.confidence,
+                    "confidence": confidence_element(f.confidence).to_json(),
                     "source_nodes": list(f.source_nodes),
                     "confidence_marker": build_confidence_marker(f),
                 }

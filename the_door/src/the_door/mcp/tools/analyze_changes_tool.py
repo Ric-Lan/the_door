@@ -16,6 +16,10 @@ from the_door.core.pipeline.incremental_pipeline import (
     IncrementalAnalysisError,
     run_incremental_pipeline,
 )
+from the_door.core.reading.confidence_membrane import (
+    confidence_element,
+    confidence_reason_element,
+)
 from the_door.mcp.tools._response_envelope import wrap
 
 _flow_guard = FlowGuard()
@@ -58,8 +62,12 @@ def _feature_to_json(fs) -> dict:
         "description": fs.description,
         "trigger": getattr(fs, "trigger", None),
         "trigger_description": fs.trigger_description,
-        "confidence": fs.confidence,
-        "confidence_reason": getattr(fs, "confidence_reason", None),
+        "confidence": confidence_element(fs.confidence).to_json(),
+        "confidence_reason": (
+            confidence_reason_element(reason).to_json()
+            if (reason := getattr(fs, "confidence_reason", None)) is not None
+            else None
+        ),
         "source_nodes": list(fs.source_nodes),
         "source_node_count": len(fs.source_nodes),
     }

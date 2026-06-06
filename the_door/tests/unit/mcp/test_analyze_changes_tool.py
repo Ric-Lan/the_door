@@ -143,6 +143,10 @@ async def test_analyze_changes_returns_incremental_diff(seeded_v105_fixture):
     assert "next_actions" in result
     # Spot-check delta shape
     assert "file.py::new" in result["unmapped_nodes"]["added"]
+    # C6：inherited feature confidence 經膜投影（值→signal、無裸 enum）
+    inh = result["inherited_features"][0]
+    assert inh["confidence"]["value"] == "high"
+    assert inh["confidence"]["position"]["kind"] == "signal"
 
 
 @pytest.mark.asyncio

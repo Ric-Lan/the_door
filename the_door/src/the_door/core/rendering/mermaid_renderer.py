@@ -62,7 +62,9 @@ def resolve_marker_state(
         return "regenerated"
     if feature.source_reviewed:
         return "reviewed"
-    return feature.confidence
+    # confidence=None（未評估，S4 缺值誠實化）無對應 marker → 退中性 "incomplete" 灰視覺
+    # （人類面 None-容忍；不自鑄 high/medium/low）。
+    return feature.confidence if feature.confidence in MARKER_DEFS else "incomplete"
 
 
 def build_confidence_marker(
