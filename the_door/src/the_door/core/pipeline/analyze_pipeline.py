@@ -258,6 +258,7 @@ def _build_output_data(result, scan_result: ScanResult, td_config) -> dict:
                 "severity": v.severity,
                 "cvss": v.cvss,
                 "source": v.source,
+                "evidence": v.evidence,
             }
             for v in scan_result.entries
         ],

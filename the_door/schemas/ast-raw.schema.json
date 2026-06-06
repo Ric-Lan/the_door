@@ -198,11 +198,17 @@
             ]
           },
           "cvss": {
-            "type": "number",
+            "type": [
+              "number",
+              "null"
+            ],
             "minimum": 0.0,
             "maximum": 10.0
           },
           "source": {
+            "type": "string"
+          },
+          "evidence": {
             "type": "string"
           }
         }

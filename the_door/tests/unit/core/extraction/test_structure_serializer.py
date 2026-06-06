@@ -143,6 +143,7 @@ class TestBuildStructureDict:
             "severity": "high",
             "cvss": 7.5,
             "source": "osv",
+            "evidence": "",
         }
         assert d["vulnerability_db_freshness"] == {
             "timestamp": "2025-01-01T00:00:00Z",

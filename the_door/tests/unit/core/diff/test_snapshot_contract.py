@@ -164,3 +164,21 @@ def test_audit_conformance_reports_only_nonconforming(tmp_path):
     assert {r["version_id"] for r in report} == {"bad-id"}
     assert store.get_snapshot(good.version_id) is not None  # untouched
     assert bad_path.exists()  # not deleted
+
+
+def test_vulnerability_cvss_nullable_and_evidence_roundtrip(tmp_path):
+    """cvss=None（OSV 未給數值分）+ evidence（真 vector）通過 fail-closed schema 並 round-trip。"""
+    from dataclasses import replace
+
+    store = _store(tmp_path)
+    snap = replace(_minimal_snapshot(), vulnerabilities_snapshot=[
+        VulnerabilityEntry(cve_id="CVE-X", package="p", version="1",
+                           severity="high", cvss=None, source="osv-scanner",
+                           evidence="CVSS:3.1/AV:N/AC:L"),
+    ])
+    data = store._serialize_snapshot(snap)
+    jsonschema.validate(data, _get_snapshot_schema(), cls=_V)   # cvss=null + evidence 須過
+    back = store._deserialize_snapshot(data)
+    assert back.vulnerabilities_snapshot[0].cvss is None
+    assert back.vulnerabilities_snapshot[0].evidence == "CVSS:3.1/AV:N/AC:L"   # 事實層保真
+    assert data["vulnerabilities_snapshot"][0]["cvss"] is None                 # 落盤 json null

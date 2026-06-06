@@ -56,6 +56,7 @@ def build_structure_dict(
             {
                 "cve_id": v.cve_id, "package": v.package, "version": v.version,
                 "severity": v.severity, "cvss": v.cvss, "source": v.source,
+                "evidence": v.evidence,
             }
             for v in (scan_result.entries if scan_result else [])
         ],

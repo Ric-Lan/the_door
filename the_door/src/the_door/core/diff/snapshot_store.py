@@ -382,6 +382,7 @@ class SnapshotStore:
                     "severity": v.severity,
                     "cvss": v.cvss,
                     "source": v.source,
+                    "evidence": v.evidence,
                 }
                 for v in snapshot.vulnerabilities_snapshot
             ],
@@ -447,8 +448,9 @@ class SnapshotStore:
                 package=v["package"],
                 version=v["version"],
                 severity=v["severity"],
-                cvss=v["cvss"],
+                cvss=v.get("cvss"),
                 source=v.get("source", "osv-scanner"),
+                evidence=v.get("evidence", ""),
             )
             for v in data.get("vulnerabilities_snapshot", [])
         ]

@@ -68,8 +68,9 @@
           "package": { "type": "string" },
           "version": { "type": "string" },
           "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
-          "cvss": { "type": "number", "minimum": 0.0, "maximum": 10.0 },
-          "source": { "type": "string" }
+          "cvss": { "type": ["number", "null"], "minimum": 0.0, "maximum": 10.0 },
+          "source": { "type": "string" },
+          "evidence": { "type": "string" }
         }
       }
     },
