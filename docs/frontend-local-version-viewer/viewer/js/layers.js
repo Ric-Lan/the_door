@@ -100,18 +100,6 @@ export async function loadDiffOverlay(baselineId, currentId) {
 
     state.versionDiff = data;
 
-    const nodeStates = data.node_states || {};
-    if (state.cytoscapeInstance) {
-      state.cytoscapeInstance.nodes().forEach((node) => {
-        const diffState = nodeStates[node.id()];
-        if (diffState && diffState !== "unchanged") {
-          node.data("change_type", diffState);
-        } else {
-          node.removeData("change_type");
-        }
-      });
-    }
-
     const s = data.summary || {};
     const total = s.total_changed ?? 0;
     if (total > 0) {
@@ -217,10 +205,6 @@ export function switchToL1() {
   if (state.l1GraphViewModel) {
     initGraph("graph-container", state.l1GraphViewModel);
     renderFeatureList(state.l1GraphViewModel, "L1");
-    if (state.cytoscapeInstance && state.selectedId) {
-      const node = state.cytoscapeInstance.getElementById(state.selectedId);
-      if (node) node.select();
-    }
   } else {
     loadL1Graph();
   }
@@ -471,14 +455,6 @@ export function renderFeatureList(viewModel, layerState) {
 
     btn.append(labelEl, descEl, metaEl);
     btn.addEventListener("click", () => {
-      if (state.cytoscapeInstance) {
-        state.cytoscapeInstance.elements().unselect();
-        const cyNode = state.cytoscapeInstance.getElementById(node.id);
-        if (cyNode) {
-          cyNode.select();
-          state.cytoscapeInstance.animate({ fit: { eles: cyNode, padding: 50 } });
-        }
-      }
       if (layerState === "L1") {
         state.selectedFeatureId = node.id;
         renderDetailPanelL1(node, { onEnterL2: switchToL2 });

@@ -7,8 +7,7 @@ describe('state', () => {
       'updateModel', 'l1Model', 'mode', 'selectedId', 'projectStatus',
       'pollingJobId', 'pollingHandle', 'layerState', 'selectedFeatureId',
       'selectedModuleId', 'l1GraphViewModel', 'l2GraphViewModel',
-      'l3GraphViewModel', 'diffGraphViewModel', 'cytoscapeInstance',
-      'cytoscapeAvailable', 'diffSortMode', 'layerExplanation',
+      'l3GraphViewModel', 'diffGraphViewModel', 'diffSortMode', 'layerExplanation',
       'snapshots', 'versionA', 'versionB', 'versionDiff',
     ];
     keys.forEach(k => expect(k in state, `key "${k}" missing`).toBe(true));
@@ -27,15 +26,10 @@ describe('state', () => {
     expect(state.l2GraphViewModel).toBeNull();
     expect(state.l3GraphViewModel).toBeNull();
     expect(state.diffGraphViewModel).toBeNull();
-    expect(state.cytoscapeInstance).toBeNull();
     expect(state.layerExplanation).toBeNull();
     expect(state.versionA).toBeNull();
     expect(state.versionB).toBeNull();
     expect(state.versionDiff).toBeNull();
-  });
-
-  it('initializes boolean fields correctly', () => {
-    expect(state.cytoscapeAvailable).toBe(false);
   });
 
   it('initializes string fields with correct defaults', () => {

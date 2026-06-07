@@ -13,8 +13,6 @@ export const state = {
   l2GraphViewModel: null,
   l3GraphViewModel: null,
   diffGraphViewModel: null,
-  cytoscapeInstance: null,
-  cytoscapeAvailable: false,
   diffSortMode: "risk",
   layerExplanation: null,
   snapshots: [],

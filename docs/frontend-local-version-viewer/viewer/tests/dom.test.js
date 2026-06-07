@@ -16,7 +16,7 @@ describe('els (DOM element cache)', () => {
     'updateModal', 'inputOldPath', 'inputNewPath', 'modalError', 'inputLanguage',
     'btnModalCancel', 'btnModalSubmit',
     'graphDrawer', 'graphBackdrop', 'btnGraphToggle', 'btnDrawerClose',
-    'zoomControls', 'btnBackL1', 'btnMindmap',
+    'btnBackL1', 'btnMindmap',
   ];
 
   expectedIds.forEach(key => {

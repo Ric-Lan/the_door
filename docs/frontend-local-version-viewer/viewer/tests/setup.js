@@ -54,16 +54,10 @@ document.body.innerHTML = `
 
   <div id="graph-drawer" aria-hidden="true">
     <div id="legend-panel"></div>
-    <div id="zoom-controls" hidden>
-      <button id="btn-zoom-fit" type="button">⊡</button>
-      <button id="btn-zoom-in"  type="button">+</button>
-      <button id="btn-zoom-out" type="button">−</button>
-    </div>
     <button id="btn-drawer-close" type="button">✕</button>
     <div id="graph-container">
       <div id="graph-spinner"></div>
     </div>
-    <div id="mermaid-fallback" style="display:none;"></div>
   </div>
 
   <div id="graph-backdrop" hidden></div>

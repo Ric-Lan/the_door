@@ -68,8 +68,6 @@ function resetState() {
   state.l2GraphViewModel = null;
   state.l3GraphViewModel = null;
   state.diffGraphViewModel = null;
-  state.cytoscapeInstance = null;
-  state.cytoscapeAvailable = false;
   state.diffSortMode = 'risk';
   state.layerExplanation = null;
   state.snapshots = [];
@@ -89,26 +87,6 @@ function resetDom() {
   const explanation = document.getElementById('layer-explanation');
   if (explanation) explanation.textContent = '';
   if (els.btnBackL1) els.btnBackL1.hidden = false;
-}
-
-function makeCy(nodesMap = {}) {
-  // Simulates a Cytoscape instance with node id lookup. nodesMap: { id -> nodeStub }
-  // Each nodeStub: { id, select, data, removeData, hasNode }
-  // If id not in map, return falsy via "isEmpty"-style check.
-  const elementsObj = { unselect: vi.fn() };
-  const nodes = Object.entries(nodesMap).map(([id, stub]) => ({
-    id: () => id,
-    data: stub.data,
-    removeData: stub.removeData,
-  }));
-  return {
-    nodes: vi.fn(() => nodes),
-    elements: vi.fn(() => elementsObj),
-    getElementById: vi.fn((id) => nodesMap[id] || null),
-    animate: vi.fn(),
-    _elementsObj: elementsObj,
-    _nodes: nodes,
-  };
 }
 
 beforeEach(() => {
@@ -393,39 +371,6 @@ describe('loadDiffOverlay', () => {
     expect(els.summaryText.textContent).toContain('0 修改');
   });
 
-  it('applies change_type to cytoscape nodes when state.cytoscapeInstance set', async () => {
-    const node1 = { data: vi.fn(), removeData: vi.fn() };
-    const node2 = { data: vi.fn(), removeData: vi.fn() };
-    state.cytoscapeInstance = makeCy({ 'a': node1, 'b': node2 });
-    // makeCy returns ._nodes by-id form; rebuild a cy with both nodes() iterable
-    state.cytoscapeInstance = {
-      nodes: () => [
-        { id: () => 'a', data: node1.data, removeData: node1.removeData },
-        { id: () => 'b', data: node2.data, removeData: node2.removeData },
-      ],
-    };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200,
-      json: async () => ({
-        node_states: { a: 'added', b: 'unchanged' },
-        summary: { total_changed: 1, added: 1, removed: 0, attribute_changed: 0, dependency_changed: 0 },
-      }),
-    });
-    await loadDiffOverlay('v1', 'v2');
-    expect(node1.data).toHaveBeenCalledWith('change_type', 'added');
-    expect(node2.removeData).toHaveBeenCalledWith('change_type');
-  });
-
-  it('handles missing node_states (uses || {})', async () => {
-    state.cytoscapeInstance = { nodes: () => [{ id: () => 'a', data: vi.fn(), removeData: vi.fn() }] };
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200,
-      json: async () => ({ summary: { total_changed: 0 } }),
-    });
-    await loadDiffOverlay('v1', 'v2');
-    // No throw — node has no state mapped, so removeData branch runs
-  });
-
   it('silently returns on !res.ok', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: false, status: 500, json: async () => ({}),
@@ -686,32 +631,6 @@ describe('switchToL1', () => {
     expect(state.selectedFeatureId).toBeNull();
     expect(state.selectedModuleId).toBeNull();
     expect(graph.initGraph).toHaveBeenCalledWith('graph-container', state.l1GraphViewModel);
-  });
-
-  it('restores cytoscape selection when state.selectedId is set', () => {
-    state.l1GraphViewModel = { nodes: [{ id: 'f1' }] };
-    state.selectedId = 'f1';
-    const nodeStub = { select: vi.fn() };
-    state.cytoscapeInstance = { getElementById: vi.fn(() => nodeStub) };
-    switchToL1();
-    expect(state.cytoscapeInstance.getElementById).toHaveBeenCalledWith('f1');
-    expect(nodeStub.select).toHaveBeenCalled();
-  });
-
-  it('does not throw when cytoscape returns null node', () => {
-    state.l1GraphViewModel = { nodes: [] };
-    state.selectedId = 'ghost';
-    state.cytoscapeInstance = { getElementById: vi.fn(() => null) };
-    expect(() => switchToL1()).not.toThrow();
-  });
-
-  it('does not call cytoscape when selectedId is null', () => {
-    state.l1GraphViewModel = { nodes: [] };
-    state.selectedId = null;
-    const getById = vi.fn();
-    state.cytoscapeInstance = { getElementById: getById };
-    switchToL1();
-    expect(getById).not.toHaveBeenCalled();
   });
 
   it('calls loadL1Graph when l1GraphViewModel is null', async () => {
@@ -1308,11 +1227,6 @@ describe('renderFeatureList', () => {
 
   it('L1 click — sets selectedFeatureId, calls renderDetailPanelL1 with callbacks, syncs active', () => {
     state.l1GraphViewModel = { nodes: [{ id: 'a' }] };
-    state.cytoscapeInstance = {
-      elements: vi.fn(() => ({ unselect: vi.fn() })),
-      getElementById: vi.fn(() => ({ select: vi.fn() })),
-      animate: vi.fn(),
-    };
     renderFeatureList({ nodes: [{ id: 'a' }, { id: 'b' }] }, 'L1');
     const cards = document.querySelectorAll('.feature-card');
     cards[1].click();
@@ -1320,39 +1234,6 @@ describe('renderFeatureList', () => {
     expect(uiDetail.renderDetailPanelL1).toHaveBeenCalledWith({ id: 'b' }, expect.objectContaining({ onEnterL2: expect.any(Function) }));
     expect(cards[1].classList.contains('active')).toBe(true);
     expect(cards[0].classList.contains('active')).toBe(false);
-  });
-
-  it('L1 click — uses cytoscape unselect + select + animate', () => {
-    const selectFn = vi.fn();
-    const unselect = vi.fn();
-    state.cytoscapeInstance = {
-      elements: vi.fn(() => ({ unselect })),
-      getElementById: vi.fn(() => ({ select: selectFn })),
-      animate: vi.fn(),
-    };
-    renderFeatureList({ nodes: [{ id: 'a' }] }, 'L1');
-    document.querySelector('.feature-card').click();
-    expect(unselect).toHaveBeenCalled();
-    expect(selectFn).toHaveBeenCalled();
-    expect(state.cytoscapeInstance.animate).toHaveBeenCalled();
-  });
-
-  it('L1 click — no cytoscape instance: still updates DOM and detail panel', () => {
-    state.cytoscapeInstance = null;
-    renderFeatureList({ nodes: [{ id: 'a' }] }, 'L1');
-    document.querySelector('.feature-card').click();
-    expect(uiDetail.renderDetailPanelL1).toHaveBeenCalled();
-  });
-
-  it('L1 click — cytoscape getElementById returns null: no throw, no animate', () => {
-    state.cytoscapeInstance = {
-      elements: vi.fn(() => ({ unselect: vi.fn() })),
-      getElementById: vi.fn(() => null),
-      animate: vi.fn(),
-    };
-    renderFeatureList({ nodes: [{ id: 'a' }] }, 'L1');
-    expect(() => document.querySelector('.feature-card').click()).not.toThrow();
-    expect(state.cytoscapeInstance.animate).not.toHaveBeenCalled();
   });
 
   it('L2 click — sets selectedModuleId, calls renderDetailPanelL2 with both callbacks', () => {

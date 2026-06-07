@@ -28,7 +28,6 @@ export const els = {
   graphBackdrop:    document.getElementById("graph-backdrop"),
   btnGraphToggle:   document.getElementById("btn-graph-toggle"),
   btnDrawerClose:   document.getElementById("btn-drawer-close"),
-  zoomControls:     document.getElementById("zoom-controls"),
   btnBackL1:        document.getElementById("btn-back-l1"),
   btnMindmap:       document.getElementById("btn-mindmap"),
 };

@@ -74,8 +74,6 @@ function resetState() {
   state.l2GraphViewModel = null;
   state.l3GraphViewModel = null;
   state.diffGraphViewModel = null;
-  state.cytoscapeInstance = null;
-  state.cytoscapeAvailable = false;
   state.diffSortMode = 'risk';
   state.layerExplanation = null;
   state.snapshots = [];
@@ -142,7 +140,7 @@ describe('render', () => {
     expect(uiList.renderChangeList).toHaveBeenCalledTimes(2);
   });
 
-  it('onSelectFeature updates state, syncs cytoscape, and triggers full re-render', () => {
+  it('onSelectFeature updates state and triggers full re-render', () => {
     state.l1Model = { features: [{ id: 'f1', label: 'F1' }] };
     render();
     const callbacks = uiList.renderChangeList.mock.calls[0][0];
@@ -156,42 +154,6 @@ describe('render', () => {
     expect(uiDetail.renderDetailPanel).toHaveBeenCalledWith(
       expect.objectContaining({ onEnterL2: expect.any(Function) })
     );
-  });
-
-  it('onSelectFeature syncs Cytoscape selection when instance present', () => {
-    const cyNode = { select: vi.fn() };
-    const elementsObj = { unselect: vi.fn() };
-    state.cytoscapeInstance = {
-      elements: vi.fn(() => elementsObj),
-      getElementById: vi.fn(() => cyNode),
-      animate: vi.fn(),
-    };
-    render();
-    const callbacks = uiList.renderChangeList.mock.calls[0][0];
-    callbacks.onSelectFeature({ id: 'fx', label: 'X' });
-    expect(elementsObj.unselect).toHaveBeenCalled();
-    expect(cyNode.select).toHaveBeenCalled();
-    expect(state.cytoscapeInstance.animate).toHaveBeenCalled();
-  });
-
-  it('onSelectFeature handles missing cytoscape node gracefully', () => {
-    state.cytoscapeInstance = {
-      elements: vi.fn(() => ({ unselect: vi.fn() })),
-      getElementById: vi.fn(() => null),
-      animate: vi.fn(),
-    };
-    render();
-    const callbacks = uiList.renderChangeList.mock.calls[0][0];
-    expect(() => callbacks.onSelectFeature({ id: 'fx' })).not.toThrow();
-    expect(state.cytoscapeInstance.animate).not.toHaveBeenCalled();
-  });
-
-  it('onSelectFeature no-op for cytoscape sync when instance absent, still re-renders', () => {
-    state.cytoscapeInstance = null;
-    render();
-    const callbacks = uiList.renderChangeList.mock.calls[0][0];
-    expect(() => callbacks.onSelectFeature({ id: 'fx' })).not.toThrow();
-    expect(uiDetail.renderDetailPanel).toHaveBeenCalled();
   });
 
   it('adds diff-mode class to .app-shell when mode === "diff"', () => {

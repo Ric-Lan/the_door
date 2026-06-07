@@ -50,20 +50,11 @@ function onSelectChange(id) {
   render();
 }
 
-// Non-diff L1 card click: state mutation + Cytoscape sync, then full render()
-// to keep the default-load and post-click detail panels identical (same fields,
-// same Enter L2 button).
+// Non-diff L1 card click: state mutation, then full render() to keep the
+// default-load and post-click detail panels identical (same fields, same Enter L2 button).
 function onSelectFeature(feature) {
   state.selectedId = feature.id;
   state.selectedFeatureId = feature.id;
-  if (state.cytoscapeInstance) {
-    state.cytoscapeInstance.elements().unselect();
-    const cyNode = state.cytoscapeInstance.getElementById(feature.id);
-    if (cyNode) {
-      cyNode.select();
-      state.cytoscapeInstance.animate({ fit: { eles: cyNode, padding: 50 } });
-    }
-  }
   render();
 }
 

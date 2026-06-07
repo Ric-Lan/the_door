@@ -6,7 +6,6 @@
     <title>The Door Local Version Viewer</title>
     <link rel="icon" type="image/svg+xml" href="./assets/the-door-glyph.svg">
     <link rel="stylesheet" href="./styles.css">
-    <script src="./lib/cytoscape.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -147,11 +146,6 @@
           <div id="legend-panel" class="legend-panel-inline"></div>
         </div>
         <div class="graph-drawer-controls">
-          <div class="zoom-controls" id="zoom-controls" hidden>
-            <button type="button" class="zoom-btn" id="btn-zoom-fit" title="自動適合畫布">⊡</button>
-            <button type="button" class="zoom-btn" id="btn-zoom-in"  title="放大">+</button>
-            <button type="button" class="zoom-btn" id="btn-zoom-out" title="縮小">−</button>
-          </div>
           <button type="button" class="drawer-close-btn" id="btn-drawer-close" title="關閉">✕</button>
         </div>
       </div>
@@ -161,7 +155,6 @@
           <span class="spinner-label">圖形載入中…</span>
         </div>
       </div>
-      <div id="mermaid-fallback" style="display:none;"></div>
     </div>
 
     <!-- Drawer backdrop -->
