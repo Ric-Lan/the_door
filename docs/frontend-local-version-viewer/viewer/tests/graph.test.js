@@ -13,6 +13,7 @@ import {
   bindCytoscapeEvents,
   syncFeatureListSelection,
   initZoomControls,
+  renderGridGraph,
 } from '../js/graph.js';
 
 // Reset mutable DOM elements before each test
@@ -91,16 +92,17 @@ describe('buildCytoscapeElements', () => {
     expect(edge.data.lowestConfidence).toBe('medium');
   });
 
-  it('lowestConfidence defaults to medium when node not found', () => {
+  it('lowestConfidence is "unknown" (not medium) when node not found — 誠實化', () => {
     const vm = {
       nodes: [],
       edges: [{ source: 'x', target: 'y' }],
     };
     const elements = buildCytoscapeElements(vm);
-    expect(elements[0].data.lowestConfidence).toBe('medium');
+    // H1：找不到端點＝不知道其信心 → 'unknown'（非謊報 'medium'）
+    expect(elements[0].data.lowestConfidence).toBe('unknown');
   });
 
-  it('lowestConfidence treats unknown confidence as medium (rank 2) on source', () => {
+  it('lowestConfidence ranks unknown lowest (rank 0) on source → returns unknown', () => {
     const vm = {
       nodes: [
         { id: 'a', label: 'A', confidence: 'unknown' },
@@ -110,11 +112,11 @@ describe('buildCytoscapeElements', () => {
     };
     const elements = buildCytoscapeElements(vm);
     const edge = elements.find(e => e.data.source === 'a');
-    // unknown treated as 2, high=3: 2 <= 3 → returns 'unknown' (lower rank)
+    // unknown rank 0, high=3: 0 <= 3 → returns 'unknown' (lowest info)
     expect(edge.data.lowestConfidence).toBe('unknown');
   });
 
-  it('lowestConfidence treats unknown confidence as medium (rank 2) on target', () => {
+  it('lowestConfidence ranks unknown lowest (rank 0) on target → returns unknown', () => {
     const vm = {
       nodes: [
         { id: 'a', label: 'A', confidence: 'high' },
@@ -124,7 +126,7 @@ describe('buildCytoscapeElements', () => {
     };
     const elements = buildCytoscapeElements(vm);
     const edge = elements.find(e => e.data.source === 'a');
-    // high=3, unknown treated as 2: 3 <= 2 → false → returns 'unknown' (= b)
+    // high=3, unknown rank 0: 3 <= 0 → false → returns 'unknown' (= b)
     expect(edge.data.lowestConfidence).toBe('unknown');
   });
 
@@ -516,5 +518,43 @@ describe('buildDisplayLabel', () => {
   });
   it('attribute_changed → ~ 修改', () => {
     expect(buildDisplayLabel({ label: 'Baz', change_type: 'attribute_changed' })).toBe('~ 修改\nBaz');
+  });
+});
+
+// ── H1 confidence honesty (未評估 ≠ 謊報等級) ──────────────────────
+describe('H1 confidence honesty', () => {
+  it('grid node with confidence="unknown" gets conf-unknown class, not conf-high', () => {
+    const container = document.createElement('div');
+    renderGridGraph(container, { nodes: [{ id: 'n1', label: 'N1', confidence: 'unknown' }], edges: [] }, () => {});
+    const card = container.querySelector('.gv-node');
+    expect(card.classList.contains('conf-unknown')).toBe(true);
+    expect(card.classList.contains('conf-high')).toBe(false);
+  });
+
+  it('grid node with MISSING confidence does NOT fall back to conf-high (no lying)', () => {
+    const container = document.createElement('div');
+    renderGridGraph(container, { nodes: [{ id: 'n1', label: 'N1' }], edges: [] }, () => {});
+    const card = container.querySelector('.gv-node');
+    expect(card.classList.contains('conf-high')).toBe(false);
+    expect(card.classList.contains('conf-unknown')).toBe(true);
+  });
+
+  it('cytoscape edge between unknown-confidence endpoints is "unknown", not "medium"', () => {
+    const els = buildCytoscapeElements({
+      nodes: [{ id: 'a', label: 'A', confidence: 'unknown' }, { id: 'b', label: 'B', confidence: 'unknown' }],
+      edges: [{ source: 'a', target: 'b' }],
+    });
+    const edge = els.find((e) => e.data.id === 'a-b');
+    expect(edge.data.lowestConfidence).toBe('unknown');
+  });
+
+  it('cytoscape edge with MISSING endpoint confidence does NOT default to "medium"', () => {
+    const els = buildCytoscapeElements({
+      nodes: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
+      edges: [{ source: 'a', target: 'b' }],
+    });
+    const edge = els.find((e) => e.data.id === 'a-b');
+    expect(edge.data.lowestConfidence).not.toBe('medium');
+    expect(edge.data.lowestConfidence).toBe('unknown');
   });
 });

@@ -21,15 +21,16 @@ export function buildCytoscapeElements(viewModel) {
   const featuresById = {};
   (viewModel.nodes || []).forEach((n) => { featuresById[n.id] = n; });
 
-  const confRank = { high: 3, medium: 2, low: 1 };
+  const confRank = { high: 3, medium: 2, low: 1, unknown: 0 };
   const lowestConf = (a, b) =>
-    (confRank[a] ?? 2) <= (confRank[b] ?? 2) ? a : b;
+    (confRank[a] ?? 0) <= (confRank[b] ?? 0) ? a : b;
 
   const edges = (viewModel.edges || []).map((edge) => {
     const { source, target, ...rest } = edge;
     const src = featuresById[source];
     const tgt = featuresById[target];
-    const lc = lowestConf(src?.confidence ?? 'medium', tgt?.confidence ?? 'medium');
+    // 未評估誠實化：缺值/找不到端點 → 'unknown'（非謊報 'medium'）
+    const lc = lowestConf(src?.confidence ?? 'unknown', tgt?.confidence ?? 'unknown');
     return { data: { id: source + '-' + target, source, target, lowestConfidence: lc, ...rest } };
   });
 
@@ -240,7 +241,7 @@ export function openGraphDrawer() {
   if (backdrop) backdrop.hidden = false;
 }
 
-const CONF_LABEL = { high: '高信心', medium: '中信心', low: '低信心' };
+const CONF_LABEL = { high: '高信心', medium: '中信心', low: '低信心', unknown: '未評估' };
 const TYPE_TAG_CLASS = {
   added: 'tag-added', removed: 'tag-removed',
   attribute_changed: 'tag-modified', dependency_changed: 'tag-modified',
@@ -269,9 +270,10 @@ function _drawGridEdges(grid, edges, cardMap) {
     line.setAttribute('x2', x2); line.setAttribute('y2', y2);
     line.setAttribute('stroke', '#94a3b8');
     line.setAttribute('stroke-width', '1.5');
-    const conf = edge.lowestConfidence || 'high';
-    if (conf === 'medium') line.setAttribute('stroke-dasharray', '5 4');
-    if (conf === 'low')    line.setAttribute('stroke-dasharray', '2 4');
+    const conf = edge.lowestConfidence || 'unknown';
+    if (conf === 'medium')  line.setAttribute('stroke-dasharray', '5 4');
+    if (conf === 'low')     line.setAttribute('stroke-dasharray', '2 4');
+    if (conf === 'unknown') line.setAttribute('stroke-dasharray', '1 3');  // 未評估：與 high 實線可區分
     svg.appendChild(line);
   });
   grid.insertBefore(svg, grid.firstChild);
@@ -286,7 +288,7 @@ export function renderGridGraph(container, viewModel, onNodeClick) {
   const cardMap = {};
   (viewModel.nodes || []).forEach(node => {
     const card = document.createElement('div');
-    const conf = node.confidence || 'high';
+    const conf = node.confidence || 'unknown';  // 未評估誠實化：缺值不謊報 high
     card.className = 'gv-node conf-' + conf;
     if (node.change_type) card.classList.add(node.change_type);
     card.dataset.nodeId = node.id;
