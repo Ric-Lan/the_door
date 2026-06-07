@@ -6,8 +6,9 @@ from pathlib import Path
 
 from .vulnerability import DatabaseFreshness, VulnerabilityEntry
 
-# 單一來源：當前 snapshot 契約版本（契約變更〔snapshot schema 或分析語義〕時 bump；
-# 維護紀律＝provenance 資訊量前提，S7 spec §0/§5）。
+# 單一來源：當前 snapshot 契約版本（契約變更〔snapshot schema 欄位意義 或 分析語義〕時 bump；
+# 忘了 bump 不報錯、只會靜默讓 provenance 全退化成 current＝低資訊）。
+# 何時 bump／何時不 bump／出版檢查清單＝docs/contract-versioning.md（S7 spec §0/§5）。
 SNAPSHOT_CONTRACT_VERSION: str = "1"
 
 
