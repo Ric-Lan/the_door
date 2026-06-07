@@ -12,7 +12,7 @@
 // 機制＝行為斷言為主（pure fn）＋集斷言（vocabulary 純資料 map，已 export）。
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -29,6 +29,18 @@ const SCHEMA_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../../the_door/schemas',
 );
+const JS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../js');
+
+// 反向掃描：找出「以引號字面量硬編 ≥minDistinct 個 axis 封閉集值」的 js 檔（distinctive 軸專用）。
+function jsFilesHardcodingAxis(axisValues, minDistinct) {
+  return readdirSync(JS_DIR)
+    .filter(f => f.endsWith('.js'))
+    .filter(f => {
+      const src = readFileSync(path.join(JS_DIR, f), 'utf8');
+      const hits = axisValues.filter(v => src.includes(`'${v}'`) || src.includes(`"${v}"`));
+      return hits.length >= minDistinct;
+    });
+}
 
 function readSchema(file) {
   const p = path.join(SCHEMA_DIR, file);
@@ -108,4 +120,24 @@ describe('membrane vocabulary — confidence 封閉集 drift-guard', () => {
   it('CONF_LABEL keys 涵蓋 schema 3 值 ∪ unknown', () => assertCovers('CONF_LABEL', Object.keys(CONF_LABEL), SET));
   it('CONF_PRIORITY keys 涵蓋 schema 3 值 ∪ unknown', () => assertCovers('CONF_PRIORITY', Object.keys(CONF_PRIORITY), SET));
   it('CONFIDENCE_LABEL keys 涵蓋 schema 3 值 ∪ unknown', () => assertCovers('CONFIDENCE_LABEL', Object.keys(CONFIDENCE_LABEL), SET));
+});
+
+// ── 反向掃描（meta-drift guard）─────────────────────────────────────
+// 防新增「硬編膜詞彙」的消費點檔逃過上方逐點 guard。新檔出現→紅→開發者須：
+//   (a) 在上方對應軸 describe 加該檔消費點斷言，且 (b) 把檔名加入下列 REGISTERED。
+// 僅掃 distinctive 軸（change_type / risk_flags 值不易誤命中）；confidence（high/low）太常見、不掃。
+describe('membrane vocabulary — 反向掃描（meta-drift guard）', () => {
+  it('change_type：無未登記的硬編消費點檔', () => {
+    const REGISTERED = new Set([
+      'graph.js', 'mindmap-util.js', 'layers.js', 'ui-detail.js', 'ui-list.js', 'viewmodel.js',
+    ]);
+    const unregistered = jsFilesHardcodingAxis(changeTypeEnum(), 2).filter(f => !REGISTERED.has(f));
+    expect(unregistered, `未登記的 change_type 硬編消費點：${unregistered.join(',')}（須加 guard 斷言並登記）`).toEqual([]);
+  });
+
+  it('risk_flags：無未登記的硬編消費點檔', () => {
+    const REGISTERED = new Set(['viewmodel.js', 'ui-detail.js']);
+    const unregistered = jsFilesHardcodingAxis(riskFlagsEnum(), 2).filter(f => !REGISTERED.has(f));
+    expect(unregistered, `未登記的 risk_flags 硬編消費點：${unregistered.join(',')}（須加 guard 斷言並登記）`).toEqual([]);
+  });
 });
