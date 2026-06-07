@@ -883,7 +883,7 @@ describe('ui-detail regression — user notes + diff explanation sections', () =
       risk_flags: [],
     };
     renderDetailPanelDiff(node);
-    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+    expect(document.getElementById('notes-tab-pane').querySelector('.user-notes-section')).not.toBeNull();
   });
 
   it('renders .diff-explanation-section when renderDetailPanelDiff is called', () => {
@@ -905,7 +905,7 @@ describe('ui-detail regression — user notes + diff explanation sections', () =
       features: [{ id: 'feat-x', label: 'X', description: 'd', source: 'L1Output' }],
     };
     renderSingleVersionDetailPanel();
-    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+    expect(document.getElementById('notes-tab-pane').querySelector('.user-notes-section')).not.toBeNull();
   });
 
   it('renders BOTH .user-notes-section AND .diff-explanation-section when renderDiffDetailPanel runs', () => {
@@ -923,7 +923,7 @@ describe('ui-detail regression — user notes + diff explanation sections', () =
       },
     };
     renderDiffDetailPanel();
-    expect(els.detailContent.querySelector('.user-notes-section')).not.toBeNull();
+    expect(document.getElementById('notes-tab-pane').querySelector('.user-notes-section')).not.toBeNull();
     expect(els.detailContent.querySelector('.diff-explanation-section')).not.toBeNull();
   });
 });

@@ -46,6 +46,7 @@ document.body.innerHTML = `
       <aside class="detail-panel">
         <p id="detail-source">尚未選取</p>
         <div id="detail-content"></div>
+        <div id="notes-tab-pane" class="notes-tab-pane" hidden></div>
         <div id="layer-explanation"></div>
       </aside>
     </main>

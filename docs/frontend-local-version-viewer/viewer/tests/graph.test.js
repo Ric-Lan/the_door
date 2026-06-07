@@ -275,17 +275,8 @@ describe('openGraphDrawer', () => {
     expect(document.getElementById('graph-backdrop').hidden).toBe(false);
   });
 
-  it('calls cytoscapeInstance.fit when instance exists', async () => {
-    vi.useFakeTimers();
-    const { state } = await import('../js/state.js');
-    const mockFit = vi.fn();
-    state.cytoscapeInstance = { fit: mockFit };
-    openGraphDrawer();
-    vi.runAllTimers();
-    expect(mockFit).toHaveBeenCalled();
-    state.cytoscapeInstance = null;
-    vi.useRealTimers();
-  });
+  // NOTE: openGraphDrawer 已不再呼叫 cytoscapeInstance.fit（圖層已從 cytoscape 遷移為 DOM grid，
+  // graph.js renderGridGraph）。drawer 開啟行為由上方 3 測涵蓋；舊 fit 測屬已移除功能、已刪。
 });
 
 describe('closeGraphDrawer', () => {
@@ -352,48 +343,22 @@ describe('initGraph', () => {
     expect(document.querySelector('#graph-container .empty-state')).not.toBeNull();
   });
 
-  it('calls renderMermaidFallback when window.cytoscape is undefined', () => {
-    delete window.cytoscape;
-    initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }], edges: [] });
-    expect(document.getElementById('mermaid-fallback').style.display).toBe('block');
+  // NOTE: initGraph 已從 cytoscape 遷移為 DOM grid（graph.js renderGridGraph）。
+  // 舊 cytoscape 路徑測（cytoscapeInstance/layoutstop/mermaid-fallback）測的是已移除功能、已刪，
+  // 改為下列現行 grid 行為測。
+  it('renders .gv-node grid cards for each node (current DOM-grid renderer)', () => {
+    initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }, { id: 'n2', label: 'N2' }], edges: [] });
+    expect(document.querySelectorAll('#graph-container .gv-node')).toHaveLength(2);
   });
 
-  it('sets cytoscapeInstance and cytoscapeAvailable when cytoscape succeeds', async () => {
-    const { state } = await import('../js/state.js');
-    const mockCy = {
-      one: vi.fn(),
-      on: vi.fn(),
-      nodes: vi.fn(() => ({ forEach: vi.fn() })),
-    };
-    window.cytoscape = vi.fn(() => mockCy);
+  it('renders a .gv-grid-wrapper into the container', () => {
     initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }], edges: [] });
-    expect(state.cytoscapeInstance).toBe(mockCy);
-    expect(state.cytoscapeAvailable).toBe(true);
+    expect(document.querySelector('#graph-container .gv-grid-wrapper')).not.toBeNull();
   });
 
-  it('layoutstop callback runs node sizing logic', async () => {
-    let layoutstopCb;
-    const mockNode = {
-      width: vi.fn(() => 100),
-      height: vi.fn(() => 50),
-      style: vi.fn(),
-    };
-    const mockCy = {
-      one: vi.fn((evt, cb) => { if (evt === 'layoutstop') layoutstopCb = cb; }),
-      on: vi.fn(),
-      nodes: vi.fn(() => ({ forEach: (fn) => fn(mockNode) })),
-    };
-    window.cytoscape = vi.fn(() => mockCy);
-    initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }], edges: [] });
-    layoutstopCb();
-    expect(mockNode.style).toHaveBeenCalledWith('width', 260);
-    expect(mockNode.style).toHaveBeenCalledWith('height', 90);
-  });
-
-  it('calls renderMermaidFallback when cytoscape constructor throws', () => {
-    window.cytoscape = vi.fn(() => { throw new Error('init failed'); });
-    initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }], edges: [] });
-    expect(document.getElementById('mermaid-fallback').style.display).toBe('block');
+  it('node card title reflects the node label', () => {
+    initGraph('graph-container', { nodes: [{ id: 'n1', label: 'Hello' }], edges: [] });
+    expect(document.querySelector('#graph-container .gv-node-title').textContent).toBe('Hello');
   });
 });
 
