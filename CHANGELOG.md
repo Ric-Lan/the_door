@@ -10,6 +10,29 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.6.5 — 2026-06-07
+
+「乙案＝膜模型」campaign：重塑輸出對消費端的意義表徵——意義由結構承載、缺值誠實化（不自鑄中點/等級）、膜詞彙單一來源；並完成 viewer 人類面整膜與測試基線清理。
+
+### Added
+- **Snapshot 契約版本戳**：`SNAPSHOT_CONTRACT_VERSION`（初值 `"1"`）＋ `VersionSnapshot.contract_version` 出生戳；provenance（current/legacy/unknown）經 diff／analyze_changes／snapshot_list MCP 投影給 agent。維護紀律＝`docs/contract-versioning.md`。
+- **膜 primitive 多變體**（SignalPosition／NoisePosition／RelayedVerdict／PresenceFlagPosition…）：於 agent 邊界投影 confidence／scope／diff_state／change_type／risk_flags／vulnerability 等軸的封閉集意義；各軸詞彙單一來源 module。
+- **Viewer 膜詞彙 drift-guard**：`tests/membrane-vocabulary.test.js` 讀 checked-in schema enum 斷言 viewer 消費點涵蓋封閉集，＋反向掃描防新消費點漏接。
+
+### Changed
+- **缺值誠實化（fact-finder，不自鑄）**：confidence 缺值 → `null`（schema `oneOf`+null），不再自鑄 `medium`；vulnerability severity／cvss 缺值 → `null`（不捏 CVSS 中點，保留 OSV evidence）；edge-noise／scope／diff_state 缺值退 `NoisePosition(indeterminate)`。
+- **人類面渲染誠實化**：viewer graph／list／diff-explanation 對未評估 confidence 渲染「未評估」中性態，停止 `|| 'high'`／`?? 'medium'`／`|| 'low'` 謊報等級。
+- **Viewer 圖層**：cytoscape → DOM grid 遷移殘留死碼清除（移除未用的 cytoscape 機制與 373KB lib、zoom／mermaid DOM）。
+
+### Fixed
+- diff-explanation confidence 缺值謊報「低信心」→「未評估」。
+- viewer 測試基線 8 個 pre-existing red 綠化（對齊已重構的 grid／notes-tab production，非環境問題）。
+
+### Notes
+- **契約版本不 bump**（仍 `"1"`）：本次 schema 變更皆純加法（confidence／severity 容 `null`、新增 `contract_version`／`evidence` 欄），舊快照既有值意義不變、缺欄誠實 load 成 `unknown`——符合 `docs/contract-versioning.md` §3。
+
+---
+
 ## v1.6.0 — 2026-06-04
 
 **內部維護性釋出（refactoring campaign）。** 本版主體是一輪「逐刀 spec → plan → TDD → 本地 merge」的內部重構：把過大的模組與寫了多遍的政策，逐一收斂成單一真相來源（single source of truth）的結構。**對使用者面（CLI / MCP / viewer）的行為與輸出逐位元不變**，唯一的對外新增是下方 Added 列出的唯讀稽核與 API 文件產生器。全程以 characterization / TDD 安全網先行，**1447 passed、零回歸**，新模組覆蓋率補到 100%。
