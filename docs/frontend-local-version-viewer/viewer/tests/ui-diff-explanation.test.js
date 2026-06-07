@@ -155,7 +155,7 @@ describe('renderExplanationContent — field coverage', () => {
     expect(badge.textContent).toContain('very-high');
   });
 
-  it('uses "low" confidence fallback when confidence is null', async () => {
+  it('null confidence renders as 未評估 (unknown), NOT 低 (no 謊報)', async () => {
     const explanation = makeExplanation({ confidence: null });
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -166,7 +166,10 @@ describe('renderExplanationContent — field coverage', () => {
     await flushPromises();
 
     const badge = container.querySelector('.confidence-badge');
-    expect(badge.className).toContain('confidence-badge-low');
+    // 缺值＝來源未評估信心 → 誠實退 unknown，不謊報成低信心（H1 誠實化原則）
+    expect(badge.className).toContain('confidence-badge-unknown');
+    expect(badge.className).not.toContain('confidence-badge-low');
+    expect(badge.textContent).toContain('未評估');
   });
 
   it('renders linked_resources section when resources exist', async () => {
@@ -228,6 +231,25 @@ describe('renderExplanationContent — field coverage', () => {
     // Only confidence badge + regen button, no field sections
     const sections = body.querySelectorAll('.detail-section');
     expect(sections.length).toBe(0);
+  });
+});
+
+// ── H1 confidence honesty (未評估 ≠ 低信心) ─────────────────────────
+
+describe('H1 confidence honesty in diff explanation', () => {
+  it('missing confidence (undefined) renders 未評估, not 低', async () => {
+    const explanation = makeExplanation({ confidence: undefined });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ explanation }),
+    });
+    const container = makeContainer();
+    appendDiffExplanationSection(container, 'feat-1');
+    await flushPromises();
+
+    const badge = container.querySelector('.confidence-badge');
+    expect(badge.textContent).toContain('未評估');
+    expect(badge.className).not.toContain('confidence-badge-low');
   });
 });
 

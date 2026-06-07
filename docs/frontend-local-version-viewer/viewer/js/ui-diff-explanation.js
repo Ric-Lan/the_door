@@ -34,8 +34,9 @@ function renderExplanationEmpty(container, featureId) {
 function renderExplanationContent(explanation, container, featureId) {
   container.textContent = "";
 
-  const confidence = explanation.confidence || "low";
-  const confidenceMap = { high: "高", medium: "中", low: "低" };
+  // 缺值＝來源未評估信心 → 誠實退 unknown，不謊報成低信心（H1 誠實化原則、對齊 confidence_membrane）
+  const confidence = explanation.confidence || "unknown";
+  const confidenceMap = { high: "高", medium: "中", low: "低", unknown: "未評估" };
   const tag = document.createElement("span");
   tag.className = "confidence-badge confidence-badge-" + confidence;
   tag.textContent = "信心：" + (confidenceMap[confidence] || confidence);
