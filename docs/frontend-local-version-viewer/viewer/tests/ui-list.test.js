@@ -340,3 +340,25 @@ describe('renderChangeList — mode=baseline / current', () => {
     expect(empty.textContent).toBe('無功能資料。');
   });
 });
+
+// ── H1 confidence honesty (未評估 ≠ 低信心 ≠ 高信心) ────────────────
+describe('H1 confidence honesty in list', () => {
+  it('unknown confidence is NOT flagged as risk (未評估 ≠ 低信心)', () => {
+    const features = [
+      { id: 'unk', confidence: 'unknown', anomaly_count: 0 },
+      { id: 'low', confidence: 'low', anomaly_count: 0 },
+    ];
+    // riskOnly：只 anomaly 或 low 入列；unknown 不入（未評估非低信心異常）
+    expect(applyRiskFilter(features, true).map(f => f.id)).toEqual(['low']);
+  });
+
+  it('unknown confidence does NOT sort as high (no conflation)', () => {
+    const xs = [
+      { id: 'high', confidence: 'high', anomaly_count: 0 },
+      { id: 'unk',  confidence: 'unknown', anomaly_count: 0 },
+    ];
+    // 風險排序：unknown 應與 high 可區分、且排在 high 之前（未評估值得關注、非最安全）
+    const order = sortCards(xs, 'risk').map(x => x.id);
+    expect(order).toEqual(['unk', 'high']);
+  });
+});

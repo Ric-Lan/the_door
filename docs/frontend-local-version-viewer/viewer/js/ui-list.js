@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { els } from './dom.js';
 
-const CONF_PRIORITY = { low: 0, medium: 1, high: 2 };
+const CONF_PRIORITY = { unknown: -1, low: 0, medium: 1, high: 2 };  // 未評估＝最低資訊、不與 high 混同
 const TYPE_PRIORITY = { removed: 0, attribute_changed: 1, dependency_changed: 1, added: 2, null: 9 };
 
 export function applyCardFilters(features, { conf, type } = {}) {
