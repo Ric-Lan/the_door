@@ -13,7 +13,7 @@ import {
   renderDetailPanelDiff,
 } from "./ui-detail.js";
 
-const DIFF_LABELS = {
+export const DIFF_LABELS = {
   added: "+ 新增",
   removed: "- 移除",
   attribute_changed: "~ 屬性變更",

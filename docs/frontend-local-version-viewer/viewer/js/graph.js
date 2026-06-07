@@ -241,7 +241,7 @@ export function openGraphDrawer() {
   if (backdrop) backdrop.hidden = false;
 }
 
-const CONF_LABEL = { high: '高信心', medium: '中信心', low: '低信心', unknown: '未評估' };
+export const CONF_LABEL = { high: '高信心', medium: '中信心', low: '低信心', unknown: '未評估' };
 const TYPE_TAG_CLASS = {
   added: 'tag-added', removed: 'tag-removed',
   attribute_changed: 'tag-modified', dependency_changed: 'tag-modified',

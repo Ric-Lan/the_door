@@ -1,6 +1,9 @@
 import { state } from './state.js';
 import * as api from './api.js';
 
+// confidence 人類面標籤（含 unknown＝未評估、H1-5 誠實化）。模組級單一處＝便於膜詞彙 drift-guard 守 key 涵蓋。
+export const CONFIDENCE_LABEL = { high: "高", medium: "中", low: "低", unknown: "未評估" };
+
 function currentOutputLanguage() {
   return document.getElementById("input-language").value;
 }
@@ -36,10 +39,9 @@ function renderExplanationContent(explanation, container, featureId) {
 
   // 缺值＝來源未評估信心 → 誠實退 unknown，不謊報成低信心（H1 誠實化原則、對齊 confidence_membrane）
   const confidence = explanation.confidence || "unknown";
-  const confidenceMap = { high: "高", medium: "中", low: "低", unknown: "未評估" };
   const tag = document.createElement("span");
   tag.className = "confidence-badge confidence-badge-" + confidence;
-  tag.textContent = "信心：" + (confidenceMap[confidence] || confidence);
+  tag.textContent = "信心：" + (CONFIDENCE_LABEL[confidence] || confidence);
   container.appendChild(tag);
 
   const fields = [

@@ -158,7 +158,7 @@ export function renderDetailPanel(callbacks = {}) {
   }
 }
 
-const CHANGE_TYPE_LABEL = {
+export const CHANGE_TYPE_LABEL = {
   added:              '新增',
   removed:            '移除',
   attribute_changed:  '屬性變更',
