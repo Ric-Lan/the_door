@@ -317,9 +317,11 @@ SPIKE_C0_BLOCKED_MCP_TOOL_DENIED_BY_HOOK
 |---|---|---|---|---|
 | **T1** | 隔離 provider 到單一 seam | 收斂 5 個 `create_provider`：`analyze_tool.py:67`、`analyze_pipeline.py:184`、`graph.py:260`、`graph.py:300`、`diff.py:200` | 小 | — |
 | **T2** | `edge_residue` 工具（L1 補鏈／雜訊可觀察） | 搬 `project_edges_for_prompt`（`edge_projection.py:25`）出 `batch_reader.py:301`，做零-token 確定性 MCP 工具＋落盤 artifact。範本＝`localize_data_model` | 小～中 | — |
-| **T3** | L2 散文 key-free 三件套（淨新增） | viewer L2 今天只有 provider 路（`l2_generator.py:40`）。新做輸入工具→agent 填→write 落盤 | 中 | 🔶D1 |
-| **T4** | diff 解釋 key-free 三件套（淨新增） | diff 解釋只有 provider 路（`diff.py:200`/`graph.py:300`）。新做同上 | 中 | 🔶D1 |
-| **T5** | 移除 provider ＋ 死碼清理 | 刪 `create_provider`＋四 provider；刪成本閘死碼（`CostEstimator`/`CostConfirmationRequired`，`analyze_pipeline.py:170`）；清 provider config 欄位 | 中 | **最後**（T1–T4 後） |
+| ~~**T3**~~ | ~~L2 散文 key-free 三件套~~ | **⛔ DEFERRED（D1 拍板，見下）**：viewer 點擊流 headless、無 agent 可當 LLM ⟹ 原樣 revive 本質不可能。退場生成、保留 display 前端。日後若要，是「agent 端新增 L2 MCP triple＋viewer 改 display-only」的獨立加法 | — | D1=退場 |
+| ~~**T4**~~ | ~~diff 解釋 key-free 三件套~~ | **⛔ DEFERRED（D1 拍板）**：同 T3，diff 解釋亦 headless key-bound。退場生成 | — | D1=退場 |
+| **T5** | 移除 provider ＋ 死碼清理（**＝終局刪除**） | 刪 `create_provider`＋四 provider；刪成本閘死碼（`CostEstimator`/`CostConfirmationRequired`，`analyze_pipeline.py:170`）；清 provider config 欄位；連帶拔 viewer L2/diff 的 provider 生成路（D1 退場）。**測試 fallout ~19 檔**（`test_providers.py`/`test_l2_generator.py`/`test_batch_reader.py`/`handlers/test_graph.py`/`test_diff.py`…） | 中 | **最後** |
+
+> 🔴 **T1 與 T5 的關係（不可誤讀，使用者明示）**：**T1「隔離」是過渡手段，不是終點**——它只把 key 影響關進一個可控、可 disable 的點，讓後續能乾淨可驗地拆。**終局是 T5 把整個 provider／API-key 機制「刪除」**，專案回到 §4 基礎原則 1 的**單一路徑**（只剩 agent-as-LLM）。終態＝**零 API-key 接口、零 provider、零成本閘**。任何「把 isolated provider 永久保留為 deprecated 死路」都**違反終局**，不可採。
 
 **軌 2 — 控制經結構強制（執行契約：skill＋hook＋checklist＋回報）**
 
@@ -336,13 +338,38 @@ SPIKE_C0_BLOCKED_MCP_TOOL_DENIED_BY_HOOK
 **順序鎖（硬約束）**：
 1. ~~C0 最先~~ ✅ 已完成；基材＝MCP 已定。
 2. **T2 在 T5 之前**（§9.4 順序鎖：先搬確定性運算進工具、後拔 provider）。
-3. **T5 最後**（T1–T4 免-key 鏈全綠後才刪 provider）。
+3. **T5 最後**（免-key 鏈全綠後才刪 provider；終局刪除）。
 4. **C4 與 C3 同時**（只 gate MCP 順序、不 gate 原生 code-exec＝沒堵逃生口）。
 5. **T2 是兩軌交點**：既是軌 1 的 L1 補鏈，也是軌 2 首個 hook gate（C3）要驗的 artifact。
 
-**待拍板決策點**：
-- **D1（影響 T3/T4）**：viewer 的 L2／diff 解釋——**復活成 key-free（補三件套）** 還是 **隨 provider 一起退場**？選退場則 T3/T4 刪除，T5 連帶拔那兩個 viewer handler。（提醒：兩面對使用者今天已是失效狀態，故此為「增益」決策、非「避免退化」。）
-- **D2**：軌 1（移除 key）與軌 2（控制強制）綁一起做，還是先單獨做掉軌 1（軌 1 免-key 價值不嚴格依賴 hooks；hooks 是讓鏈「不可繞」那層）。
+### 10.7.1 已拍板決策（D1 / D2，使用者 2026-06-08 B 確認）
+
+**D1 ＝ 退場生成、保留 display、不建 T3/T4。** 理由（驗證所得）：
+- viewer（`the-door ui`）是 **headless 本地 web server**，人在瀏覽器點擊；那一刻**沒有 agent 在迴路**可當 LLM ⟹ 點擊即生成**本質 key-bound**，補不補三件套都無法 key-free。
+- L2/diff 對使用者**今天已失效**（無 key，§10.3），故此為「增益」決策、非「避免退化」。
+- ⟹ **不投機建 T3/T4**（fact-finder：不為已失效功能投機建）；viewer 生成路隨 T5 拔；前端（`layers.js`/`ui-diff-explanation.js`）**保留**為 display-only。真要 key-free，是日後「agent 端 L2/diff MCP triple＋viewer display-only」的獨立加法。
+
+**D2 ＝ 切片優先（非「兩軌綁」亦非「軌1全做完」）。** 理由：
+- 種子 §6/§7 已定「先垂直切片證機制、剔除大爆炸」。
+- 使用者主目標「移除 key 影響」靠 **T1（隔離，小）先兌現中間里程碑**；**T5（終局刪除）吃 ~19 測試檔 fallout，必須最後、不與他刀綁**。
+- 控制機制（軌2）是丙案重點且最該先證 ⟹ 第一刀＝§6 垂直試點（T2+C3+C4），落在兩軌交點，一次證機制 end-to-end ＋ 補雜訊可觀察。
+
+### 10.7.2 執行排序（階段；D1/D2 已併入）
+
+| 階段 | 刀 | 為何在這 |
+|---|---|---|
+| **0** ✅ | C0 | 已實證（§10.1） |
+| **1 — 垂直試點 ＋ 兌現 key 中間里程碑** | **T1**（隔離 provider 到單一 seam） | 小、獨立；把 key 影響關進可 disable 的點（過渡，非終局） |
+| | **T2**（`edge_residue` 工具） | 小、無依賴、兩軌交點；補雜訊可觀察 |
+| | **C3 + C4**（gate `snapshot_write` until `edge_residue` artifact 存在 ＋ gate 原生 bash code-exec） | 證全機制 end-to-end（gate+deny教學，非只 C0 matcher）；首 gate 直接驗 artifact 存在，**還不需完整 C2** |
+| **2 — 一般化控制層** | **C2**（checklist schema） | 把階段1的 ad-hoc 存在檢查升成 schema |
+| | **C5**（強制入口 README） | gate 指回的可讀權威 |
+| | **C6**（跑完回報） | 基礎原則 7 |
+| | （擴展 gate 到 extract/snapshot/diff 鏈，C1 確認表） | 水平推廣 |
+| **3 — 收 key（終局）** | **T5**（移除 provider＋死碼＋viewer 生成路） | **最後**；免-key 鏈已綠；吃 ~19 測試檔 fallout；**終態＝零 API-key 接口** |
+| **deferred** | ~~T3/T4~~ | D1：viewer 生成本質 key-bound，不投機建 |
+
+> 註：T1 可與 T2 並行（皆小、獨立）。階段 1 完成＝§6 試點兌現（機制證好 ＋ 雜訊可觀察 ＋ key 影響已隔離）。
 
 ### 10.8 下一個對話的起點（承 §8，已更新）
 
@@ -351,7 +378,9 @@ SPIKE_C0_BLOCKED_MCP_TOOL_DENIED_BY_HOOK
 2. stage 切割清單 → §10.5 已大半盤完，縮成確認表。
 3. checklist schema → 仍待設計（C2）。
 4. hook 落 settings.json 哪層／跨 IDE → C0 證實 PreToolUse 可擋 MCP；落點＝穩定設定檔（非 local），跨 IDE 待各家驗。
-5. 移除 key 退場範圍 → §10.3 已校正為 3 面 5 點；全刪 vs deprecated 併入 D1/D2。
+5. 移除 key 退場範圍 → §10.3 已校正為 3 面 5 點；**D1 拍板＝全刪（含 viewer 生成路），非 deprecated 保留**（見 §10.7.1、T5 上方紅字）。
 6. 流程紀律不變：spike → spec → 雙審 → plan → 雙審 → inline TDD → ff-merge。
 
-**🔴 使用者明示順序仍在**：先分類（本節 §10.7 已是查實過的分類底稿）→ 排優先序/拍 D1·D2 → 才寫 spec。**勿跳過排序與決策直接寫 spec。**
+**✅ 分類與排序已完成、D1/D2 已拍板（§10.7.1/§10.7.2）。** 使用者明示順序「先分類 → 排優先序/拍 D1·D2 → 才寫 spec」**前兩步已走完**。
+
+**🔴 下一步＝對「階段 1」寫第一份 spec**（§10.7.2）：建議標的＝**T2（`edge_residue` 工具）**，因它無依賴、是兩軌交點、且是 C3 首 gate 要驗的 artifact（先 T2 再 C3+C4 才有東西可 gate）。T1 可並行另起。**仍照流程紀律：spike → spec → 雙審 → plan → 雙審 → inline TDD → ff-merge。**
