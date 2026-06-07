@@ -1,0 +1,58 @@
+"""MCP tool: edge_residue — persist the membrane noise residue (zero token, zero key)."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from the_door.core.extraction.ast_extractor import ASTExtractor
+from the_door.core.llm.edge_projection import project_edges_for_prompt
+from the_door.mcp.tools._response_envelope import wrap
+
+TOOL_SCHEMA = {
+    "type": "object",
+    "required": ["codebase_path"],
+    "properties": {
+        "codebase_path": {
+            "type": "string",
+            "description": "Path to the codebase root.",
+        },
+    },
+}
+
+EDGE_RESIDUE_FILENAME = "edge-residue.json"
+
+
+def _artifact_path(codebase_path: str | Path) -> Path:
+    return Path(codebase_path) / ".the-door" / EDGE_RESIDUE_FILENAME
+
+
+async def execute(arguments: dict) -> dict:
+    codebase_path = arguments.get("codebase_path")
+    if not codebase_path:
+        return {"error": "codebase_path is required"}
+
+    extraction = ASTExtractor().extract(codebase_path)
+    edge_dicts = [
+        {"from": e.from_node, "to": e.to_node, "type": e.type, "resolution": e.resolution}
+        for e in extraction.edges
+    ]
+    kept, residue = project_edges_for_prompt(edge_dicts)
+
+    artifact = {
+        "indeterminate": residue["indeterminate"],
+        "low_confidence_ambiguous": residue["low_confidence_ambiguous"],
+        "total_edges": len(edge_dicts),
+        "kept_edges": len(kept),
+    }
+    out_path = _artifact_path(codebase_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    payload = {
+        "artifact_path": str(out_path),
+        "indeterminate_count": len(residue["indeterminate"]),
+        "low_confidence_count": len(residue["low_confidence_ambiguous"]),
+        "total_edges": len(edge_dicts),
+        "kept_edges": len(kept),
+    }
+    return wrap(payload, Path(codebase_path))

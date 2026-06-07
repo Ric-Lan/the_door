@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp.types import ListToolsRequest
+from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
 from the_door.mcp.server import TheDoorMCPServer
 
 
@@ -30,6 +30,17 @@ async def _list_tools(server):
     handler = server._server.request_handlers[ListToolsRequest]
     result = await handler(None)
     return result.root.tools
+
+
+async def _call_tool(server, name, arguments):
+    """Helper to call the call_tool handler and return its content list."""
+    handler = server._server.request_handlers[CallToolRequest]
+    req = CallToolRequest(
+        method="tools/call",
+        params=CallToolRequestParams(name=name, arguments=arguments),
+    )
+    result = await handler(req)
+    return result.root.content
 
 
 class TestToolRegistration:
@@ -80,6 +91,29 @@ class TestToolRegistration:
         tools = await _list_tools(server)
         tool_names = [t.name for t in tools]
         assert "project_list" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_edge_residue_registered(self, server):
+        """edge_residue tool is registered with required codebase_path."""
+        tools = await _list_tools(server)
+        tool_names = [t.name for t in tools]
+        assert "edge_residue" in tool_names
+
+        tool = next(t for t in tools if t.name == "edge_residue")
+        assert "codebase_path" in tool.inputSchema["required"]
+
+    @pytest.mark.asyncio
+    async def test_edge_residue_dispatch(self, server, sample_codebase, tmp_path):
+        """edge_residue dispatches via call_tool and returns artifact_path."""
+        # Copy to tmp so the tool's .the-door/ write does not pollute the fixture.
+        import shutil
+
+        target = tmp_path / "codebase"
+        shutil.copytree(sample_codebase, target)
+        content = await _call_tool(server, "edge_residue", {"codebase_path": str(target)})
+        assert len(content) == 1
+        data = json.loads(content[0].text)
+        assert "artifact_path" in data
 
 
 class TestExtractStructureTool:

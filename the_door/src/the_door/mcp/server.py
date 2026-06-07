@@ -22,6 +22,7 @@ from the_door.mcp.tools import system_status_tool
 from the_door.mcp.tools import analyze_changes_tool
 from the_door.mcp.tools import snapshot_patch_tool
 from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
+from the_door.mcp.tools import edge_residue_tool
 
 
 class TheDoorMCPServer:
@@ -196,6 +197,11 @@ class TheDoorMCPServer:
                     description="Tier 1 bidirectional contract diff over agent-normalized field-sets.",
                     inputSchema=verify_contract_tool.TOOL_SCHEMA,
                 ),
+                Tool(
+                    name="edge_residue",
+                    description="Persist the membrane noise residue (off-grid + low-confidence edges) as a viewable artifact. Zero token, zero key. Run after extract_structure, before snapshot_write.",
+                    inputSchema=edge_residue_tool.TOOL_SCHEMA,
+                ),
             ]
 
         @self._server.call_tool()
@@ -250,6 +256,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(localize_datamodel_tool, arguments)
             elif name == "verify_data_model_contract":
                 return await self._dispatch_tool(verify_contract_tool, arguments)
+            elif name == "edge_residue":
+                return await self._dispatch_tool(edge_residue_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 

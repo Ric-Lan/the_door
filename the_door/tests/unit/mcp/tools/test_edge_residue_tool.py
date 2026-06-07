@@ -1,0 +1,136 @@
+"""T2 unit tests：edge_residue 工具（注入 extraction，測接線＋落盤）。
+
+對應 spec §5（T-1..T-5）／plan Task 1。新責任＝把 extraction.edges 接成 edge_dicts →
+餵 project_edges_for_prompt（既有純函式、已被 test_edge_projection* 覆蓋）→ 落盤 artifact。
+⟹ 單元測試注入已知 extraction（monkeypatch ASTExtractor.extract），對殘餘做確定性斷言。
+E2E（真 extraction）見 Task 3 同檔尾。
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import shutil
+import types
+from pathlib import Path
+
+from the_door.core.extraction import ast_extractor as ast_extractor_mod
+from the_door.core.llm.edge_membrane import indeterminate_residue_element
+from the_door.mcp.tools import edge_residue_tool
+
+
+def _fake_extraction(edges):
+    """edges＝[(from, to, resolution), ...] → 帶 .edges 的假 extraction。"""
+    Edge = types.SimpleNamespace
+    return types.SimpleNamespace(
+        edges=[
+            Edge(from_node=f, to_node=t, type="call", resolution=r)
+            for (f, t, r) in edges
+        ]
+    )
+
+
+def _patch_extract(monkeypatch, edges):
+    monkeypatch.setattr(
+        ast_extractor_mod.ASTExtractor,
+        "extract",
+        lambda self, codebase_path, *a, **k: _fake_extraction(edges),
+    )
+
+
+def test_residue_computed_and_artifact_written(monkeypatch, tmp_path):
+    """T-1：含 skipped_dynamic 邊 → indeterminate_count>0；artifact 落盤。"""
+    _patch_extract(monkeypatch, [("a", "Bus.send", "skipped_dynamic")])
+    result = asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+
+    assert result["indeterminate_count"] > 0
+    assert (tmp_path / ".the-door" / "edge-residue.json").exists()
+
+
+def test_artifact_shape(monkeypatch, tmp_path):
+    """T-2：artifact 含四鍵；indeterminate[0] 結構＝NoisePosition.to_json()。"""
+    _patch_extract(monkeypatch, [("a", "Bus.send", "skipped_dynamic")])
+    asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+
+    artifact = json.loads(
+        (tmp_path / ".the-door" / "edge-residue.json").read_text(encoding="utf-8")
+    )
+    assert set(artifact) >= {
+        "indeterminate",
+        "low_confidence_ambiguous",
+        "total_edges",
+        "kept_edges",
+    }
+    # 對齊真實 NoisePosition.to_json() 鍵集（不 hardcode 猜鍵）。
+    expected_keys = set(
+        indeterminate_residue_element("a", {"send": 1}, 1).to_json()
+    )
+    assert set(artifact["indeterminate"][0]) == expected_keys
+
+
+def test_no_noise_empty_residue(monkeypatch, tmp_path):
+    """T-5：全格內邊 → 空殘餘；artifact 仍寫出、不報錯、不謊報。"""
+    _patch_extract(monkeypatch, [("a", "B.run", "scope_rule")])
+    result = asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+
+    assert result["indeterminate_count"] == 0
+    assert result["low_confidence_count"] == 0
+    artifact_path = tmp_path / ".the-door" / "edge-residue.json"
+    assert artifact_path.exists()
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["indeterminate"] == []
+    assert artifact["low_confidence_ambiguous"] == []
+
+
+def test_missing_codebase_path(tmp_path):
+    """T-4：缺 codebase_path → {"error": ...}；不寫檔。"""
+    result = asyncio.run(edge_residue_tool.execute({}))
+    assert "error" in result
+    assert not (tmp_path / ".the-door" / "edge-residue.json").exists()
+
+
+def test_determinism(monkeypatch, tmp_path):
+    """T-3：同輸入呼兩次 → artifact 位元組相同。"""
+    edges = [
+        ("a", "Bus.send", "skipped_dynamic"),
+        ("b", "Q.push", "name_match_ambiguous"),
+        ("c", "D.run", "scope_rule"),
+    ]
+    _patch_extract(monkeypatch, edges)
+    artifact_path = tmp_path / ".the-door" / "edge-residue.json"
+
+    asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+    first = artifact_path.read_bytes()
+    asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+    second = artifact_path.read_bytes()
+
+    assert first == second
+
+
+def test_e2e_real_extraction(tmp_path):
+    """E2E smoke：真 extraction（input-only fixture）→ artifact 鍵齊全、counts int≥0。
+
+    用既有 input-only fixture python_simple；先 copytree 到 tmp 對副本跑，
+    不污染 checked-in fixture。不斷言殘餘確切數值（依 extractor 啟發式、避免脆測）。
+    """
+    fixture = (
+        Path(__file__).resolve().parents[3]
+        / "fixtures"
+        / "sample_codebases"
+        / "python_simple"
+    )
+    target = tmp_path / "codebase"
+    shutil.copytree(fixture, target)
+
+    result = asyncio.run(edge_residue_tool.execute({"codebase_path": str(target)}))
+
+    artifact_path = target / ".the-door" / "edge-residue.json"
+    assert artifact_path.exists()
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert set(artifact) >= {
+        "indeterminate",
+        "low_confidence_ambiguous",
+        "total_edges",
+        "kept_edges",
+    }
+    for key in ("indeterminate_count", "low_confidence_count", "total_edges", "kept_edges"):
+        assert isinstance(result[key], int) and result[key] >= 0
