@@ -634,3 +634,36 @@ def test_sort_semantic_diff_null_fields_treated_as_empty():
     # Both have the same magnitude, so order may vary — but no exception should be raised
     ids = {n["id"] for n in sorted_nodes}
     assert ids == {"node-null", "node-empty"}
+
+
+# --- H1: confidence 缺值誠實化（None → "unknown"，對齊 view_model.py:164 先例）---
+
+def test_build_l1_none_confidence_emits_unknown():
+    """H1-1：L1Output 路徑（:67），未評估 feature（confidence=None）→ node confidence 'unknown'。"""
+    l1 = L1Output(
+        features=[_make_feature("feat-x", confidence=None)],
+        feature_relations=[],
+    )
+    vm = build_l1_graph_view_model(l1)
+    assert vm["nodes"][0]["confidence"] == "unknown"
+
+
+def test_build_l1_from_snapshot_none_confidence_emits_unknown():
+    """H1-1：snapshot 路徑（:112），confidence=None → node 'unknown'（graph.py:66 經此 emit 邊界亦受惠）。"""
+    l1_snapshot = {
+        "feat-x": {
+            "label": "X", "description": "D",
+            "confidence": None, "source_nodes": [],
+        }
+    }
+    vm = build_l1_graph_view_model_from_snapshot(l1_snapshot, feature_relations_snapshot=[])
+    assert vm["nodes"][0]["confidence"] == "unknown"
+
+
+def test_build_l1_real_confidence_unchanged():
+    """已評估 feature 逐位元不變（純加法、不誤傷）。"""
+    l1 = L1Output(
+        features=[_make_feature("feat-y", confidence="high")],
+        feature_relations=[],
+    )
+    assert build_l1_graph_view_model(l1)["nodes"][0]["confidence"] == "high"

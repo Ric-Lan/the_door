@@ -64,7 +64,7 @@ def build_l1_graph_view_model(l1_output: L1Output) -> dict:
         {
             "id": f.feature_id,
             "label": f.label,
-            "confidence": f.confidence,
+            "confidence": f.confidence or "unknown",  # 未評估誠實化（對齊 view_model.py:164）
             "description": f.description,
             "trigger_description": f.trigger_description,
         }
@@ -109,7 +109,7 @@ def build_l1_graph_view_model_from_snapshot(
         {
             "id": feature_id,
             "label": summary["label"],
-            "confidence": summary["confidence"],
+            "confidence": summary["confidence"] or "unknown",  # 未評估誠實化（單一 emit 邊界、graph.py 經此受惠）
             "description": summary["description"],
             "trigger_description": summary.get("trigger_description"),
             "confidence_reason": summary.get("confidence_reason"),
