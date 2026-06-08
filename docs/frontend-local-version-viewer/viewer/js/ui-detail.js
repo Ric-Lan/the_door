@@ -359,18 +359,13 @@ export function renderDetailPanelL2(node, callbacks = {}) {
     const layerExplanationEl = document.getElementById('layer-explanation');
     if (state.layerExplanation) {
       if (layerExplanationEl) layerExplanationEl.style.display = 'block';
-    } else {
-      if (layerExplanationEl) {
-        layerExplanationEl.textContent = '';
-        const genBtn = document.createElement('button');
-        genBtn.type = 'button';
-        genBtn.className = 'action-button';
-        genBtn.textContent = '生成 L2 說明';
-        genBtn.addEventListener('click', () =>
-          callbacks.onGenerateLayerExplanation?.(state.selectedFeatureId, 'l2')
-        );
-        layerExplanationEl.appendChild(genBtn);
-      }
+    } else if (layerExplanationEl) {
+      // T5-V (丙案 D1): layer-explanation generation retired — display-only empty state.
+      layerExplanationEl.textContent = '';
+      const msg = document.createElement('p');
+      msg.className = 'missing';
+      msg.textContent = '尚無 L2 說明。';
+      layerExplanationEl.appendChild(msg);
     }
   });
   content.appendChild(expandBtn);

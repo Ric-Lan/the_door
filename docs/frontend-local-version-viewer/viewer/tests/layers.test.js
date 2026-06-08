@@ -37,10 +37,7 @@ import {
   switchToL1,
   switchToL2FromL3,
   loadLayerExplanation,
-  generateL2,
-  generateLayerExplanation,
   renderBreadcrumb,
-  pollUntilComplete,
   renderFeatureList,
   renderL2NotAnalyzed,
   switchToMindmap,
@@ -745,123 +742,8 @@ describe('loadLayerExplanation', () => {
 
 // ── generateL2 ────────────────────────────────────────────────────
 
-describe('generateL2', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('starts polling on ok response with job_id', async () => {
-    let callCount = 0;
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) {
-        return Promise.resolve({ ok: true, status: 200, json: async () => ({ job_id: 'job-1' }) });
-      }
-      // status poll — return completed immediately
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({ status: 'completed' }) });
-    });
-    const promise = generateL2('feat-1');
-    await vi.advanceTimersByTimeAsync(1500);
-    await promise;
-    expect(callCount).toBeGreaterThanOrEqual(2);
-  });
-
-  it('calls renderError on !ok with message', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 500, json: async () => ({ error: { message: 'cannot generate' } }),
-    });
-    await generateL2('feat-1');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('cannot generate'));
-  });
-
-  it('uses status fallback on !ok', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 502, json: async () => ({}),
-    });
-    await generateL2('feat-1');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('502'));
-  });
-
-  it('handles unparseable error body', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 503, json: async () => { throw new Error('x'); },
-    });
-    await generateL2('feat-1');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('503'));
-  });
-
-  it('calls renderError on network failure', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
-    await generateL2('feat-1');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('offline'));
-  });
-
-  it('uses "network error" fallback in catch', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue({});
-    await generateL2('feat-1');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('network error'));
-  });
-});
-
-// ── generateLayerExplanation ──────────────────────────────────────
-
-describe('generateLayerExplanation', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
-
-  it('starts polling on ok response', async () => {
-    let n = 0;
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      n++;
-      if (n === 1) return Promise.resolve({ ok: true, status: 200, json: async () => ({ job_id: 'j' }) });
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({ status: 'completed' }) });
-    });
-    const p = generateLayerExplanation('feat-1', 'l2');
-    await vi.advanceTimersByTimeAsync(1500);
-    await p;
-    expect(n).toBeGreaterThanOrEqual(2);
-  });
-
-  it('renderError on !ok', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 500, json: async () => ({ error: { message: 'gen-fail' } }),
-    });
-    await generateLayerExplanation('feat-1', 'l2');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('gen-fail'));
-  });
-
-  it('renderError uses status fallback', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 504, json: async () => ({}),
-    });
-    await generateLayerExplanation('feat-1', 'l2');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('504'));
-  });
-
-  it('handles unparseable error body', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 505, json: async () => { throw new Error('x'); },
-    });
-    await generateLayerExplanation('feat-1', 'l2');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('505'));
-  });
-
-  it('renderError on network failure', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'));
-    await generateLayerExplanation('feat-1', 'l2');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('down'));
-  });
-
-  it('uses "network error" fallback in catch', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue({});
-    await generateLayerExplanation('feat-1', 'l2');
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('network error'));
-  });
-});
+// generateL2 / generateLayerExplanation describe blocks removed in T5-V (丙案 D1):
+// those generation functions were retired (display-only viewer).
 
 // ── renderBreadcrumb ──────────────────────────────────────────────
 
@@ -996,91 +878,8 @@ describe('renderBreadcrumb', () => {
   });
 });
 
-// ── pollUntilComplete ─────────────────────────────────────────────
-
-describe('pollUntilComplete', () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
-
-  it('calls onComplete async when status === completed', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200, json: async () => ({ status: 'completed' }),
-    });
-    const onComplete = vi.fn().mockResolvedValue(undefined);
-    const promise = pollUntilComplete('job-1', onComplete);
-    await vi.advanceTimersByTimeAsync(1500);
-    await promise;
-    expect(onComplete).toHaveBeenCalled();
-  });
-
-  it('calls renderError on status === failed with error_message', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200, json: async () => ({ status: 'failed', error_message: 'oops' }),
-    });
-    const p = pollUntilComplete('j', vi.fn());
-    await vi.advanceTimersByTimeAsync(1500);
-    await p;
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('oops'));
-  });
-
-  it('uses 未知錯誤 fallback when error_message missing', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200, json: async () => ({ status: 'failed' }),
-    });
-    const p = pollUntilComplete('j', vi.fn());
-    await vi.advanceTimersByTimeAsync(1500);
-    await p;
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('未知錯誤'));
-  });
-
-  it('continues polling on intermediate status', async () => {
-    let count = 0;
-    vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      count++;
-      return Promise.resolve({
-        ok: true, status: 200,
-        json: async () => ({ status: count < 3 ? 'running' : 'completed' }),
-      });
-    });
-    const onComplete = vi.fn();
-    const p = pollUntilComplete('j', onComplete);
-    await vi.advanceTimersByTimeAsync(1500 * 3);
-    await p;
-    expect(onComplete).toHaveBeenCalled();
-    expect(count).toBe(3);
-  });
-
-  it('clears interval silently on !res.ok', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 500, json: async () => ({}),
-    });
-    const onComplete = vi.fn();
-    const p = pollUntilComplete('j', onComplete);
-    await vi.advanceTimersByTimeAsync(1500);
-    await p;
-    expect(onComplete).not.toHaveBeenCalled();
-    expect(uiDetail.renderError).not.toHaveBeenCalled();
-  });
-
-  it('clears interval silently on fetch catch', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('net'));
-    const onComplete = vi.fn();
-    const p = pollUntilComplete('j', onComplete);
-    await vi.advanceTimersByTimeAsync(1500);
-    await p;
-    expect(onComplete).not.toHaveBeenCalled();
-  });
-
-  it('renderError on timeout after maxAttempts', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true, status: 200, json: async () => ({ status: 'running' }),
-    });
-    const p = pollUntilComplete('j', vi.fn());
-    await vi.advanceTimersByTimeAsync(1500 * 61);
-    await p;
-    expect(uiDetail.renderError).toHaveBeenCalledWith(expect.stringContaining('任務逾時'));
-  });
-});
+// pollUntilComplete describe removed in T5-V (丙案 D1): the function's only callers
+// (generateL2 / generateLayerExplanation) were retired, so it was removed too.
 
 // ── renderFeatureList ─────────────────────────────────────────────
 
@@ -1236,13 +1035,13 @@ describe('renderFeatureList', () => {
     expect(cards[0].classList.contains('active')).toBe(false);
   });
 
-  it('L2 click — sets selectedModuleId, calls renderDetailPanelL2 with both callbacks', () => {
+  it('L2 click — sets selectedModuleId, calls renderDetailPanelL2 with onEnterL3 callback', () => {
     renderFeatureList({ nodes: [{ id: 'm1' }] }, 'L2');
     document.querySelector('.feature-card').click();
     expect(state.selectedModuleId).toBe('m1');
+    // T5-V (丙案 D1): onGenerateLayerExplanation wiring removed (generation retired).
     expect(uiDetail.renderDetailPanelL2).toHaveBeenCalledWith({ id: 'm1' }, expect.objectContaining({
       onEnterL3: expect.any(Function),
-      onGenerateLayerExplanation: expect.any(Function),
     }));
   });
 
@@ -1262,16 +1061,17 @@ describe('renderFeatureList', () => {
 // ── renderL2NotAnalyzed ───────────────────────────────────────────
 
 describe('renderL2NotAnalyzed', () => {
-  it('renders not-analyzed block in feature-list with button, hint, and code', () => {
+  // T5-V (丙案 D1): L2 generation retired — not-analyzed block is display-only (title text, no button/hint).
+  it('renders title-only not-analyzed block in feature-list (no generate button)', () => {
     state.l1GraphViewModel = { nodes: [{ id: 'f1', label: 'My Feature' }] };
     renderL2NotAnalyzed('f1');
     const list = document.getElementById('feature-list');
     const block = list.querySelector('.not-analyzed-state');
     expect(block).not.toBeNull();
     expect(block.querySelector('.not-analyzed-title').textContent).toContain('My Feature');
-    expect(block.querySelector('button.action-button').textContent).toBe('生成 L2 分析');
-    expect(block.querySelector('.not-analyzed-hint')).not.toBeNull();
-    expect(block.querySelector('.not-analyzed-cmd')).not.toBeNull();
+    expect(block.querySelector('button')).toBeNull();
+    expect(block.querySelector('.not-analyzed-hint')).toBeNull();
+    expect(block.querySelector('.not-analyzed-cmd')).toBeNull();
   });
 
   it('renders title-only block in graph-container (no button, no hint)', () => {
@@ -1282,20 +1082,6 @@ describe('renderL2NotAnalyzed', () => {
     expect(block.querySelector('.not-analyzed-title')).not.toBeNull();
     expect(block.querySelector('button')).toBeNull();
     expect(block.querySelector('.not-analyzed-hint')).toBeNull();
-  });
-
-  it('button click disables button, shows 生成中, calls generateL2', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false, status: 500, json: async () => ({ error: { message: 'x' } }),
-    });
-    renderL2NotAnalyzed('f1');
-    const btn = document.querySelector('#feature-list button.action-button');
-    btn.click();
-    expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toBe('生成中…');
-    await vi.runOnlyPendingTimersAsync();
-    vi.useRealTimers();
   });
 
   it('falls back to "（未知功能）" when featureId is empty', () => {

@@ -253,45 +253,9 @@ export async function loadLayerExplanation(featureId, layer) {
   }
 }
 
-export async function generateL2(featureId) {
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/l2/${encodeURIComponent(featureId)}/generate`,
-      { method: "POST" },
-    );
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      renderError("L2 生成失敗：" + (body?.error?.message || res.status));
-      return;
-    }
-    const { job_id } = await res.json();
-    await pollUntilComplete(job_id, async () => {
-      await switchToL2(featureId);
-    });
-  } catch (err) {
-    renderError("L2 生成請求失敗：" + (err.message || "network error"));
-  }
-}
-
-export async function generateLayerExplanation(featureId, layer) {
-  try {
-    const res = await fetch(
-      `${API_BASE}/api/layer-explanation/${encodeURIComponent(featureId)}/${layer}/generate`,
-      { method: "POST" },
-    );
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      renderError("說明生成失敗：" + (body?.error?.message || res.status));
-      return;
-    }
-    const { job_id } = await res.json();
-    await pollUntilComplete(job_id, async () => {
-      await loadLayerExplanation(featureId, layer);
-    });
-  } catch (err) {
-    renderError("說明生成請求失敗：" + (err.message || "network error"));
-  }
-}
+// generateL2 / generateLayerExplanation removed in T5-V (丙案 D1):
+// L2 / layer-explanation generation is key-bound and was retired (headless viewer
+// cannot host an agent-as-LLM at click time). Only GET read/display remains.
 
 export function renderBreadcrumb() {
   const breadcrumbEl = document.getElementById("breadcrumb");
@@ -343,42 +307,8 @@ export function renderBreadcrumb() {
   if (els.btnBackL1) els.btnBackL1.hidden = state.layerState === "L1";
 }
 
-export async function pollUntilComplete(jobId, onComplete) {
-  const maxAttempts = 60;
-  let attempts = 0;
-  return new Promise((resolve) => {
-    const handle = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(handle);
-        renderError("任務逾時，請稍後重試。");
-        resolve();
-        return;
-      }
-      try {
-        const res = await fetch(`${API_BASE}/api/update/status/${jobId}`, { cache: "no-store" });
-        if (!res.ok) {
-          clearInterval(handle);
-          resolve();
-          return;
-        }
-        const job = await res.json();
-        if (job.status === "completed") {
-          clearInterval(handle);
-          await onComplete();
-          resolve();
-        } else if (job.status === "failed") {
-          clearInterval(handle);
-          renderError("任務失敗：" + (job.error_message || "未知錯誤"));
-          resolve();
-        }
-      } catch (_) {
-        clearInterval(handle);
-        resolve();
-      }
-    }, 1500);
-  });
-}
+// pollUntilComplete removed in T5-V: its only callers were generateL2 /
+// generateLayerExplanation (both retired). No remaining viewer flow polls a job here.
 
 export function renderFeatureList(viewModel, layerState) {
   const list = document.getElementById("feature-list");
@@ -462,7 +392,6 @@ export function renderFeatureList(viewModel, layerState) {
         state.selectedModuleId = node.id;
         renderDetailPanelL2(node, {
           onEnterL3: switchToL3,
-          onGenerateLayerExplanation: generateLayerExplanation,
         });
       } else if (layerState === "L3") {
         renderDetailPanelL3(node);
@@ -480,50 +409,29 @@ export function renderFeatureList(viewModel, layerState) {
 export function renderL2NotAnalyzed(featureId) {
   const featureLabel = _getFeatureLabel(featureId);
 
-  function makeNotAnalyzedBlock(withButton) {
+  // T5-V (丙案 D1): L2 generation retired — display-only empty state, no generate button.
+  function makeNotAnalyzedBlock() {
     const wrap = document.createElement("div");
     wrap.className = "not-analyzed-state";
 
     const title = document.createElement("p");
     title.className = "not-analyzed-title";
-    title.textContent = "「" + featureLabel + "」的 L2 層尚未分析";
+    title.textContent = "「" + featureLabel + "」的 L2 層尚未生成";
 
     wrap.appendChild(title);
-
-    if (withButton) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "action-button";
-      btn.textContent = "生成 L2 分析";
-      btn.addEventListener("click", () => {
-        btn.disabled = true;
-        btn.textContent = "生成中…";
-        generateL2(featureId);
-      });
-      wrap.appendChild(btn);
-
-      const sep = document.createElement("p");
-      sep.className = "not-analyzed-hint";
-      sep.textContent = "或使用 CLI：";
-      const cmd = document.createElement("code");
-      cmd.className = "not-analyzed-cmd";
-      cmd.textContent = 'the-door analyze "<專案路徑>"';
-      wrap.append(sep, cmd);
-    }
-
     return wrap;
   }
 
   const list = document.getElementById("feature-list");
   if (list) {
     list.textContent = "";
-    list.appendChild(makeNotAnalyzedBlock(true));
+    list.appendChild(makeNotAnalyzedBlock());
   }
 
   const container = document.getElementById("graph-container");
   if (container) {
     container.textContent = "";
-    container.appendChild(makeNotAnalyzedBlock(false));
+    container.appendChild(makeNotAnalyzedBlock());
   }
 }
 

@@ -11,12 +11,9 @@ import {
   fetchL2Graph,
   fetchStructure,
   fetchLayerExplanation,
-  postGenerateL2,
-  postGenerateLayerExplanation,
   fetchNotes,
   postNote,
   fetchDiffExplanation,
-  postGenerateDiffExplanation,
   fetchStaticUpdateViewModel,
   fetchStaticL1ViewModel,
 } from '../js/api.js';
@@ -225,41 +222,8 @@ describe('api.js', () => {
     });
   });
 
-  describe('postGenerateL2', () => {
-    it('sends POST to /api/l2/<encoded featureId>/generate', async () => {
-      fetchSpy = mockFetch({ job_id: 'j1' });
-      await postGenerateL2('feat-1');
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/l2/feat-1/generate',
-        { method: 'POST' }
-      );
-    });
-
-    it('returns json data', async () => {
-      const data = { job_id: 'j1' };
-      mockFetch(data);
-      const result = await postGenerateL2('feat-1');
-      expect(result).toEqual(data);
-    });
-  });
-
-  describe('postGenerateLayerExplanation', () => {
-    it('sends POST to /api/layer-explanation/<featureId>/<layer>/generate', async () => {
-      fetchSpy = mockFetch({ job_id: 'j2' });
-      await postGenerateLayerExplanation('feat-1', 'l2');
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/layer-explanation/feat-1/l2/generate',
-        { method: 'POST' }
-      );
-    });
-
-    it('returns json data', async () => {
-      const data = { job_id: 'j2' };
-      mockFetch(data);
-      const result = await postGenerateLayerExplanation('feat-1', 'l2');
-      expect(result).toEqual(data);
-    });
-  });
+  // postGenerateL2 / postGenerateLayerExplanation tests removed in T5-V (丙案 D1):
+  // those generation endpoints were retired; only GET read functions remain.
 
   describe('fetchNotes', () => {
     it('calls /api/notes with URLSearchParams query string', async () => {
@@ -335,25 +299,8 @@ describe('api.js', () => {
     });
   });
 
-  describe('postGenerateDiffExplanation', () => {
-    it('sends POST to /api/diff-explanations/<featureId>/generate', async () => {
-      fetchSpy = mockFetch({ job_id: 'j3' });
-      const payload = { baseline_version_id: 'v1', current_version_id: 'v2' };
-      await postGenerateDiffExplanation('feat-1', payload);
-      expect(fetchSpy).toHaveBeenCalledWith('/api/diff-explanations/feat-1/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    });
-
-    it('returns json data', async () => {
-      const data = { job_id: 'j3' };
-      mockFetch(data);
-      const result = await postGenerateDiffExplanation('feat-1', {});
-      expect(result).toEqual(data);
-    });
-  });
+  // postGenerateDiffExplanation tests removed in T5-V (丙案 D1): generation retired,
+  // only fetchDiffExplanation (GET read) remains.
 
   describe('fetchStaticUpdateViewModel', () => {
     it('calls ./data/update-view-model.json with cache no-store', async () => {

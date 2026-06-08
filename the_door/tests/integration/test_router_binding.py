@@ -258,19 +258,15 @@ class TestGetDiffExplanations:
         assert "explanation" in body
 
 
-class TestPostDiffExplanationsGenerate:
-    """POST /api/diff-explanations/<fid>/generate"""
+class TestPostDiffExplanationsGenerateRetired:
+    """POST /api/diff-explanations/<fid>/generate was retired in T5-V (丙案 D1).
 
-    def test_missing_version_ids_returns_400(self, server_url):
-        # No baseline_version_id / current_version_id → missing_params
-        status, body = _post(
-            f"{server_url}/api/diff-explanations/feat-auth/generate", {}
-        )
-        assert status == 400
-        assert body["error"]["code"] == "missing_params"
+    The generation endpoint no longer exists; the path must not match any route.
+    The GET read/display path remains (see TestGetDiffExplanations).
+    """
 
-    def test_no_llm_provider_returns_503(self, server_url):
-        # With version IDs but no configured LLM → provider_not_configured
+    def test_generate_route_removed_returns_404(self, server_url):
+        # Route removed → the path matches no route; server returns 404 not_found.
         status, body = _post(
             f"{server_url}/api/diff-explanations/feat-auth/generate",
             {
@@ -279,15 +275,8 @@ class TestPostDiffExplanationsGenerate:
                 "output_language": "zh-Hant",
             },
         )
-        assert status == 503
-        assert body["error"]["code"] == "provider_not_configured"
-
-    def test_invalid_json_returns_400(self, server_url):
-        status, body = _post_raw(
-            f"{server_url}/api/diff-explanations/feat-auth/generate", b"{bad"
-        )
-        assert status == 400
-        assert body["error"]["code"] == "invalid_json"
+        assert status == 404
+        assert body["error"]["code"] == "not_found"
 
 
 class TestGetNotes:

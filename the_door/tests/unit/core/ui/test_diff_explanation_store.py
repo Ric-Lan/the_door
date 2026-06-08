@@ -1,4 +1,7 @@
-"""Unit tests for DiffExplanationStore.
+"""Unit tests for DiffExplanationStore (read-only after T5-V).
+
+Generation/`save` was retired in T5-V (丙案 D1); the store is now read-only.
+Get tests seed the JSONL cache directly (the write path no longer exists).
 
 Run: pytest tests/unit/core/ui/test_diff_explanation_store.py -v
 """
@@ -30,30 +33,14 @@ def _make_entry(**overrides) -> dict:
     return base
 
 
-class TestDiffExplanationStoreWrite:
-    def test_save_creates_jsonl_file(self, tmp_path):
-        store = DiffExplanationStore(tmp_path)
-        store.save(_make_entry())
-        path = tmp_path / ".the-door" / "diff-explanations" / "cache.jsonl"
-        assert path.exists()
-
-    def test_save_appends_to_jsonl(self, tmp_path):
-        store = DiffExplanationStore(tmp_path)
-        store.save(_make_entry())
-        store.save(_make_entry(confidence="high"))
-        path = tmp_path / ".the-door" / "diff-explanations" / "cache.jsonl"
-        lines = [l for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
-        assert len(lines) == 2
-
-    def test_save_persists_all_fields(self, tmp_path):
-        store = DiffExplanationStore(tmp_path)
-        entry = _make_entry()
-        store.save(entry)
-        path = tmp_path / ".the-door" / "diff-explanations" / "cache.jsonl"
-        saved = json.loads(path.read_text(encoding="utf-8").strip())
-        assert saved["feature_id"] == "feat-auth"
-        assert saved["confidence"] == "medium"
-        assert saved["linked_resources"] == ["登入模組"]
+def _seed(tmp_path: Path, *entries: dict) -> None:
+    """Write entries directly to the cache JSONL (T5-V removed `save`)."""
+    path = tmp_path / ".the-door" / "diff-explanations" / "cache.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
+        encoding="utf-8",
+    )
 
 
 class TestDiffExplanationStoreGet:
@@ -63,16 +50,19 @@ class TestDiffExplanationStoreGet:
         assert result is None
 
     def test_get_returns_latest_matching_entry(self, tmp_path):
+        _seed(
+            tmp_path,
+            _make_entry(impact_summary="first"),
+            _make_entry(impact_summary="second"),
+        )
         store = DiffExplanationStore(tmp_path)
-        store.save(_make_entry(impact_summary="first"))
-        store.save(_make_entry(impact_summary="second"))
         result = store.get("feat-auth", "v1", "v2", "zh-Hant")
         assert result is not None
         assert result["impact_summary"] == "second"
 
     def test_get_returns_none_when_key_does_not_match(self, tmp_path):
+        _seed(tmp_path, _make_entry())
         store = DiffExplanationStore(tmp_path)
-        store.save(_make_entry())
         assert store.get("feat-auth", "v1", "v3", "zh-Hant") is None
         assert store.get("feat-other", "v1", "v2", "zh-Hant") is None
         assert store.get("feat-auth", "v1", "v2", "en") is None

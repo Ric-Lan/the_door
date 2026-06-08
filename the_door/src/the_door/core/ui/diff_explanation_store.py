@@ -1,9 +1,14 @@
-"""DiffExplanationStore — append-only JSONL cache for diff explanations.
+"""DiffExplanationStore — read-only JSONL cache for diff explanations.
 
 Storage: <project_root>/.the-door/diff-explanations/cache.jsonl
 Cache key: feature_id + baseline_version_id + current_version_id + language
 On read, returns the last (most recent) matching entry.
 Corrupted lines are skipped — does not raise.
+
+Note (T5-V): diff-explanation generation was retired (丙案 D1). This store is now
+read-only — `get` serves the GET /api/diff-explanations display path; the `save`
+write path was removed with the generation handler. Existing cached entries
+continue to be readable.
 """
 from __future__ import annotations
 
@@ -13,18 +18,12 @@ from pathlib import Path
 
 
 class DiffExplanationStore:
-    """Append-only local cache for LLM-generated diff explanations."""
+    """Read-only local cache for previously-generated diff explanations."""
 
     def __init__(self, project_root: Path) -> None:
         self._store_path = (
             project_root / ".the-door" / "diff-explanations" / "cache.jsonl"
         )
-
-    def save(self, entry: dict) -> None:
-        """Append a diff explanation entry to the cache."""
-        self._store_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._store_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def get(
         self,

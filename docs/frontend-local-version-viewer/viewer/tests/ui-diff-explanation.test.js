@@ -55,8 +55,9 @@ describe('appendDiffExplanationSection — structure', () => {
 
 // ── initial load ──────────────────────────────────────────────────
 
-describe('appendDiffExplanationSection — initial load', () => {
-  it('shows cached explanation content and a regen button', async () => {
+// T5-V (丙案 D1): diff-explanation generation retired — display-only, no generate/regen button.
+describe('appendDiffExplanationSection — initial load (display-only)', () => {
+  it('shows cached explanation content and NO generate/regen button', async () => {
     const explanation = makeExplanation();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -68,13 +69,10 @@ describe('appendDiffExplanationSection — initial load', () => {
 
     const body = container.querySelector('.diff-explanation-body');
     expect(body.querySelector('.confidence-badge')).not.toBeNull();
-    // generate button should NOT be the primary "生成" button — regen is shown instead
-    const btns = body.querySelectorAll('.diff-explanation-generate-btn');
-    expect(btns.length).toBeGreaterThan(0);
-    expect(btns[btns.length - 1].textContent).toContain('重新生成');
+    expect(body.querySelector('.diff-explanation-generate-btn')).toBeNull();
   });
 
-  it('shows generate button when no cached explanation (null body)', async () => {
+  it('shows empty-state text and NO button when no cached explanation (null body)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({}),
@@ -84,42 +82,41 @@ describe('appendDiffExplanationSection — initial load', () => {
     await flushPromises();
 
     const body = container.querySelector('.diff-explanation-body');
-    const btn = body.querySelector('.diff-explanation-generate-btn');
-    expect(btn).not.toBeNull();
-    expect(btn.textContent).toBe('生成差異推論');
+    expect(body.querySelector('.diff-explanation-generate-btn')).toBeNull();
+    expect(body.querySelector('.missing').textContent).toContain('尚無差異推論');
   });
 
-  it('shows generate button when fetch throws (no-cache case)', async () => {
+  it('shows empty-state and NO button when fetch throws (no-cache case)', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('404'));
     const container = makeContainer();
     appendDiffExplanationSection(container, 'feat-1');
     await flushPromises();
 
     const body = container.querySelector('.diff-explanation-body');
-    const btn = body.querySelector('.diff-explanation-generate-btn');
-    expect(btn).not.toBeNull();
+    expect(body.querySelector('.diff-explanation-generate-btn')).toBeNull();
+    expect(body.querySelector('.missing')).not.toBeNull();
   });
 
-  it('shows generate button when versionA is null', async () => {
+  it('shows empty-state and NO button when versionA is null', async () => {
     state.versionA = null;
     const container = makeContainer();
     appendDiffExplanationSection(container, 'feat-1');
     await flushPromises();
 
     const body = container.querySelector('.diff-explanation-body');
-    const btn = body.querySelector('.diff-explanation-generate-btn');
-    expect(btn).not.toBeNull();
+    expect(body.querySelector('.diff-explanation-generate-btn')).toBeNull();
+    expect(body.querySelector('.missing')).not.toBeNull();
   });
 
-  it('shows generate button when versionB is null', async () => {
+  it('shows empty-state and NO button when versionB is null', async () => {
     state.versionB = null;
     const container = makeContainer();
     appendDiffExplanationSection(container, 'feat-1');
     await flushPromises();
 
     const body = container.querySelector('.diff-explanation-body');
-    const btn = body.querySelector('.diff-explanation-generate-btn');
-    expect(btn).not.toBeNull();
+    expect(body.querySelector('.diff-explanation-generate-btn')).toBeNull();
+    expect(body.querySelector('.missing')).not.toBeNull();
   });
 });
 
@@ -253,110 +250,5 @@ describe('H1 confidence honesty in diff explanation', () => {
   });
 });
 
-// ── generate button click ─────────────────────────────────────────
-
-describe('appendDiffExplanationSection — generate button', () => {
-  it('disables button and changes text on click', async () => {
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ explanation: makeExplanation() }) });
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    const btn = container.querySelector('.diff-explanation-generate-btn');
-    btn.click();
-
-    expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toBe('生成中…');
-    await flushPromises();
-  });
-
-  it('shows result and regen button on generate success', async () => {
-    const explanation = makeExplanation();
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ explanation }) });
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    container.querySelector('.diff-explanation-generate-btn').click();
-    await flushPromises();
-
-    const body = container.querySelector('.diff-explanation-body');
-    expect(body.querySelector('.confidence-badge')).not.toBeNull();
-    const lastBtn = body.querySelector('.diff-explanation-generate-btn');
-    expect(lastBtn.textContent).toContain('重新生成');
-  });
-
-  it('re-enables button and shows error on generate failure (api error)', async () => {
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: false, json: async () => ({ error: { message: 'LLM error' } }) });
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    const btn = container.querySelector('.diff-explanation-generate-btn');
-    btn.click();
-    await flushPromises();
-
-    expect(btn.disabled).toBe(false);
-    const body = container.querySelector('.diff-explanation-body');
-    expect(body.textContent).toContain('LLM error');
-  });
-
-  it('re-enables button and shows error on generate failure (no message)', async () => {
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: false, json: async () => ({}) });
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    const btn = container.querySelector('.diff-explanation-generate-btn');
-    btn.click();
-    await flushPromises();
-
-    expect(btn.disabled).toBe(false);
-    const body = container.querySelector('.diff-explanation-body');
-    expect(body.textContent).toContain('未知錯誤');
-  });
-
-  it('re-enables button and shows error on network error', async () => {
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockRejectedValueOnce(new Error('network down'));
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    const btn = container.querySelector('.diff-explanation-generate-btn');
-    btn.click();
-    await flushPromises();
-
-    expect(btn.disabled).toBe(false);
-    expect(container.querySelector('.diff-explanation-body').textContent).toContain('network down');
-  });
-
-  it('uses "network error" fallback when thrown error has no message — || branch', async () => {
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockRejectedValueOnce({});
-
-    const container = makeContainer();
-    appendDiffExplanationSection(container, 'feat-1');
-    await flushPromises();
-
-    container.querySelector('.diff-explanation-generate-btn').click();
-    await flushPromises();
-
-    expect(container.querySelector('.diff-explanation-body').textContent).toContain('network error');
-  });
-});
+// generate button click tests removed in T5-V (丙案 D1): diff-explanation generation
+// retired; display is read-only with no generate/regen button.

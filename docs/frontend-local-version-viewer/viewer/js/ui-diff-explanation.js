@@ -19,19 +19,13 @@ function detailSectionSmall(title, text) {
   return sec;
 }
 
+// T5-V (丙案 D1): diff-explanation generation retired. Display-only — no generate button.
 function renderExplanationEmpty(container, featureId) {
   container.textContent = "";
   const p = document.createElement("p");
   p.className = "missing";
-  p.textContent = "尚未產生差異推論。";
+  p.textContent = "尚無差異推論。";
   container.appendChild(p);
-
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "action-button diff-explanation-generate-btn";
-  btn.textContent = "生成差異推論";
-  btn.addEventListener("click", () => generateDiffExplanation(featureId, container, btn));
-  container.appendChild(btn);
 }
 
 function renderExplanationContent(explanation, container, featureId) {
@@ -69,42 +63,7 @@ function renderExplanationContent(explanation, container, featureId) {
     sec.append(h, ul);
     container.appendChild(sec);
   }
-
-  const regenBtn = document.createElement("button");
-  regenBtn.type = "button";
-  regenBtn.className = "action-button diff-explanation-generate-btn";
-  regenBtn.textContent = "重新生成";
-  regenBtn.addEventListener("click", () => generateDiffExplanation(featureId, container, regenBtn));
-  container.appendChild(regenBtn);
-}
-
-async function generateDiffExplanation(featureId, container, btn) {
-  btn.disabled = true;
-  btn.textContent = "生成中…";
-  try {
-    const body = await api.postGenerateDiffExplanation(featureId, {
-      baseline_version_id: state.versionA,
-      current_version_id: state.versionB,
-      output_language: currentOutputLanguage(),
-    });
-    if (!body.explanation) {
-      btn.disabled = false;
-      btn.textContent = "生成差異推論";
-      const errEl = document.createElement("p");
-      errEl.className = "missing";
-      errEl.textContent = "生成失敗：" + (body?.error?.message || "未知錯誤");
-      container.insertBefore(errEl, btn);
-      return;
-    }
-    renderExplanationContent(body.explanation, container, featureId);
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = "生成差異推論";
-    const errEl = document.createElement("p");
-    errEl.className = "missing";
-    errEl.textContent = "無法連線：" + (err.message || "network error");
-    container.insertBefore(errEl, btn);
-  }
+  // T5-V (丙案 D1): "重新生成" button removed — generation retired, display-only.
 }
 
 async function loadDiffExplanation(featureId, container) {

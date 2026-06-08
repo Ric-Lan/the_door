@@ -442,19 +442,17 @@ describe('renderDetailPanelL2', () => {
     expect(layerExpl.style.display).toBe('block');
   });
 
-  it('inserts "生成 L2 說明" button when no layerExplanation and calls onGenerateLayerExplanation', () => {
+  it('shows display-only empty-state (NO generate button) when no layerExplanation — T5-V', () => {
     state.layerExplanation = null;
     state.selectedFeatureId = 'feat-1';
-    const onGenerateLayerExplanation = vi.fn();
     const node = { id: 'mod-1', label: 'M', confidence: 'low', source_nodes: [] };
-    renderDetailPanelL2(node, { onGenerateLayerExplanation });
+    renderDetailPanelL2(node);
     const expandBtn = [...els.detailContent.querySelectorAll('button')].find(b => b.textContent === '展開說明');
     expandBtn.click();
     const layerExpl = document.getElementById('layer-explanation');
-    const genBtn = layerExpl.querySelector('button');
-    expect(genBtn.textContent).toBe('生成 L2 說明');
-    genBtn.click();
-    expect(onGenerateLayerExplanation).toHaveBeenCalledWith('feat-1', 'l2');
+    // T5-V (丙案 D1): generation retired — no generate button, just empty-state text.
+    expect(layerExpl.querySelector('button')).toBeNull();
+    expect(layerExpl.querySelector('.missing').textContent).toContain('尚無 L2 說明');
   });
 
   it('does not throw when expandBtn clicked with null layer-explanation element', () => {

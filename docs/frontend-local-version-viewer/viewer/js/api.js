@@ -61,20 +61,8 @@ export async function fetchLayerExplanation(featureId, layer) {
   return res.json();
 }
 
-export async function postGenerateL2(featureId) {
-  const res = await fetch(`${API_BASE}/api/l2/${encodeURIComponent(featureId)}/generate`, {
-    method: "POST",
-  });
-  return res.json();
-}
-
-export async function postGenerateLayerExplanation(featureId, layer) {
-  const res = await fetch(
-    `${API_BASE}/api/layer-explanation/${encodeURIComponent(featureId)}/${layer}/generate`,
-    { method: "POST" }
-  );
-  return res.json();
-}
+// postGenerateL2 / postGenerateLayerExplanation removed in T5-V (丙案 D1):
+// L2 / layer-explanation generation is key-bound and was retired; only GET read remains.
 
 export async function fetchNotes(params) {
   const qs = params instanceof URLSearchParams ? params : new URLSearchParams(params);
@@ -100,14 +88,8 @@ export async function fetchDiffExplanation(featureId, params) {
   return res.json();
 }
 
-export async function postGenerateDiffExplanation(featureId, payload) {
-  const res = await fetch(`${API_BASE}/api/diff-explanations/${encodeURIComponent(featureId)}/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return res.json();
-}
+// postGenerateDiffExplanation removed in T5-V (丙案 D1): diff-explanation generation
+// is key-bound and was retired; only GET read (fetchDiffExplanation) remains.
 
 export async function fetchStaticUpdateViewModel() {
   const res = await fetch("./data/update-view-model.json", { cache: "no-store" });

@@ -1401,11 +1401,7 @@ h1 {
   gap: 8px;
 }
 
-.diff-explanation-generate-btn {
-  align-self: flex-start;
-  margin-top: 6px;
-  font-size: 13px;
-}
+/* .diff-explanation-generate-btn removed in T5-V (丙案 D1): generation retired, no button. */
 
 /* ── Diff-mode skin ──────────────────────────────────────── */
 .app-shell.diff-mode .topbar {

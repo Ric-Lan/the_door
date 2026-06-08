@@ -122,11 +122,6 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/diff.py",
         desc="Failed to read doubt/explanation data.",
     ),
-    "provider_not_configured": ErrCode(
-        http=503,
-        file="core/ui/api/handlers/diff.py",
-        desc="LLM provider is not configured.",
-    ),
 
     # --- structure / graph domain -------------------------------------------
     "structure_read_error": ErrCode(
@@ -182,13 +177,6 @@ ERROR_CODES: dict[str, ErrCode] = {
         http=500,
         file="core/ui/api/handlers/catalog.py",
         desc="Failed to build timeline.",
-    ),
-
-    # --- LLM / generation domain --------------------------------------------
-    "llm_error": ErrCode(
-        http=500,
-        file="core/ui/api/handlers/graph.py",
-        desc="LLM generation failed.",
     ),
 
     # --- annotation domain --------------------------------------------------

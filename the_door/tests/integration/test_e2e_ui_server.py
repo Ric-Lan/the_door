@@ -540,110 +540,20 @@ class TestPostUpdate:
 
 
 # ---------------------------------------------------------------------------
-# Test: POST /api/l2/<feature_id>/generate (job creation only)
-# ---------------------------------------------------------------------------
-
-
-class TestPostL2Generate:
-    def test_generate_returns_202_with_job_id(self, server_url):
-        """POST /api/l2/feat-auth/generate returns 202 with job_id."""
-        status, body = _post(f"{server_url}/api/l2/feat-auth/generate", {})
-
-        assert status == 202
-        assert "job_id" in body
-        assert isinstance(body["job_id"], str)
-
-    def test_generate_no_structure_returns_404(self, empty_server_url):
-        """POST /api/l2/feat-auth/generate without structure.json returns 404."""
-        status, body = _post(f"{empty_server_url}/api/l2/feat-auth/generate", {})
-
-        assert status == 404
-        assert body["error"]["code"] == "no_structure_data"
-
-    def test_generate_job_already_running_returns_409(self, server_url):
-        """409 conflict is enforced at the JobStore level.
-
-        This is a race-condition-sensitive test in integration context because
-        background threads (with no LLM config) fail almost instantly.
-        We verify the contract by using the /api/update endpoint which also
-        uses the same JobStore — if we can create a job via l2/generate and
-        immediately check the status, the job lifecycle is correct.
-
-        The 409 behaviour itself is fully covered by unit tests in
-        test_api_handlers_ui3.py::TestPostL2Generate::test_post_l2_generate_job_already_running_returns_409
-        which uses a pre-seeded running job without race conditions.
-        """
-        # Create a job and verify it gets a valid job_id
-        status, body = _post(f"{server_url}/api/l2/feat-auth/generate", {})
-        assert status == 202
-        assert "job_id" in body
-
-        # Poll until the job finishes (it will fail due to no LLM config)
-        job_id = body["job_id"]
-        deadline = time.monotonic() + 5.0
-        final_status = None
-        while time.monotonic() < deadline:
-            _, status_body = _get(f"{server_url}/api/update/status/{job_id}")
-            final_status = status_body.get("status")
-            if final_status in ("completed", "failed"):
-                break
-            time.sleep(0.05)
-
-        # Job must reach a terminal state (completed or failed — failed expected here)
-        assert final_status in ("completed", "failed"), (
-            f"Job did not reach terminal state within 5s, last status: {final_status}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Test: GET /api/update/status/<job_id>
+# T5-V (丙案 D1): POST /api/l2/.../generate and /api/layer-explanation/.../generate
+# were retired. Their E2E test classes (TestPostL2Generate, TestPostLayerExplanationGenerate)
+# and TestGetUpdateStatus.test_status_after_l2_generate were removed accordingly.
+# The surviving job-status endpoint is still covered below.
 # ---------------------------------------------------------------------------
 
 
 class TestGetUpdateStatus:
-    def test_status_after_l2_generate(self, server_url):
-        """GET /api/update/status/<job_id> returns 200 with job status."""
-        # Create a job first
-        _, create_body = _post(f"{server_url}/api/l2/feat-auth/generate", {})
-        job_id = create_body["job_id"]
-
-        status, body = _get(f"{server_url}/api/update/status/{job_id}")
-
-        assert status == 200
-        assert body["job_id"] == job_id
-        assert body["status"] in ("pending", "running", "completed", "failed")
-
     def test_status_unknown_job_returns_404(self, server_url):
         """GET /api/update/status/nonexistent returns 404."""
         status, body = _get(f"{server_url}/api/update/status/nonexistent-job-id")
 
         assert status == 404
         assert body["error"]["code"] == "job_not_found"
-
-
-# ---------------------------------------------------------------------------
-# Test: POST /api/layer-explanation/<feature_id>/<layer>/generate
-# ---------------------------------------------------------------------------
-
-
-class TestPostLayerExplanationGenerate:
-    def test_generate_returns_202(self, server_url):
-        """POST /api/layer-explanation/feat-auth/l1/generate returns 202."""
-        status, body = _post(
-            f"{server_url}/api/layer-explanation/feat-auth/l1/generate", {}
-        )
-
-        assert status == 202
-        assert "job_id" in body
-
-    def test_generate_invalid_layer_returns_400(self, server_url):
-        """POST /api/layer-explanation/feat-auth/l99/generate returns 400."""
-        status, body = _post(
-            f"{server_url}/api/layer-explanation/feat-auth/l99/generate", {}
-        )
-
-        assert status == 400
-        assert body["error"]["code"] == "invalid_layer"
 
 
 # ---------------------------------------------------------------------------
