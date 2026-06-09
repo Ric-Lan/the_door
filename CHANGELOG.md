@@ -8,6 +8,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+「丙案＝控制經結構強制」campaign：把執行模型重塑成「工具化 + blocking hook gate」，讓 agent 走唯一一條結構性強制的 agent-as-LLM 路徑；並據此**終局移除所有 API-key 介面**（provider、`analyze` / `update` 鏈、provider 設定）。終態＝零 API key、單一路徑。
+
+### Added
+- **`edge_residue` MCP 工具（T2）**：零-token／零-key 的確定性工具，把邊噪音殘餘（高 fanout 過濾、動態 dispatch caller 級聚合）落盤 `.the-door/edge-residue.json`，供 agent 觀察；同時是 L1 鏈的免-key 補件。
+- **執行序 blocking-hook gate（C3 + C4）**：`snapshot_write` 在目標 codebase 無 `edge-residue.json` 前被 deny、stderr 教學指回 `edge_residue`（兌現 extract→residue→write 順序鎖）；co-require 的 C4 擋臨時 inline-python／獨立 `.py` 腳本繞過 MCP 工具的逃生口。放行 `python -m`(pytest／the_door／pip)／pytest／pip／git／the-door。
+- **退場護欄測試**：`test_retired_keypath_surfaces.py` 釘樁已退場的 CLI 命令與 MCP 工具不得復現。
+
+### Changed
+- **唯一路徑文件化**：`CLAUDE.md`、`README` 改寫成單一 agent-as-LLM 路徑（extract_structure → agent 產 L1 → edge_residue → snapshot_write），移除所有「需要 API key」敘述與決策分叉。
+- **既有 jq-based guard hook 轉 python**：本機 jq 系統性缺席會讓 jq hook 靜默失效；prototype-edit 守衛與 `the-door serve` 守衛改為純 python（與 C3／C4 一致、jq-free、fail-open）。
+
+### Removed
+- **LLM provider 全棧（T5-P）**：`core/llm/{provider,openai_provider,anthropic_provider,ollama_provider}.py`、`config_manager.py`、`TheDoorConfig` / `CostEstimate` 模型、`the-door config` 命令、`SystemState.has_api_key` / `api_provider` 偵測。The Door 不再內建任何 provider 或 API-key 設定。
+- **analyze key-path 全棧（T5-A）**：`the-door analyze` / `update` / `estimate` / `regenerate` CLI 命令與同名 MCP 工具；`analyze_pipeline` / `pipeline_orchestrator` / `report_renderer` / `batch_reader` / `cost_estimator` / prompts 等核心執行器；viewer 後端 analyze/update/status 端點與 job store。
+- **viewer 生成路退場（T5-V）**：L2／層解釋／diff 解釋三條 key-bound POST 生成路與前端 onboarding 精靈（wizard）／update modal；viewer 改為純顯示（保留所有 GET 與 onboarding 卡）。
+- **dead code 清理**：`response_parser.py` + `ParseResult`（provider 移除後成孤兒）。
+- models facade：79 → 68 個型別（移除 analyze/pipeline 執行型別、provider 設定型別、ParseResult）。
+
+### Notes
+- **尚未發版／未 bump 版號**：本 campaign 已在 local main 完成並通過全套測試（Python 0 failed、viewer 0 failed），但尚未指定新版號、未 tag、未 push。
+- **契約**：移除 `SystemState.has_api_key` / `api_provider` 屬於 `/api/status` 輸出的減法變更，已同步更新契約測試；snapshot 契約版本戳不受影響（仍 `"1"`）。
+
 ---
 
 ## v1.6.5 — 2026-06-07

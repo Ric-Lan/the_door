@@ -20,7 +20,6 @@ from .analysis import (
     L2Module, ModuleInteraction, Anomaly, L2Output,
     NarrativeNodeRead, NarrativeRecord,
 )
-from .config import ParseResult
 from .vulnerability import (
     VulnerabilityEntry, DatabaseFreshness, ScanResult,
     VulnerabilitySummaryEntry, VulnerabilitySummary, VulnerabilityDiffSummary,
@@ -55,7 +54,6 @@ __all__ = [
     "L1_5Block", "BlockRelation", "InfrastructureBlock", "L1_5Output",
     "L2Module", "ModuleInteraction", "Anomaly", "L2Output",
     "NarrativeNodeRead", "NarrativeRecord",
-    "ParseResult",
     "VulnerabilityEntry", "DatabaseFreshness", "ScanResult",
     "VulnerabilitySummaryEntry", "VulnerabilitySummary", "VulnerabilityDiffSummary",
     "FeatureSummary", "BlockSummary", "RelationSummary", "BaselineInfo", "VersionSnapshot",

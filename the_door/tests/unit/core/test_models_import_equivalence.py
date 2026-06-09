@@ -19,8 +19,6 @@ EXPECTED_NAMES = [
     "L1_5Block", "BlockRelation", "InfrastructureBlock", "L1_5Output",
     "L2Module", "ModuleInteraction", "Anomaly", "L2Output",
     "NarrativeNodeRead", "NarrativeRecord",
-    # config (TheDoorConfig / CostEstimate removed in T5-A — zero-key terminal state)
-    "ParseResult",
     # vulnerability
     "VulnerabilityEntry", "DatabaseFreshness", "ScanResult",
     "VulnerabilitySummaryEntry", "VulnerabilitySummary", "VulnerabilityDiffSummary",
@@ -43,11 +41,12 @@ EXPECTED_NAMES = [
 ]
 
 
-def test_expected_names_count_is_69():
+def test_expected_names_count_is_68():
     # T5-A removed 8 analyze/pipeline-execution model types (79 → 71), then
-    # TheDoorConfig + CostEstimate (provider config, 71 → 69).
-    assert len(EXPECTED_NAMES) == 69
-    assert len(set(EXPECTED_NAMES)) == 69  # no duplicates
+    # TheDoorConfig + CostEstimate (provider config, 71 → 69); the follow-up
+    # cleanup removed the dead ParseResult (response_parser orphan, 69 → 68).
+    assert len(EXPECTED_NAMES) == 68
+    assert len(set(EXPECTED_NAMES)) == 68  # no duplicates
 
 
 def test_all_names_importable_from_the_door_models():

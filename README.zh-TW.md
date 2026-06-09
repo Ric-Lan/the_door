@@ -10,7 +10,9 @@
 
 ## 這是什麼
 
-The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼，透過 LLM（或經由支援 MCP 的 AI 平台）翻譯成「功能語言」——用一般人的話描述系統能做什麼、改了什麼、有沒有異常。
+The Door 是一個命令列工具 + MCP Server + 本地 UI。由支援 MCP 的 AI 平台（Claude Code、Kiro…）驅動，它讀取程式碼、翻譯成「功能語言」——用一般人的話描述系統能做什麼、改了什麼、有沒有異常。
+
+**The Door 不內建任何 LLM provider、不需要 API key。** 驅動它的 AI agent 就是 LLM：The Door 確定性地抽取程式碼結構，agent 產出自然語言層，The Door 負責持久化。見 [零 API key — 唯一路徑](#零-api-key--唯一路徑)。
 
 **給誰用：** PM、專案經理、發布經理、QA、甲方——任何需要確認「開發產出是否符合承諾」但不讀程式碼的人。
 
@@ -18,17 +20,16 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
 
 | 能力 | 說明 |
 |---|---|
-| 功能翻譯 | 程式碼 → 功能語言圖形（互動式 + Mermaid fallback）+ 自然語言敘述 |
+| 功能翻譯 | 程式碼 → 功能語言圖形（互動式 + Mermaid fallback）+ agent 撰寫的自然語言敘述 |
 | 版本比對 | 兩個版本之間改了什麼，風險項目優先顯示 |
-| 增量更新 | 只重新分析「source nodes 有變動」的功能——比對本身不呼叫 LLM |
+| 增量更新 | 只重新分析「source nodes 有變動」的功能——比對本身是純 AST、不呼叫 LLM |
 | 範圍驗核 | PM 定義 sprint 範圍 → 自動比對 → 標記超出範圍項目 |
 | 漏洞掃描 | 依賴套件的已知 CVE，整合到功能圖形中 |
 | 功能演進 | 多版本時間軸，追蹤功能從何時出現、改了幾次 |
 | 疑義追蹤 | 發現異常 → 標記疑義 → 指派 → 解決（含超時升級） |
-| 本地 UI | 瀏覽器工作台，互動式圖形，三層導覽（L1 → L2 → L3） |
-| Scope-aware 關聯邊 | 跨檔關聯邊帶 `resolution` 標籤（`scope_rule` / `import_alias` / `name_match` / `skipped_dynamic`），LLM 可區分高低信心邊，不再把所有裸名匹配同等對待 |
-| **邊噪音投影** | LLM 收到的關聯邊已過濾高候選量噪音、動態 dispatch 邊聚合成 caller 散文 hint；snapshot 與 viewer 仍保留完整事實。 |
-| **Onboarding 雙欄精靈** | 視覺化的「開門→分析→進入 Viewer」三段體驗，含即時 file-level 進度 feed | v1.5.0 |
+| Scope-aware 關聯邊 | 跨檔關聯邊帶 `resolution` 標籤（`scope_rule` / `import_alias` / `name_match` / `skipped_dynamic`），agent 可區分高低信心邊，不再把所有裸名匹配同等對待 |
+| 邊噪音殘餘 | `edge_residue` MCP 工具過濾高候選量噪音、把動態 dispatch 邊聚合成 caller 級 hint（確定性、零 token）；snapshot 與 viewer 仍保留完整事實 |
+| 本地 UI | 瀏覽器工作台，互動式圖形，三層導覽（L1 → L2 → L3），唯顯示 |
 
 ---
 
@@ -38,13 +39,23 @@ The Door 是一個命令列工具 + MCP Server + 本地 UI。它讀取程式碼�
 pip install the-door
 ```
 
-需 Python ≥ 3.10。選配：`osv-scanner`（漏洞掃描）、`ollama`（本地 LLM）。
+需 Python ≥ 3.10。選配：`osv-scanner`（漏洞掃描）。
 
 ---
 
-## 三條起手路線
+## 零 API key — 唯一路徑
 
-挑一條符合你情境的。第一條最安全——它會先盤點你的專案、告訴你**你**應該下哪條命令。
+The Door **沒有 LLM provider**、**沒有 `analyze` / `update` / `config` 命令**。每一個需要自然語言的步驟都由 AI agent 經 MCP 完成（agent-as-LLM）。只有一條路徑：
+
+```
+extract_structure  →  （agent 識別 L1 功能）  →  edge_residue  →  snapshot_write
+```
+
+`extract_structure` 與 `edge_residue` 確定性、純本地執行；agent 提供自然語言層；`snapshot_write` 持久化。一個 PreToolUse gate 強制這個順序（`edge_residue` 產物未在前，`snapshot_write` 會被 deny）。完整工具呼叫序列見 [`CLAUDE.md`](CLAUDE.md)。
+
+---
+
+## 兩條起手路線
 
 ### 1. `the-door status` —— 不確定專案目前在什麼狀態時
 
@@ -52,9 +63,9 @@ pip install the-door
 the-door status ./my-project
 ```
 
-它會回報專案是否分析過、原始碼是否有變動，並印出一個 **`Next:`** 區塊——明確告訴你下一條該跑的命令。冷啟動時先跑這個。
+它會回報專案是否分析過、原始碼是否有變動，並印出一個 **`Next:`** 區塊——明確告訴你**你**的下一步。冷啟動時先跑這個。
 
-### 2. 透過 AI 平台用 MCP —— 不需要 API key
+### 2. 透過 AI 平台用 MCP —— 分析路徑
 
 如果你用 **Claude Code**、**Kiro IDE** 或其他支援 MCP 的 AI 工具，分析由 AI 自己完成——The Door 只負責讀取程式碼、寫入結果。
 
@@ -74,42 +85,21 @@ the-door status ./my-project
 
 AI 完整的工具呼叫序列見 [`CLAUDE.md`](CLAUDE.md)。
 
-### 3. 直接驅動 CLI —— 你有自己的 LLM API key
-
-```bash
-the-door config init    # 一次性設定，填入 OpenAI / Anthropic / Ollama key
-the-door analyze ./my-project
-```
-
 ---
 
 ## 典型使用順序
 
-### A. 第一次分析（建立基準）
+### A. 第一次分析（建立基準）—— 由 agent 驅動
 
-```bash
-the-door analyze ./my-project
-```
+透過 MCP，請你的 AI agent 分析專案。它會跑 `extract_structure` → 識別 L1 功能 → `edge_residue` → `snapshot_write`，把快照存於 `.the-door/snapshots/`。不需要 API key、沒有 provider——agent 就是 LLM。
 
-跑完整 pipeline：AST 抽取 → LLM 功能識別 → 漏洞掃描 → 自動建立快照存於 `.the-door/snapshots/`。輸出尾巴會印一個 **`Next:`** 區塊告訴你下一步。
+沒有 `the-door analyze` 命令；第一次分析一律由 agent 驅動。
 
-預設會把節點完整的 signature、docstring、decorators 送給 LLM 以提升描述品質。如果你 token 預算有限，加 `--minimal-context` 退回到只送 node_id 的舊模式：
+### B. 程式碼改動後（增量更新）
 
-```bash
-the-door analyze ./my-project --minimal-context
-```
+請 agent 對 baseline 跑 `analyze_changes`，它只回傳「source nodes 有變動」的功能；agent 只重產那些功能、再以 `inherit_from` 呼叫 `snapshot_write`，未變動的功能自動繼承。比對本身是**純 AST**——不呼叫 LLM。
 
-### B. 程式碼改動後（增量更新——比對不需要 API key）
-
-如果你已經有 baseline 快照、只想看「現在跟那個版本差什麼」：
-
-```bash
-the-door update --from-snapshot v1.0 ./my-project
-```
-
-重新抽取當前的 AST、跟 baseline 的持久化結構比對、把每筆變動歸給對應的功能。這一步是**純 AST + diff**——不呼叫 LLM、不需要 API key。第一次 `analyze` 之後的日常 loop 就用這條。
-
-只想 CLI 看一下差異、不打算寫新快照？
+只想 CLI 看一下對某個舊快照的差異、不打算寫新快照？
 
 ```bash
 the-door diff ./my-project --baseline v1.0
@@ -121,27 +111,27 @@ the-door diff ./my-project --baseline v1.0
 the-door ui ./my-project
 ```
 
-在 `http://127.0.0.1:8765` 打開三欄工作台：左 = 功能列表 / 變更列表（風險優先）、中 = 互動式圖形（Cytoscape.js）、右 = 詳細面板含 Before/After。三層導覽：L1 功能總覽 → L2 模組圖 → L3 source node 圖。
+在 `http://127.0.0.1:8765` 打開三欄工作台：左 = 功能列表 / 變更列表（風險優先）、中 = 互動式圖形、右 = 詳細面板。三層導覽：L1 功能總覽 → L2 模組圖 → L3 source node 圖。Viewer 唯顯示——它讀取已持久化的快照，不呼叫任何 LLM。
 
 ### D. 補既有快照缺失的結構檔
 
-如果 `update --from-snapshot` 抱怨 baseline 沒有持久化 AST（通常是該快照建立時還沒有 structures cache），而你還留著當時的原始碼：
+如果 `analyze_changes` 抱怨 baseline 沒有持久化 AST（通常是該快照建立時還沒有 structures cache），而你還留著當時的原始碼：
 
 ```bash
 the-door extract --as-version v1.0 ./baseline-source
 ```
 
-不需要 API key——這條命令重新抽取 AST、存到 `.the-door/structures/<vid>.json.gz`，之後 `update --from-snapshot` 就能正常跑。
+不需要 API key——這條命令重新抽取 AST、存到 `.the-door/structures/<vid>.json.gz`，之後增量分析就能正常跑。
 
 ---
 
 ## Snapshot 參考格式
 
-任何吃 baseline 參數的命令／工具（`--baseline`、`--from-snapshot`、`inherit_from`）都接受以下五種格式：
+任何吃 baseline 參數的命令／工具（`--baseline`、`inherit_from`）都接受以下五種格式：
 
 | 格式 | 例 | 說明 |
 |---|---|---|
-| Snapshot label | `v1.0.0`、`my-baseline` | 你跑 `analyze` 時明確指定的 |
+| Snapshot label | `v1.0.0`、`my-baseline` | `snapshot_write` 時明確指定的 |
 | Git tag | `v1.0.0` | 該快照當下 commit 上的 tag |
 | 日期 | `2026-05-06` | 解析為「該日或之前」最新的一筆快照 |
 | Commit SHA（≥7 字元） | `8de9b18` | |
@@ -151,27 +141,19 @@ Viewer 的版本選擇器優先用 `git_tags[0]` → `label` → `version_id`，
 
 ---
 
-## 設定
-
-`the-door config init` 會建立 `~/.the-door/config.toml`，支援 OpenAI / Anthropic / Ollama 三種 provider。環境變數 `THE_DOOR_OPENAI_KEY`、`THE_DOOR_ANTHROPIC_KEY`、`THE_DOOR_OLLAMA_URL` 優先於設定檔。
-
-完整參考（每個命令、每個 flag、每個 API endpoint）見 [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md)。
-
----
-
 ## 架構概覽（一句話）
 
 ```
 程式碼 → AST 抽取（tree-sitter，305+ 語言）
        → 拓撲分析（相依排序，純本地）
-       → [LLM 翻譯 OR 快取的 baseline 結構]
+       → [agent-as-LLM 翻譯 OR 快取的 baseline 結構]
        → 輸出驗核 + Mermaid 圖 + JSON 報告
-       → 本地 UI（互動式圖形工作台）
+       → 本地 UI（唯顯示的圖形工作台）
 ```
 
-同一個前段、兩條後段路徑：LLM 路徑（首次分析或重分析）、增量路徑（比對當前 AST 對既有 baseline，不呼叫 LLM）。快照本地優先存放；唯一的網路呼叫是 LLM 本身。
+同一個前段、兩條後段路徑：**agent-as-LLM 路徑**（首次分析或重分析，由你的 MCP agent 驅動）、**增量路徑**（比對當前 AST 對既有 baseline，不呼叫 LLM）。一切本地優先——The Door 不內建 provider、自身不發任何 LLM 網路呼叫。
 
-> **v1.6.0 — 內部結構強化（零行為改動）。** HTTP API 層、資料模型、快照參照解析、疑義生命週期各自收斂成單一真相來源模組（`core/ui/api/`、`models/`、`BaselineResolver`、`DoubtLifecycle`），快照持久化改走單一 fail-closed 契約 chokepoint。CLI / MCP / viewer 行為逐位元不變；完整重構歷程見 [CHANGELOG](CHANGELOG.md)。
+> **終態 — 零 API key（丙案 / T5）。** The Door 曾內建選配的 LLM provider 與 `analyze` / `update` key-path，現已完全退場：沒有 provider、沒有 API key、沒有 provider 設定。唯一支援路徑是 agent-as-LLM，由一個 PreToolUse 執行序 gate 結構性強制。完整 campaign 歷程見 [CHANGELOG](CHANGELOG.md)。
 
 ---
 
