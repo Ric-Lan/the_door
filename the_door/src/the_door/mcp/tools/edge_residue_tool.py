@@ -4,9 +4,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from the_door.core.checklist import STAGE_EDGE_RESIDUE, checklist_path, stamp_stage
 from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.llm.edge_projection import project_edges_for_prompt
 from the_door.mcp.tools._response_envelope import wrap
+from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
 
 TOOL_SCHEMA = {
     "type": "object",
@@ -48,8 +50,24 @@ async def execute(arguments: dict) -> dict:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # C2: stamp the execution checklist so the snapshot_write gate can verify
+    # node-coverage + contract currency (not just artifact existence). A stamp
+    # failure must surface — silently "succeeding" would leave the agent stuck at
+    # a deny it can't explain.
+    covered_nodes = sorted({n.node_id for n in extraction.nodes})
+    try:
+        stamp_stage(
+            codebase_path,
+            STAGE_EDGE_RESIDUE,
+            covered_nodes=covered_nodes,
+            contract_version=SNAPSHOT_CONTRACT_VERSION,
+        )
+    except Exception as exc:  # disk / permission — fail loud, not silent
+        return {"error": f"checklist stamp failed: {exc}"}
+
     payload = {
         "artifact_path": str(out_path),
+        "checklist_path": str(checklist_path(codebase_path)),
         "indeterminate_count": len(residue["indeterminate"]),
         "low_confidence_count": len(residue["low_confidence_ambiguous"]),
         "total_edges": len(edge_dicts),

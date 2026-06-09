@@ -51,7 +51,7 @@ The Door **沒有 LLM provider**、**沒有 `analyze` / `update` / `config` 命�
 extract_structure  →  （agent 識別 L1 功能）  →  edge_residue  →  snapshot_write
 ```
 
-`extract_structure` 與 `edge_residue` 確定性、純本地執行；agent 提供自然語言層；`snapshot_write` 持久化。一個 PreToolUse gate 強制這個順序（`edge_residue` 產物未在前，`snapshot_write` 會被 deny）。完整工具呼叫序列見 [`CLAUDE.md`](CLAUDE.md)。
+`extract_structure` 與 `edge_residue` 確定性、純本地執行；agent 提供自然語言層；`snapshot_write` 持久化。一個 PreToolUse gate 強制這個順序：`edge_residue` 會蓋一份執行 checklist，gate 在 checklist 未蓋章／版本過期／要寫的 node 未被涵蓋時 deny `snapshot_write`。完整工具呼叫序列見 [`CLAUDE.md`](CLAUDE.md)。
 
 ---
 

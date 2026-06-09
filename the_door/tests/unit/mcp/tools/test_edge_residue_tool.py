@@ -19,13 +19,18 @@ from the_door.mcp.tools import edge_residue_tool
 
 
 def _fake_extraction(edges):
-    """edges＝[(from, to, resolution), ...] → 帶 .edges 的假 extraction。"""
+    """edges＝[(from, to, resolution), ...] → 帶 .edges + .nodes 的假 extraction。
+
+    .nodes 由 edge 端點推導（union of from/to），供 C2 checklist 蓋章記 covered_nodes。
+    """
     Edge = types.SimpleNamespace
+    node_ids = sorted({f for (f, _t, _r) in edges} | {t for (_f, t, _r) in edges})
     return types.SimpleNamespace(
         edges=[
             Edge(from_node=f, to_node=t, type="call", resolution=r)
             for (f, t, r) in edges
-        ]
+        ],
+        nodes=[types.SimpleNamespace(node_id=nid) for nid in node_ids],
     )
 
 
@@ -106,6 +111,36 @@ def test_determinism(monkeypatch, tmp_path):
     assert first == second
 
 
+def test_c2_5_stamps_checklist(monkeypatch, tmp_path):
+    """C2-5：edge_residue 蓋章 checklist；covered_nodes==sorted node_ids、contract 當前、payload 含 checklist_path。"""
+    from the_door.core.checklist import (
+        STAGE_EDGE_RESIDUE, FIELD_STAGES, FIELD_COVERED_NODES, FIELD_CONTRACT_VERSION, read_checklist,
+    )
+    from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+
+    _patch_extract(monkeypatch, [("a", "B.run", "scope_rule"), ("c", "a", "scope_rule")])
+    result = asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+
+    assert "checklist_path" in result
+    data = read_checklist(tmp_path)
+    assert data[FIELD_CONTRACT_VERSION] == SNAPSHOT_CONTRACT_VERSION
+    covered = data[FIELD_STAGES][STAGE_EDGE_RESIDUE][FIELD_COVERED_NODES]
+    assert covered == ["B.run", "a", "c"]  # sorted union of edge endpoints
+
+
+def test_c2_5b_stamp_failure_surfaces(monkeypatch, tmp_path):
+    """C2-5b：stamp_stage 失敗（patch 匯入端 ref）→ execute 回 error，不靜默成功。"""
+    _patch_extract(monkeypatch, [("a", "B.run", "scope_rule")])
+
+    def _boom(*a, **k):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("the_door.mcp.tools.edge_residue_tool.stamp_stage", _boom)
+    result = asyncio.run(edge_residue_tool.execute({"codebase_path": str(tmp_path)}))
+    assert "error" in result
+    assert "checklist" in result["error"]
+
+
 def test_e2e_real_extraction(tmp_path):
     """E2E smoke：真 extraction（input-only fixture）→ artifact 鍵齊全、counts int≥0。
 
@@ -134,3 +169,12 @@ def test_e2e_real_extraction(tmp_path):
     }
     for key in ("indeterminate_count", "low_confidence_count", "total_edges", "kept_edges"):
         assert isinstance(result[key], int) and result[key] >= 0
+
+    # C2 §5 護欄：真實 codebase 跑 edge_residue → checklist 生成、covered_nodes 非空。
+    from the_door.core.checklist import (
+        STAGE_EDGE_RESIDUE, FIELD_STAGES, FIELD_COVERED_NODES, read_checklist,
+    )
+    checklist = read_checklist(target)
+    assert checklist is not None
+    covered = checklist[FIELD_STAGES][STAGE_EDGE_RESIDUE][FIELD_COVERED_NODES]
+    assert len(covered) > 0

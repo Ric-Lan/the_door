@@ -12,7 +12,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **`edge_residue` MCP 工具（T2）**：零-token／零-key 的確定性工具，把邊噪音殘餘（高 fanout 過濾、動態 dispatch caller 級聚合）落盤 `.the-door/edge-residue.json`，供 agent 觀察；同時是 L1 鏈的免-key 補件。
-- **執行序 blocking-hook gate（C3 + C4）**：`snapshot_write` 在目標 codebase 無 `edge-residue.json` 前被 deny、stderr 教學指回 `edge_residue`（兌現 extract→residue→write 順序鎖）；co-require 的 C4 擋臨時 inline-python／獨立 `.py` 腳本繞過 MCP 工具的逃生口。放行 `python -m`(pytest／the_door／pip)／pytest／pip／git／the-door。
+- **執行序 blocking-hook gate（C3 + C4）**：`snapshot_write` 在目標 codebase 無前置 artifact 前被 deny、stderr 教學指回 `edge_residue`（兌現 extract→residue→write 順序鎖）；co-require 的 C4 擋臨時 inline-python／獨立 `.py` 腳本繞過 MCP 工具的逃生口。放行 `python -m`(pytest／the_door／pip)／pytest／pip／git／the-door。
+- **checklist schema gate（C2）**：把 C3 的「artifact 存在性」升級成結構化、versioned 的執行 checklist（`.the-door/checklist.json`，掛 `SNAPSHOT_CONTRACT_VERSION`）。`edge_residue` 完成時自動蓋章並記錄 covered node 集；C3 gate 改驗三件＝stage 已蓋章＋contract_version 當前＋**node-coverage**（要寫的 `source_nodes` ⊆ 已涵蓋集，validity 讀法）。新增 `core/checklist.py`（單一真相來源）＋ drift-pin（hook 字面 vs 模組常數，含負向驗證）。完整 staleness（刪除/原地改、mtime）仍明確 deferred。
 - **退場護欄測試**：`test_retired_keypath_surfaces.py` 釘樁已退場的 CLI 命令與 MCP 工具不得復現。
 
 ### Changed

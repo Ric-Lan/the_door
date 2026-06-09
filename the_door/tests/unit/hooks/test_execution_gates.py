@@ -31,30 +31,103 @@ def run_hook(script: str, payload: dict | None = None, *, raw: str | None = None
     return r.returncode, r.stderr
 
 
-# ── C3: gate snapshot_write on edge-residue artifact ──────────────────
+# ── C3 gate (C2-upgraded): gate snapshot_write on the checklist ───────
+# C2 replaced the bare edge-residue.json existence check with a checklist that
+# carries node-coverage + contract currency.
 
-def test_c3_artifact_missing_denies(tmp_path):
+from the_door.core.checklist import STAGE_EDGE_RESIDUE, stamp_stage  # noqa: E402
+from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION  # noqa: E402
+
+
+def _write(payload, codebase_path, source_nodes=None, updated_nodes=None):
+    ti = {"codebase_path": str(codebase_path)}
+    if source_nodes is not None:
+        ti["l1_features"] = [{"feature_id": "feat-x", "source_nodes": source_nodes}]
+    if updated_nodes is not None:
+        ti["updated_features"] = [{"feature_id": "feat-y", "source_nodes": updated_nodes}]
+    return run_hook(C3, {"tool_input": ti})
+
+
+def test_c2_6_no_checklist_denies(tmp_path):
     rc, err = run_hook(C3, {"tool_input": {"codebase_path": str(tmp_path)}})
     assert rc == 2
-    assert "edge_residue" in err  # 教學訊息指回工具（誠實紅：缺腳本時 stderr 不含此）
+    assert "edge_residue" in err
 
 
-def test_c3_artifact_present_allows(tmp_path):
-    art = tmp_path / ".the-door"
-    art.mkdir()
-    (art / "edge-residue.json").write_text("{}", encoding="utf-8")
+def test_c2_7_stamped_and_covered_allows(tmp_path):
+    # producer↔reader honesty: build the checklist via the real stamp_stage.
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a", "b"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, _ = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 0
+
+
+def test_c2_8_uncovered_node_denies(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, err = _write({}, tmp_path, source_nodes=["a", "zzz"])
+    assert rc == 2
+    assert "coverage" in err or "涵蓋" in err
+
+
+def test_c2_9_stale_contract_version_denies(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="0")
+    rc, _ = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 2
+
+
+def test_c2_10_updated_features_covered(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, _ = _write({}, tmp_path, updated_nodes=["nope"])
+    assert rc == 2
+
+
+def test_c2_11_empty_source_nodes_allows(tmp_path):
+    # checklist stamped (isolate existence) + no source_nodes (inherit-only) → allow.
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
     rc, _ = run_hook(C3, {"tool_input": {"codebase_path": str(tmp_path)}})
     assert rc == 0
 
 
-def test_c3_no_codebase_path_allows():
-    rc, _ = run_hook(C3, {"tool_input": {}})
-    assert rc == 0  # fail-open
+def test_c2_12_corrupt_checklist_denies(tmp_path):
+    art = tmp_path / ".the-door"
+    art.mkdir()
+    (art / "checklist.json").write_text("{not json", encoding="utf-8")
+    rc, _ = run_hook(C3, {"tool_input": {"codebase_path": str(tmp_path)}})
+    assert rc == 2
 
 
-def test_c3_non_json_allows():
+def test_c2_13_failopen_non_json_and_no_path(tmp_path):
     rc, _ = run_hook(C3, raw="not json at all")
-    assert rc == 0  # fail-open
+    assert rc == 0
+    rc, _ = run_hook(C3, {"tool_input": {}})
+    assert rc == 0
+
+
+# ── C2 drift-pin: hook literals match the_door constants ──────────────
+
+def _c3_source() -> str:
+    return (HOOKS_DIR / C3).read_text(encoding="utf-8")
+
+
+def test_c2_14_hook_contract_version_pins_constant():
+    src = _c3_source()
+    assert f'"{SNAPSHOT_CONTRACT_VERSION}"' in src
+    # the hook's hardcoded current version must equal the authoritative constant
+    import the_door.core.checklist as ck  # noqa: F401 (ensure importable)
+    assert SNAPSHOT_CONTRACT_VERSION == "1"
+
+
+def test_c2_15_hook_field_names_pin_checklist_module():
+    import the_door.core.checklist as ck
+    src = _c3_source()
+    for const in (ck.CHECKLIST_FILENAME, ck.FIELD_STAGES, ck.STAGE_EDGE_RESIDUE,
+                  ck.FIELD_COVERED_NODES, ck.FIELD_CONTRACT_VERSION):
+        assert const in src, f"hook missing checklist field literal {const!r}"
+    # negative control: a field that does not exist must NOT be found (pin is real)
+    assert "__nonexistent_field__" not in src
 
 
 # ── C4: block native python code-exec ────────────────────────────────

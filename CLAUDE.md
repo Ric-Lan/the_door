@@ -188,9 +188,13 @@ For the input/output schemas of each MCP tool see
    `feature_id` must start with `feat-`. `confidence` is `high` / `medium` / `low`.
 
 3. `edge_residue(codebase_path="./my-project")`
-   → Persists `.the-door/edge-residue.json` (edge-noise residue). This is a
-   prerequisite for `snapshot_write` — the C3 execution-order gate denies
-   `snapshot_write` until this artifact exists.
+   → Persists `.the-door/edge-residue.json` (edge-noise residue) **and stamps
+   `.the-door/checklist.json`** (the execution checklist, recording the node set
+   it covered). This is a prerequisite for `snapshot_write` — the C2/C3
+   execution-order gate denies `snapshot_write` unless the checklist's
+   `edge_residue` stage is stamped, its `contract_version` is current, **and
+   every `source_node` you write is within the covered set** (re-run
+   `edge_residue` if you changed the code and reference new nodes).
 
 4. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
    → Returns `version_id`, `label`.
@@ -226,7 +230,8 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
 2. You re-derive only the affected features (same JSON shape as above).
 
 3. `edge_residue(codebase_path="./new-project")` — refresh the edge-residue
-   artifact (C3 gate prerequisite for `snapshot_write`).
+   artifact and re-stamp the checklist (C2/C3 gate prerequisite; also refreshes
+   the covered node set so the new features' `source_nodes` pass coverage).
 
 4. `snapshot_write(codebase_path="./new-project", l1_features=[...], relations=[...],
    label="v1.0.5", inherit_from="v1.0.0")` — unchanged features are inherited.

@@ -52,7 +52,7 @@ The Door has **no LLM provider** and **no `analyze` / `update` / `config` comman
 extract_structure  →  (agent identifies L1 features)  →  edge_residue  →  snapshot_write
 ```
 
-`extract_structure` and `edge_residue` are deterministic and run locally; the agent supplies the natural-language layer; `snapshot_write` persists it. A PreToolUse gate enforces this order (it denies `snapshot_write` until the `edge_residue` artifact exists). The full tool-call sequence is documented in [`CLAUDE.md`](CLAUDE.md).
+`extract_structure` and `edge_residue` are deterministic and run locally; the agent supplies the natural-language layer; `snapshot_write` persists it. A PreToolUse gate enforces this order: `edge_residue` stamps an execution checklist, and the gate denies `snapshot_write` unless that checklist is current and the nodes being written are covered by it. The full tool-call sequence is documented in [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
