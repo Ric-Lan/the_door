@@ -17,7 +17,6 @@ document.body.innerHTML = `
       <div class="topbar-actions">
         <button id="btn-back-l1"   type="button" hidden>← L1</button>
         <button id="btn-mindmap"   type="button">心智圖</button>
-        <button id="btn-reanalyze" type="button">重新分析</button>
       </div>
       <div class="status-strip">
         <span id="count-added"   >新增 0</span>
@@ -29,10 +28,6 @@ document.body.innerHTML = `
 
     <div id="summary-band"><p id="summary-text">載入中…</p></div>
     <div id="diff-mode-banner" hidden></div>
-    <div id="pipeline-progress" hidden>
-      <span id="current-step"></span>
-      <ul id="steps-list"></ul>
-    </div>
     <div id="breadcrumb"></div>
 
     <main class="workspace">
@@ -62,14 +57,4 @@ document.body.innerHTML = `
 
   <div id="graph-backdrop" hidden></div>
   <button id="btn-graph-toggle" type="button">関聯圖</button>
-
-  <div id="update-modal" hidden>
-    <input id="input-old-path" type="text">
-    <input id="input-new-path" type="text">
-    <select id="input-language"><option value="zh-Hant">繁體中文</option></select>
-    <div id="modal-error" hidden></div>
-    <p id="modal-project-hint" hidden></p>
-    <button id="btn-modal-cancel" type="button">取消</button>
-    <button id="btn-modal-submit" type="button">開始分析</button>
-  </div>
 `;

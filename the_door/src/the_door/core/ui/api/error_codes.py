@@ -82,18 +82,6 @@ ERROR_CODES: dict[str, ErrCode] = {
         desc="Failed to read the report file.",
     ),
 
-    # --- job / async-job domain ---------------------------------------------
-    "job_not_found": ErrCode(
-        http=404,
-        file="core/ui/api/handlers/analysis.py",
-        desc="Job not found.",
-    ),
-    "job_already_running": ErrCode(
-        http=409,
-        file="core/ui/api/handlers/analysis.py",
-        desc="A pipeline job is already running. Please wait for it to complete.",
-    ),
-
     # --- analysis input validation ------------------------------------------
     "missing_required_field": ErrCode(
         http=400,

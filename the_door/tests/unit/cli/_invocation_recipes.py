@@ -37,13 +37,6 @@ def _diff_args(tmp_path: Path) -> tuple[list[str], str | None]:
     return [str(tmp_path), "--baseline", "v0.0.0"], "--json"
 
 
-def _update_args(tmp_path: Path) -> tuple[list[str], str | None]:
-    # update needs two paths; create a second dir
-    other = tmp_path / "_new"
-    other.mkdir(exist_ok=True)
-    return [str(tmp_path), str(other)], "--json"
-
-
 def _validate_args(tmp_path: Path) -> tuple[list[str], str | None]:
     # validate takes two file paths; pass missing files → command will exit(1) → skip
     return [str(tmp_path / "missing-output.json"), str(tmp_path / "missing-structure.json")], None
@@ -53,16 +46,8 @@ def _scan_args(tmp_path: Path) -> tuple[list[str], str | None]:
     return [str(tmp_path)], "--json"
 
 
-def _estimate_args(tmp_path: Path) -> tuple[list[str], str | None]:
-    return [str(tmp_path)], None
-
-
 def _history_args(tmp_path: Path) -> tuple[list[str], str | None]:
     return [str(tmp_path)], None
-
-
-def _regenerate_args(tmp_path: Path) -> tuple[list[str], str | None]:
-    return ["feat-example"], None
 
 
 def _render_args(tmp_path: Path) -> tuple[list[str], str | None]:
@@ -136,15 +121,11 @@ RECIPES: dict[str, Recipe] = {
     # projects has no required args; will succeed listing zero projects.
     "projects": _no_args,
     # The rest are spec-design-skips on minimal seed.
-    "analyze": _path_only,
     "extract": _path_only,
     "diff": _diff_args,
-    "update": _update_args,
     "validate": _validate_args,
     "scan": _scan_args,
-    "estimate": _estimate_args,
     "history": _history_args,
-    "regenerate": _regenerate_args,
     "render": _render_args,
     "timeline": _timeline_args,
     "config.init": _config_init_args,

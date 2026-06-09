@@ -15,19 +15,9 @@ export async function fetchSnapshots() {
   return res.json();
 }
 
-export async function postUpdate(oldPath, newPath, lang) {
-  const res = await fetch(`${API_BASE}/api/update`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ old_path: oldPath, new_path: newPath, output_language: lang }),
-  });
-  return res.json();
-}
-
-export async function fetchJobStatus(jobId) {
-  const res = await fetch(`${API_BASE}/api/update/status/${jobId}`, { cache: "no-store" });
-  return res.json();
-}
+// postUpdate / fetchJobStatus removed in T5-A (丙案): the /api/update analyze
+// key-path and its job polling were retired; version updates go through the
+// agent-as-LLM chain (extract_structure → snapshot_write) instead.
 
 export async function fetchL1Graph(versionId = null) {
   const url = versionId

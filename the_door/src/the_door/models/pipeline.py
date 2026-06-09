@@ -1,79 +1,25 @@
-"""Realtime pipeline + report data models (and pipeline exceptions)."""
+"""Update-report data models (the persisted diff-report structure).
+
+T5-A: the analyze/update execution models (AnalyzeConfig, AnalyzeResult,
+StepTimeouts, PipelineConfig, PipelineResult, PipelineError, AnalyzeError,
+CostConfirmationRequired) were removed with the key-bound analyze pipeline.
+What remains is the *report* data cluster — the structure of the persisted
+update-report JSON that the viewer's diff/report display path reads.
+PipelineStep/PipelineSummary remain only as the nested shape of L3Appendix /
+UpdateReport (no execution engine produces them anymore; they describe
+already-persisted reports).
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
-
-from .analysis import L1Output
-from .diff import DiffResult
-from .scope import ScopeResult
-from .snapshot import VersionSnapshot
-from .timeline import TimelineResult
-from .vulnerability import ScanResult
 
 
-@dataclass(frozen=True)
-class AnalyzeConfig:
-    """分析管線的配置參數。"""
-
-    provider: str | None = None
-    model: str | None = None
-    skip_cost_confirm: bool = False
-    offline_vuln: bool = False
-    timeout_seconds: int = 300
-    extra_ignore: list[str] | None = None
-    snapshot_label: str | None = None
-    context_mode: str = "detail"
-
-
-@dataclass(frozen=True)
-class AnalyzeResult:
-    """分析管線的完整結果。"""
-
-    snapshot: VersionSnapshot
-    l1_output: L1Output
-    l1_output_data: dict
-    scan_result: ScanResult
-    file_fingerprint: dict[str, tuple[int, float]]
-    total_batches: int
-    total_tokens: int
-
-
-# === Pipeline Configuration ===
-
-
-@dataclass(frozen=True)
-class StepTimeouts:
-    """各管線步驟的超時秒數（immutable）。"""
-
-    analyze_old: int = 300
-    analyze_new: int = 300
-    diff: int = 30
-    scope_verify: int = 30
-    timeline: int = 30
-    report: int = 30
-
-
-@dataclass(frozen=True)
-class PipelineConfig:
-    """版本更新管線的完整配置。"""
-
-    old_path: Path
-    new_path: Path
-    analyze_config: AnalyzeConfig = field(default_factory=AnalyzeConfig)
-    scope_name: str | None = None
-    skip_timeline: bool = False
-    force_reanalyze: bool = False
-    step_timeouts: StepTimeouts = field(default_factory=StepTimeouts)
-    output_language: str = "zh-Hant"
-
-
-# === Pipeline Execution State ===
+# === Pipeline summary (nested report shape) ===
 
 
 @dataclass(frozen=True)
 class PipelineStep:
-    """管線中的單一執行步驟狀態（僅記錄終態）。"""
+    """管線中的單一執行步驟狀態（僅記錄終態；報告結構用）。"""
 
     step_name: str
     status: str  # "completed" | "failed" | "skipped"
@@ -85,7 +31,7 @@ class PipelineStep:
 
 @dataclass(frozen=True)
 class PipelineSummary:
-    """管線執行摘要。"""
+    """管線執行摘要（報告結構用）。"""
 
     old_path: str
     new_path: str
@@ -155,7 +101,7 @@ class DiffChangeExplanation:
 
 @dataclass(frozen=True)
 class UpdateReport:
-    """版本更新報告的完整結構化資料。"""
+    """版本更新報告的完整結構化資料（持久化於 .the-door，viewer 顯示用）。"""
 
     report_version: str = "1.0.0"
     generated_at: str = ""
@@ -167,52 +113,3 @@ class UpdateReport:
     interrupted: bool = False
     output_language: str = "zh-Hant"
     diff_change_explanations: list[DiffChangeExplanation] = field(default_factory=list)
-
-
-# === Pipeline Result ===
-
-
-@dataclass(frozen=True)
-class PipelineResult:
-    """管線執行的完整結果。"""
-
-    config: PipelineConfig
-    steps: list[PipelineStep] = field(default_factory=list)
-    old_snapshot: VersionSnapshot | None = None
-    new_snapshot: VersionSnapshot | None = None
-    diff_result: DiffResult | None = None
-    scope_result: ScopeResult | None = None
-    timeline_result: TimelineResult | None = None
-    scan_result_old: ScanResult | None = None
-    scan_result_new: ScanResult | None = None
-    total_duration_ms: int = 0
-    interrupted: bool = False
-
-
-# === Phase 5: Custom exceptions ===
-
-
-class PipelineError(Exception):
-    """管線執行錯誤（不可恢復）。"""
-
-    def __init__(self, step_name: str, message: str):
-        self.step_name = step_name
-        super().__init__(f"Pipeline error at '{step_name}': {message}")
-
-
-class AnalyzeError(Exception):
-    """分析管線錯誤。"""
-
-    pass
-
-
-class CostConfirmationRequired(Exception):
-    """需要使用者確認 LLM 呼叫成本。"""
-
-    def __init__(self, estimated_cost: float, total_tokens: int):
-        self.estimated_cost = estimated_cost
-        self.total_tokens = total_tokens
-        super().__init__(
-            f"Estimated cost: ${estimated_cost:.4f} ({total_tokens} tokens). "
-            "Confirmation required."
-        )

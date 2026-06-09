@@ -18,13 +18,6 @@ vi.mock('../js/ui-detail.js', () => ({
   initDetailTabs: vi.fn(),
 }));
 
-vi.mock('../js/ui-modal.js', () => ({
-  showUpdateModal: vi.fn(),
-  hideUpdateModal: vi.fn(),
-  showModalError: vi.fn(),
-  submitUpdate: vi.fn(),
-}));
-
 vi.mock('../js/layers.js', () => ({
   loadL1Graph: vi.fn().mockResolvedValue(undefined),
   switchToL1: vi.fn(),
@@ -54,7 +47,6 @@ import { els } from '../js/dom.js';
 import * as uiTopbar from '../js/ui-topbar.js';
 import * as uiList from '../js/ui-list.js';
 import * as uiDetail from '../js/ui-detail.js';
-import * as uiModal from '../js/ui-modal.js';
 import * as layers from '../js/layers.js';
 import * as graph from '../js/graph.js';
 import * as viewmodel from '../js/viewmodel.js';
@@ -84,8 +76,6 @@ function resetState() {
 
 function resetDom() {
   els.summaryText.textContent = '';
-  els.inputOldPath.value = '';
-  els.inputNewPath.value = '';
   const appShell = document.querySelector('.app-shell');
   if (appShell) appShell.classList.remove('diff-mode');
   const banner = document.getElementById('diff-mode-banner');
@@ -794,83 +784,6 @@ describe('event bindings (via init)', () => {
     els.btnCurrent.click();
     await new Promise(r => setTimeout(r, 0));
     expect(state.mode).toBe('current');
-  });
-
-  it('btnReanalyze click → showUpdateModal', () => {
-    els.btnReanalyze.click();
-    expect(uiModal.showUpdateModal).toHaveBeenCalled();
-  });
-
-  it('btnModalCancel click → hideUpdateModal', () => {
-    els.btnModalCancel.click();
-    expect(uiModal.hideUpdateModal).toHaveBeenCalled();
-  });
-
-  it('btnModalSubmit — both paths empty → showModalError, no submit', () => {
-    els.inputOldPath.value = '   ';
-    els.inputNewPath.value = '';
-    els.btnModalSubmit.click();
-    expect(uiModal.showModalError).toHaveBeenCalled();
-    expect(uiModal.submitUpdate).not.toHaveBeenCalled();
-  });
-
-  it('btnModalSubmit — only oldPath empty → showModalError', () => {
-    els.inputOldPath.value = '';
-    els.inputNewPath.value = '/new';
-    els.btnModalSubmit.click();
-    expect(uiModal.showModalError).toHaveBeenCalled();
-  });
-
-  it('btnModalSubmit — only newPath empty → showModalError', () => {
-    els.inputOldPath.value = '/old';
-    els.inputNewPath.value = '';
-    els.btnModalSubmit.click();
-    expect(uiModal.showModalError).toHaveBeenCalled();
-  });
-
-  it('btnModalSubmit — both paths set → hideUpdateModal + submitUpdate with callbacks', () => {
-    els.inputOldPath.value = '/old';
-    els.inputNewPath.value = '/new';
-    els.btnModalSubmit.click();
-    expect(uiModal.hideUpdateModal).toHaveBeenCalled();
-    expect(uiModal.submitUpdate).toHaveBeenCalledWith('/old', '/new', expect.objectContaining({
-      onComplete: expect.any(Function),
-      onError: expect.any(Function),
-    }));
-  });
-
-  it('submitUpdate onComplete with null projectStatus — loadFromApi early-returns', async () => {
-    state.projectStatus = null;
-    els.inputOldPath.value = '/old';
-    els.inputNewPath.value = '/new';
-    els.btnModalSubmit.click();
-    const submitCallbacks = uiModal.submitUpdate.mock.calls[0][2];
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
-    });
-    submitCallbacks.onComplete();
-    await new Promise(r => setTimeout(r, 10));
-    // No /api/report/latest fetch — loadFromApi returned early
-    expect(fetchSpy.mock.calls.some(c => c[0].includes('/api/report/latest'))).toBe(false);
-  });
-
-  it('submitUpdate onComplete callback re-runs loadFromApi (uses existing projectStatus)', async () => {
-    // Simulate prior projectStatus from earlier load
-    state.projectStatus = { available_data: { has_latest_report: true } };
-    els.inputOldPath.value = '/old';
-    els.inputNewPath.value = '/new';
-    els.btnModalSubmit.click();
-    const submitCallbacks = uiModal.submitUpdate.mock.calls[0][2];
-    // Mock fetch — onComplete should re-fetch /api/report/latest via loadReport
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-      if (url.includes('/api/report/latest')) return Promise.resolve({
-        ok: true, status: 200, json: async () => ({ l1_changes: [{ feature_id: 'new' }] }),
-      });
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
-    });
-    submitCallbacks.onComplete();
-    await new Promise(r => setTimeout(r, 10));
-    expect(fetchSpy.mock.calls.some(c => c[0].includes('/api/report/latest'))).toBe(true);
   });
 
   it('btnGraphToggle click → openGraphDrawer', () => {

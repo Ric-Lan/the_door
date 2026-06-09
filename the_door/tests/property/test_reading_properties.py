@@ -14,7 +14,6 @@ from hypothesis import given, settings, assume, note
 from hypothesis import strategies as st
 
 from the_door.core.reading.pruning_engine import PruningEngine
-from the_door.core.reading.batch_reader import BatchReader
 from the_door.core.reading.narrative_chain import NarrativeChain
 from the_door.core.reading.source_reviewer import SourceReviewer
 from the_door.models import (

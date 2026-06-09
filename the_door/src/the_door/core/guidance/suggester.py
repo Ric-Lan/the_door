@@ -9,20 +9,10 @@ _Rule = tuple[Callable[[SystemState], bool], tuple[ActionContext, ...], _Factory
 
 
 def _rule_first_time(state, context):
-    path = state.project_path.as_posix()
-    if context == "mcp":
-        return NextAction(id="analyze.first_time", title="首次分析這個專案",
-                          rationale="專案尚未建立 .the-door/，先跑首次分析。", priority=1,
-                          mcp_tool="analyze", mcp_arguments={"codebase_path": path})
-    return NextAction(id="analyze.first_time", title="首次分析這個專案",
-                      rationale="專案尚未建立 .the-door/，先跑首次分析。", priority=1,
-                      cli_command=f"the-door analyze {path}")
-
-
-def _rule_first_time_mode_b(state, context):
-    return NextAction(id="analyze.first_time.mode_b",
-                      title="首次分析（無 API key，agent 模式）",
-                      rationale="無 API key — 改用 MCP extract_structure。", priority=1,
+    return NextAction(id="extract.first_time",
+                      title="首次分析這個專案（agent-as-LLM）",
+                      rationale="專案尚未建立 .the-door/ — 用 extract_structure 抽結構，由 agent 產 L1 後 snapshot_write。",
+                      priority=1,
                       mcp_tool="extract_structure",
                       mcp_arguments={"codebase_path": state.project_path.as_posix()})
 
@@ -35,22 +25,11 @@ def _rule_snapshot_write_first(state, context):
 
 
 def _rule_incremental(state, context):
-    path = state.project_path.as_posix()
     label = state.latest_snapshot.label or state.latest_snapshot.version_id
-    if context == "mcp":
-        return NextAction(id="analyze.incremental", title="分析新版本（繼承既有 baseline）",
-                          rationale="已有 baseline + API key。", priority=2,
-                          mcp_tool="update", mcp_arguments={"codebase_path": path, "from_snapshot": label})
-    return NextAction(id="analyze.incremental", title="分析新版本（繼承既有 baseline）",
-                      rationale="已有 baseline + API key。", priority=2,
-                      cli_command=f"the-door update --from-snapshot {label} {path}")
-
-
-def _rule_fetch_diff(state, context):
-    label = state.latest_snapshot.label or state.latest_snapshot.version_id
-    return NextAction(id="analyze_changes.fetch_diff",
-                      title="計算 AST 差異供 agent 推論",
-                      rationale="無 API key — 由 agent 看 AST 差異。", priority=2,
+    return NextAction(id="analyze_changes.incremental",
+                      title="分析新版本（繼承既有 baseline）",
+                      rationale="已有 baseline — 用 analyze_changes 取受影響功能，由 agent 重產後 snapshot_write(inherit_from)。",
+                      priority=2,
                       mcp_tool="analyze_changes",
                       mcp_arguments={"codebase_path": state.project_path.as_posix(), "baseline": label})
 
@@ -84,10 +63,12 @@ def _rule_backfill(state, context):
 
 
 def _rule_repair_drift(state, context):
-    return NextAction(id="analyze.repair_drift",
-                      title="重跑 analyze 修復 source_nodes 漂移",
-                      rationale="偵測到 source_nodes_drift 警告。", priority=6,
-                      cli_command=f"the-door analyze {state.project_path.as_posix()}")
+    label = state.latest_snapshot.label or state.latest_snapshot.version_id
+    return NextAction(id="extract.repair_drift",
+                      title="修復 source_nodes 漂移（重抽結構，無需 API key）",
+                      rationale="偵測到 source_nodes_drift — 重跑 extract 後用 snapshot_patch 補 source_nodes。",
+                      priority=6,
+                      cli_command=f"the-door extract --as-version {label} <baseline_source_path>")
 
 
 def _rule_system_status(state, context):
@@ -112,11 +93,9 @@ def _rule_onboarding(state, context):
 
 
 _RULES: list[_Rule] = [
-    (lambda s: not s.has_dot_the_door and s.has_api_key, ("cli", "mcp"), _rule_first_time),
-    (lambda s: not s.has_dot_the_door and not s.has_api_key, ("mcp",), _rule_first_time_mode_b),
+    (lambda s: not s.has_dot_the_door, ("cli", "mcp"), _rule_first_time),
     (lambda s: s.has_structure_json and not s.snapshots, ("mcp", "after_error"), _rule_snapshot_write_first),
-    (lambda s: len(s.snapshots) >= 1 and s.has_api_key, ("cli", "mcp"), _rule_incremental),
-    (lambda s: len(s.snapshots) >= 1 and not s.has_api_key, ("mcp",), _rule_fetch_diff),
+    (lambda s: len(s.snapshots) >= 1, ("cli", "mcp"), _rule_incremental),
     (lambda s: len(s.snapshots) >= 2, ("cli", "viewer"), _rule_viewer_open),
     (lambda s: len(s.snapshots) >= 2, ("cli",), _rule_diff_cli),
     (lambda s: bool(s.snapshots) and not all(e.has_persisted_structure for e in s.snapshots), ("cli", "after_error"), _rule_backfill),

@@ -179,30 +179,7 @@ class TestGetDiff:
         assert body["error"]["code"] == "missing_params"
 
 
-class TestPostAnalyze:
-    """POST /api/analyze"""
-
-    def test_valid_body_returns_202_with_job_id(self, server_url):
-        # analyze kicks off a background job immediately; no API key needed to
-        # get the 202 envelope.
-        status, body = _post(f"{server_url}/api/analyze", {})
-        assert status == 202
-        assert "job_id" in body
-
-    def test_invalid_json_returns_400(self, server_url):
-        status, body = _post_raw(f"{server_url}/api/analyze", b"{not json")
-        assert status == 400
-        assert body["error"]["code"] == "invalid_json"
-
-    def test_second_call_while_job_running_returns_409(self, server_url):
-        # Start first job
-        _post(f"{server_url}/api/analyze", {})
-        # Immediately try to start a second — likely still running
-        status, body = _post(f"{server_url}/api/analyze", {})
-        # Either 202 (first already finished extremely fast) or 409 conflict
-        assert status in (202, 409)
-        if status == 409:
-            assert body["error"]["code"] == "job_already_running"
+# TestPostAnalyze removed in T5-A: POST /api/analyze (key-bound analysis job) retired.
 
 
 class TestPostSetProject:

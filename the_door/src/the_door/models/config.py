@@ -1,36 +1,13 @@
-"""LLM / configuration data models."""
+"""LLM response-parsing data models.
+
+Provider configuration models (TheDoorConfig / CostEstimate) were removed in
+T5-A (丙案): The Door's terminal state has no API-key interface — the single
+path is agent-as-LLM (extract_structure → snapshot_write), so there is no
+provider/api-key/cost configuration to model.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-
-@dataclass
-class TheDoorConfig:
-    """Parsed configuration for The Door one-click mode."""
-
-    default_provider: str = "openai"
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o"
-    anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-4-20250514"
-    ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3:8b"
-    max_retries: int = 3
-    timeout_seconds: int = 120
-    cost_warning_threshold: float = 1.00
-
-
-@dataclass
-class CostEstimate:
-    """Estimated API cost for a codebase analysis."""
-
-    total_input_tokens: int = 0
-    total_output_tokens: int = 0
-    estimated_cost_usd: float = 0.0
-    provider: str = ""
-    model: str = ""
-    batch_count: int = 0
-    is_local: bool = False
 
 
 @dataclass

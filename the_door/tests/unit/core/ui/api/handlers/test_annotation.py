@@ -7,11 +7,10 @@ import pytest
 
 from the_door.core.ui.api.context import APIContext
 from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
-from the_door.core.ui.job_store import JobStore
 
 
 def _ctx(tmp_path: Path) -> APIContext:
-    return APIContext(lambda: tmp_path, lambda: JobStore(), lambda p, f: {})
+    return APIContext(lambda: tmp_path, lambda p, f: {})
 
 
 class TestGetNotes:

@@ -20,19 +20,18 @@ import the_door.models as M
 
 # ── (a) the façade must export exactly these 79 names ────────────────────
 EXPECTED_NAMES = set(M.__all__)
-EXPECTED_COUNT = 79
+# T5-A removed 8 analyze/pipeline-execution types (AnalyzeConfig/AnalyzeResult/
+# StepTimeouts/PipelineConfig/PipelineResult/PipelineError/AnalyzeError/
+# CostConfirmationRequired): 79 → 71, then TheDoorConfig + CostEstimate
+# (provider config): 71 → 69.
+EXPECTED_COUNT = 69
 
 # ── (c) the designed cross-module edge set (module -> module) ────────────
-# Derived from the 2026-06-02 measurement; see spec §5.2.
+# T5-A: pipeline now holds only the report-data cluster (no cross-module
+# references), so all ("pipeline", *) edges are gone.
 EXPECTED_MODULE_EDGES = {
     ("snapshot", "vulnerability"),
     ("diff", "snapshot"),
-    ("pipeline", "analysis"),
-    ("pipeline", "snapshot"),
-    ("pipeline", "vulnerability"),
-    ("pipeline", "diff"),
-    ("pipeline", "scope"),
-    ("pipeline", "timeline"),
 }
 
 SUBMODULES = [

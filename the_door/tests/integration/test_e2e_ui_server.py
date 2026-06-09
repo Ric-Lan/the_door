@@ -504,56 +504,11 @@ class TestGetTimeline:
 
 
 # ---------------------------------------------------------------------------
-# Test: POST /api/update (validation only — no actual pipeline run)
+# T5-A: POST /api/analyze, POST /api/update, GET /api/update/status retired
+# (key-bound analysis jobs gone in the zero-API-key terminal state). Their E2E
+# test classes (TestPostUpdate, TestGetUpdateStatus) were removed accordingly.
+# (T5-V earlier removed the L2/layer generate E2E classes.)
 # ---------------------------------------------------------------------------
-
-
-class TestPostUpdate:
-    def test_missing_fields_returns_400(self, server_url):
-        """POST /api/update with missing fields returns 400."""
-        status, body = _post(f"{server_url}/api/update", {})
-
-        assert status == 400
-        assert body["error"]["code"] == "missing_required_field"
-
-    def test_nonexistent_old_path_returns_400(self, server_url, tmp_path):
-        """POST /api/update with nonexistent old_path returns 400."""
-        status, body = _post(f"{server_url}/api/update", {
-            "old_path": str(tmp_path / "nonexistent"),
-            "new_path": str(tmp_path / "also_nonexistent"),
-        })
-
-        assert status == 400
-        assert body["error"]["code"] == "invalid_path"
-
-    def test_same_path_returns_400(self, server_url, tmp_path):
-        """POST /api/update with same old_path and new_path returns 400."""
-        same_dir = tmp_path / "same"
-        same_dir.mkdir()
-        status, body = _post(f"{server_url}/api/update", {
-            "old_path": str(same_dir),
-            "new_path": str(same_dir),
-        })
-
-        assert status == 400
-        assert body["error"]["code"] == "same_path"
-
-
-# ---------------------------------------------------------------------------
-# T5-V (丙案 D1): POST /api/l2/.../generate and /api/layer-explanation/.../generate
-# were retired. Their E2E test classes (TestPostL2Generate, TestPostLayerExplanationGenerate)
-# and TestGetUpdateStatus.test_status_after_l2_generate were removed accordingly.
-# The surviving job-status endpoint is still covered below.
-# ---------------------------------------------------------------------------
-
-
-class TestGetUpdateStatus:
-    def test_status_unknown_job_returns_404(self, server_url):
-        """GET /api/update/status/nonexistent returns 404."""
-        status, body = _get(f"{server_url}/api/update/status/nonexistent-job-id")
-
-        assert status == 404
-        assert body["error"]["code"] == "job_not_found"
 
 
 # ---------------------------------------------------------------------------

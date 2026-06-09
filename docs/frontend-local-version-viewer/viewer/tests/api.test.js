@@ -4,8 +4,6 @@ import {
   fetchProjectStatus,
   fetchLatestReport,
   fetchSnapshots,
-  postUpdate,
-  fetchJobStatus,
   fetchL1Graph,
   fetchDiff,
   fetchL2Graph,
@@ -152,42 +150,8 @@ describe('api.js', () => {
     });
   });
 
-  describe('postUpdate', () => {
-    it('sends POST to /api/update with JSON body containing three fields', async () => {
-      fetchSpy = mockFetch({ job_id: '123' });
-      await postUpdate('/old', '/new', 'zh-Hant');
-      expect(fetchSpy).toHaveBeenCalledWith('/api/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ old_path: '/old', new_path: '/new', output_language: 'zh-Hant' }),
-      });
-    });
-
-    it('returns json data', async () => {
-      const data = { job_id: 'abc' };
-      mockFetch(data);
-      const result = await postUpdate('/old', '/new', 'zh-Hant');
-      expect(result).toEqual(data);
-    });
-  });
-
-  describe('fetchJobStatus', () => {
-    it('calls /api/update/status/<jobId>', async () => {
-      fetchSpy = mockFetch({ status: 'running' });
-      await fetchJobStatus('job-1');
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/update/status/job-1',
-        { cache: 'no-store' }
-      );
-    });
-
-    it('returns json data', async () => {
-      const data = { status: 'completed' };
-      mockFetch(data);
-      const result = await fetchJobStatus('job-1');
-      expect(result).toEqual(data);
-    });
-  });
+  // postUpdate / fetchJobStatus tests removed in T5-A (丙案): the /api/update
+  // analyze key-path and its job-status polling were retired.
 
   describe('fetchStructure', () => {
     it('calls /api/structure with cache no-store', async () => {

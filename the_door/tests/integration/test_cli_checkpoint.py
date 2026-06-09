@@ -18,49 +18,8 @@ def _make_feature_summary(fid: str) -> FeatureSummary:
     )
 
 
-# ── analyze_cmd + no-api-key CHECKPOINT ───────────────────────────────────────
-
-def test_analyze_no_api_key_choice_a_shows_mcp_guidance(tmp_path):
-    """analyze with no API key + choice A → prints MCP guidance, exits 0."""
-    runner = CliRunner()
-    with patch("os.environ.get", return_value=None), \
-         patch("the_door.core.llm.config_manager.ConfigManager.load") as mock_load:
-        mock_cfg = mock_load.return_value
-        mock_cfg.anthropic_api_key = None
-        mock_cfg.openai_api_key = None
-        with patch("builtins.input", return_value="A"):
-            result = runner.invoke(main, ["analyze", str(tmp_path)])
-    assert "[CHECKPOINT: no-api-key]" in result.output
-    assert "extract_structure" in result.output
-    assert result.exit_code == 0
-
-
-def test_analyze_no_api_key_choice_b_shows_config_hint(tmp_path):
-    """analyze with no API key + choice B → prints config hint, exits 0."""
-    runner = CliRunner()
-    with patch("os.environ.get", return_value=None), \
-         patch("the_door.core.llm.config_manager.ConfigManager.load") as mock_load:
-        mock_cfg = mock_load.return_value
-        mock_cfg.anthropic_api_key = None
-        mock_cfg.openai_api_key = None
-        with patch("builtins.input", return_value="B"):
-            result = runner.invoke(main, ["analyze", str(tmp_path)])
-    assert "[CHECKPOINT: no-api-key]" in result.output
-    assert result.exit_code == 0
-
-
-def test_analyze_no_api_key_invalid_then_valid(tmp_path):
-    """analyze with no API key + invalid input Z then A → error shown, then MCP guidance."""
-    runner = CliRunner()
-    with patch("os.environ.get", return_value=None), \
-         patch("the_door.core.llm.config_manager.ConfigManager.load") as mock_load:
-        mock_cfg = mock_load.return_value
-        mock_cfg.anthropic_api_key = None
-        mock_cfg.openai_api_key = None
-        with patch("builtins.input", side_effect=["Z", "A"]):
-            result = runner.invoke(main, ["analyze", str(tmp_path)])
-    assert "⚠" in result.output or "無效" in result.output
-    assert "extract_structure" in result.output
+# T5-A: analyze_cmd + no-api-key CHECKPOINT tests removed — the `analyze` command
+# (and the whole API-key concept) was retired; agent-as-LLM is the only path.
 
 
 # ── status_cmd + project-not-initialized CHECKPOINT ───────────────────────────

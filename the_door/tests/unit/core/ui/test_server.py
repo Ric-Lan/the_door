@@ -60,10 +60,12 @@ def test_method_not_allowed_on_get_endpoint(running_server):
 
 
 def test_invalid_json_body_returns_400(running_server):
-    """POST /api/update with non-JSON body should return 400 invalid_json."""
+    """POST a surviving route with non-JSON body should return 400 invalid_json.
+
+    (T5-A: /api/update retired; use /api/notes, a surviving mutating route.)"""
     server, port = running_server
     conn = HTTPConnection("127.0.0.1", port, timeout=5)
-    conn.request("POST", "/api/update", body=b"NOT JSON", headers={"Content-Type": "application/json"})
+    conn.request("POST", "/api/notes", body=b"NOT JSON", headers={"Content-Type": "application/json"})
     resp = conn.getresponse()
     assert resp.status == 400
     body = json.loads(resp.read())

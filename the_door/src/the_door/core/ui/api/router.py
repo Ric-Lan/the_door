@@ -131,15 +131,15 @@ class Router:
 # Route table assembly
 # ---------------------------------------------------------------------------
 
-def build_routes(p, a, c, g, d, n) -> list[Route]:
-    """p/a/c/g/d/n = Project/Analysis/Catalog/Graph/Diff/Annotation handler instances."""
+def build_routes(p, c, g, d, n) -> list[Route]:
+    """p/c/g/d/n = Project/Catalog/Graph/Diff/Annotation handler instances.
+
+    (T5-A: Analysis handler removed — analyze/update are key-bound and retired;
+    the viewer is display-only over already-analyzed snapshots.)"""
     return [
         Route("GET",  "/api/project",                              p.get,        summary="讀取當前專案狀態與基本資訊"),
         Route("POST", "/api/set-project",                          p.set_project,summary="切換當前分析的目標專案"),
         Route("GET",  "/api/status",                               p.status,     summary="回報當前專案狀態與建議下一步"),
-        Route("POST", "/api/analyze",                              a.analyze,    summary="啟動完整分析的非同步任務（需 API key）"),
-        Route("POST", "/api/update",                              a.update,    summary="啟動增量更新分析的非同步任務"),
-        Route("GET",  "/api/update/status/{job_id}",               a.update_status, summary="查詢指定分析任務的進度"),
         Route("GET",  "/api/snapshots",                            c.snapshots,  summary="列出所有版本快照"),
         Route("GET",  "/api/timeline",                             c.timeline,   summary="回傳跨版本時間軸"),
         Route("GET",  "/api/report/latest",                        c.report_latest, summary="讀取最近一次分析報告"),

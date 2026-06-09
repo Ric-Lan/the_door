@@ -14,17 +14,15 @@ def test_systemstate_json_keys_match_viewer_consumer():
     from pathlib import Path
     state = SystemState(project_path=Path("/x"), has_dot_the_door=False,
                         has_structure_json=False, snapshots=(),
-                        l2_features_analyzed=frozenset(),
-                        has_api_key=False, api_provider=None, warnings=())
+                        l2_features_analyzed=frozenset(), warnings=())
     produced = to_json_dict(state)
 
-    # CONSUMER SIDE — what the viewer's onboarding card reads (05.6) MUST be present:
+    # CONSUMER SIDE — what the viewer's onboarding card reads (05.6) MUST be present.
+    # has_api_key / api_provider were removed in T5-A (丙案): zero API-key terminal
+    # state, single agent-as-LLM path — the viewer no longer reads provider state.
     required_keys = {
         "project_path", "has_dot_the_door", "has_snapshots", "latest_snapshot",
-        "snapshots", "warnings", "has_api_key", "api_provider",
+        "snapshots", "warnings",
     }
     missing = required_keys - set(produced.keys())
     assert missing == set(), f"viewer consumer needs {missing} but producer doesn't emit them"
-
-    # Also: the api_provider type contract — viewer expects null OR one of three strings
-    assert produced["api_provider"] in (None, "anthropic", "openai", "ollama")

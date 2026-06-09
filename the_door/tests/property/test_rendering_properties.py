@@ -15,7 +15,6 @@ from hypothesis import given, settings, assume, note
 from hypothesis import strategies as st
 
 from the_door.core.rendering.mermaid_renderer import MermaidRenderer
-from the_door.core.rendering.cost_estimator import CostEstimator
 from the_door.core.reading.narrative_chain import NarrativeChain
 from the_door.models import (
     Feature,
@@ -31,7 +30,6 @@ from the_door.models import (
     ASTNode,
     FileInfo,
     TopologyEntry,
-    CostEstimate,
 )
 
 
@@ -324,29 +322,8 @@ class TestNarrativeChainSchemaConformance:
         assert record.modified_nodes is not None
 
 
-# ============================================================================
-# Property 23: Cost estimation scales with structure size
-# ============================================================================
-
-
-class TestCostEstimationScaling:
-    """Property 23: Larger structures produce higher or equal token estimates."""
-
-    @given(data=structure_pair_for_cost())
-    def test_more_nodes_means_more_tokens(self, data):
-        """Structure A (more nodes) has >= tokens than structure B (fewer nodes)."""
-        structure_a, structure_b = data
-
-        assert len(structure_a.nodes) > len(structure_b.nodes)
-
-        estimator = CostEstimator(provider_name="openai", model_name="gpt-4o")
-
-        estimate_a = estimator.estimate(structure_a)
-        estimate_b = estimator.estimate(structure_b)
-
-        assert estimate_a.total_input_tokens >= estimate_b.total_input_tokens
-        assert estimate_a.total_output_tokens >= estimate_b.total_output_tokens
-
+# Property 23 (Cost estimation scaling) removed in T5-A: CostEstimator retired
+# with the analyze key-path (cost gate gone in zero-API-key terminal state).
 
 # ============================================================================
 # Property 30: Mermaid syntax validity

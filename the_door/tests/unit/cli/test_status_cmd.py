@@ -6,16 +6,15 @@ import json
 from click.testing import CliRunner
 
 
-def test_status_on_empty_dir_suggests_analyze(tmp_path, monkeypatch):
-    # Ensure API key is detected so the suggester surfaces the CLI `analyze`
-    # first-time rule. Without this, the CLI surface falls back to status/help.
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+def test_status_on_empty_dir_suggests_first_extract(tmp_path, monkeypatch):
+    # Zero-key terminal state (T5-A): the first-time rule surfaces the
+    # agent-as-LLM extract_structure path (no API key, no `analyze` command).
     from the_door.cli.main import main  # adapted from spec's `import cli`
 
     result = CliRunner().invoke(main, ["status", str(tmp_path)])
     assert result.exit_code == 0, (result.output or "") + (result.stderr or "")
     assert "Next:" in result.stderr
-    assert "the-door analyze" in result.stderr
+    assert "extract_structure" in result.stderr
 
 
 def test_status_json_mode_emits_json(tmp_path, monkeypatch):

@@ -44,7 +44,6 @@
         <div class="topbar-actions">
           <button id="btn-back-l1" class="action-button secondary" type="button" hidden>← L1</button>
           <button id="btn-mindmap"  class="action-button"           type="button">心智圖</button>
-          <button id="btn-reanalyze" class="action-button"          type="button">重新分析</button>
         </div>
 
         <div class="status-strip" aria-label="analysis status">
@@ -72,15 +71,6 @@
       <div id="diff-mode-banner" class="diff-mode-banner" hidden>
         <span class="diff-mode-dot"></span>
         <span><strong>DIFF MODE</strong> — 以紅綠標示變動的功能。無變動項以灰色淡化，點選可還原。</span>
-      </div>
-
-      <!-- Pipeline progress -->
-      <div id="pipeline-progress" class="pipeline-progress" hidden>
-        <div class="progress-header">
-          <span class="progress-title">正在分析…</span>
-          <span id="current-step" class="current-step"></span>
-        </div>
-        <ul id="steps-list" class="steps-list"></ul>
       </div>
 
       <div id="breadcrumb"></div>
@@ -165,30 +155,6 @@
       <span class="graph-toggle-icon">⊞</span>
       <span class="graph-toggle-label">關聯圖</span>
     </button>
-
-    <!-- Update modal -->
-    <div id="update-modal" class="modal-overlay" hidden>
-      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <h2 id="modal-title">重新分析</h2>
-        <p>請輸入舊版與新版的絕對目錄路徑。兩個路徑必須是不同的目錄，且都必須在專案根目錄下。</p>
-        <p id="modal-project-hint" class="modal-hint" hidden></p>
-        <label for="input-old-path">舊版路徑（old_path）</label>
-        <input id="input-old-path" type="text" placeholder="例：C:\Users\...\project\v1" autocomplete="off">
-        <label for="input-new-path">新版路徑（new_path）</label>
-        <input id="input-new-path" type="text" placeholder="例：C:\Users\...\project\v2" autocomplete="off">
-        <label for="input-language">結果語言</label>
-        <select id="input-language">
-          <option value="zh-Hant" selected>繁體中文 zh-Hant</option>
-          <option value="en">English en</option>
-        </select>
-        <p class="modal-hint">請選擇本次分析結果的呈現語言。這只影響報告與差異推論文字，不影響程式碼解析。</p>
-        <div id="modal-error" class="modal-error" hidden></div>
-        <div class="modal-actions">
-          <button id="btn-modal-cancel" type="button" class="modal-btn modal-btn-cancel">取消</button>
-          <button id="btn-modal-submit" type="button" class="modal-btn modal-btn-submit">開始分析</button>
-        </div>
-      </div>
-    </div>
 
     <script type="module">
       import { init } from "./js/app.js";

@@ -6,12 +6,6 @@ import { renderTopBar, updateLogoMark } from "./ui-topbar.js";
 import { renderChangeList, applyCardFilters } from "./ui-list.js";
 import { renderDetailPanel, renderError, initDetailTabs } from "./ui-detail.js";
 import {
-  showUpdateModal,
-  hideUpdateModal,
-  showModalError,
-  submitUpdate,
-} from "./ui-modal.js";
-import {
   loadL1Graph,
   switchToL1,
   switchToL2,
@@ -139,7 +133,7 @@ async function loadFromApi() {
   } else {
     state.updateModel = null;
     els.summaryText.textContent =
-      "尚未有分析報告。請執行 the-door update 或點擊「重新分析」。";
+      "尚未有分析報告。請用 agent 跑 extract_structure → snapshot_write 產生快照。";
   }
 
   if (ad.has_snapshots) {
@@ -291,23 +285,6 @@ export function init() {
   els.btnDiff.addEventListener("click", () => setMode("diff"));
   els.btnBaseline.addEventListener("click", () => setMode("baseline"));
   els.btnCurrent.addEventListener("click", () => setMode("current"));
-  els.btnReanalyze.addEventListener("click", () => showUpdateModal());
-  els.btnModalCancel.addEventListener("click", () => hideUpdateModal());
-  els.btnModalSubmit.addEventListener("click", () => {
-    const oldPath = els.inputOldPath.value.trim();
-    const newPath = els.inputNewPath.value.trim();
-    if (!oldPath || !newPath) {
-      showModalError("請輸入舊版與新版路徑。");
-      return;
-    }
-    hideUpdateModal();
-    submitUpdate(oldPath, newPath, {
-      onComplete: () => {
-        loadFromApi();
-      },
-      onError: renderError,
-    });
-  });
   els.btnGraphToggle?.addEventListener("click", openGraphDrawer);
   els.btnDrawerClose?.addEventListener("click", closeGraphDrawer);
   els.graphBackdrop?.addEventListener("click", closeGraphDrawer);

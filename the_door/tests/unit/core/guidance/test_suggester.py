@@ -7,36 +7,36 @@ from the_door.core.guidance.state import StateWarning, SystemState
 from the_door.core.guidance.suggester import NextActionSuggester
 
 
-def test_suggester_empty_state_suggests_first_analyze():
+def test_suggester_empty_state_suggests_first_extract():
     state = SystemState(
         project_path=Path("/x"),
         has_dot_the_door=False,
         has_structure_json=False,
         snapshots=(),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     actions = NextActionSuggester().suggest(state, context="cli")
     assert len(actions) >= 1
-    assert actions[0].id == "analyze.first_time"
+    # Zero-key terminal state (T5-A): the single first-time path is agent-as-LLM.
+    assert actions[0].id == "extract.first_time"
+    assert actions[0].mcp_tool == "extract_structure"
 
 
-def test_suggester_one_snapshot_with_api_key_suggests_incremental(tmp_path):
+def test_suggester_one_snapshot_suggests_incremental():
     state = SystemState(
         project_path=Path("/x"),
         has_dot_the_door=True,
         has_structure_json=True,
         snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     top = NextActionSuggester().suggest(state, context="cli")[0]
-    assert top.id == "analyze.incremental"
-    assert "--from-snapshot v1.0.0" in top.cli_command
+    # Incremental path collapses to agent-as-LLM analyze_changes (no key path).
+    assert top.id == "analyze_changes.incremental"
+    assert top.mcp_tool == "analyze_changes"
+    assert top.mcp_arguments["baseline"] == "v1.0.0"
 
 
 def test_suggester_two_snapshots_viewer_context():
@@ -49,27 +49,24 @@ def test_suggester_two_snapshots_viewer_context():
             SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),
         ),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     actions = NextActionSuggester().suggest(state, context="viewer")
     assert any(a.id == "viewer.open" for a in actions)
 
 
-def test_suggester_context_filters_mcp_only():
+def test_suggester_incremental_present_in_cli_context():
+    # The collapsed single path surfaces on both cli and mcp (no key-gated split).
     state = SystemState(
         project_path=Path("/x"),
         has_dot_the_door=True,
         has_structure_json=True,
         snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),),
         l2_features_analyzed=frozenset(),
-        has_api_key=False,
-        api_provider=None,
         warnings=(),
     )
     cli_actions = NextActionSuggester().suggest(state, context="cli")
-    assert not any(a.id == "analyze_changes.fetch_diff" for a in cli_actions)
+    assert any(a.id == "analyze_changes.incremental" for a in cli_actions)
 
 
 def test_suggester_drift_warning_suggests_repair():
@@ -79,8 +76,6 @@ def test_suggester_drift_warning_suggests_repair():
         has_structure_json=True,
         snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(
             StateWarning(
                 code="source_nodes_drift",
@@ -91,7 +86,7 @@ def test_suggester_drift_warning_suggests_repair():
         ),
     )
     actions = NextActionSuggester().suggest(state, context="cli")
-    assert any(a.id == "analyze.repair_drift" for a in actions)
+    assert any(a.id == "extract.repair_drift" for a in actions)
 
 
 def test_suggester_is_deterministic():
@@ -101,8 +96,6 @@ def test_suggester_is_deterministic():
         has_structure_json=False,
         snapshots=(),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     s = NextActionSuggester()
@@ -116,8 +109,6 @@ def test_suggester_after_error_boosts_failure_code():
         has_structure_json=True,
         snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", False),),
         l2_features_analyzed=frozenset(),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     top = NextActionSuggester().suggest(
@@ -133,8 +124,6 @@ def test_suggester_fallback_always_present():
         has_structure_json=False,
         snapshots=(),
         l2_features_analyzed=frozenset(),
-        has_api_key=False,
-        api_provider=None,
         warnings=(),
     )
     actions = NextActionSuggester().suggest(state, context="cli")
@@ -148,7 +137,7 @@ def test_suggester_after_error_no_snapshot_boost():
         has_dot_the_door=True, has_structure_json=True,
         snapshots=(),  # no snapshots yet
         l2_features_analyzed=frozenset(),
-        has_api_key=True, api_provider="anthropic", warnings=(),
+        warnings=(),
     )
     top = NextActionSuggester().suggest(
         state, context="after_error",
@@ -165,8 +154,7 @@ def _state_that_triggers(boost_target_id: str) -> "SystemState":
     base_kwargs = dict(
         project_path=Path("/x"),
         has_dot_the_door=True, has_structure_json=True,
-        l2_features_analyzed=frozenset(),
-        has_api_key=True, api_provider="anthropic", warnings=(),
+        l2_features_analyzed=frozenset(), warnings=(),
     )
     if boost_target_id == "extract.backfill_structure":
         return SystemState(

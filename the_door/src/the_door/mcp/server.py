@@ -10,12 +10,11 @@ from mcp.types import Tool, TextContent
 from the_door.core.extraction.ast_extractor import ASTExtractor
 from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.validation.output_validator import OutputValidator
-from the_door.mcp.tools import analyze_tool, regenerate_tool, render_tool, history_tool, estimate_tool
+from the_door.mcp.tools import render_tool, history_tool
 from the_door.mcp.tools import diff_tool, snapshot_create_tool, snapshot_list_tool
 from the_door.mcp.tools import scan_tool
 from the_door.mcp.tools import scope_verify_tool, scope_create_tool, doubt_list_tool, doubt_transition_tool
 from the_door.mcp.tools import timeline_tool, snapshot_prune_tool
-from the_door.mcp.tools import update_tool
 from the_door.mcp.tools import snapshot_write_tool
 from the_door.mcp.tools import project_list_tool
 from the_door.mcp.tools import system_status_tool
@@ -69,16 +68,6 @@ class TheDoorMCPServer:
                     },
                 ),
                 Tool(
-                    name="analyze",
-                    description="Run full analysis pipeline: extract → topology → batch read → validate.",
-                    inputSchema=analyze_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="regenerate",
-                    description="Re-analyze a specific feature node.",
-                    inputSchema=regenerate_tool.TOOL_SCHEMA,
-                ),
-                Tool(
                     name="render",
                     description="Generate Mermaid flowchart text from L1 or L1.5 JSON.",
                     inputSchema=render_tool.TOOL_SCHEMA,
@@ -87,11 +76,6 @@ class TheDoorMCPServer:
                     name="history",
                     description="Return narrative chain for a given codebase path.",
                     inputSchema=history_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="estimate",
-                    description="Return cost estimation for analyzing a codebase.",
-                    inputSchema=estimate_tool.TOOL_SCHEMA,
                 ),
                 Tool(
                     name="diff",
@@ -153,11 +137,6 @@ class TheDoorMCPServer:
                     inputSchema=snapshot_prune_tool.TOOL_SCHEMA,
                 ),
                 Tool(
-                    name="update",
-                    description="Execute full version update analysis pipeline: analyze → diff → scope verify → timeline → report.",
-                    inputSchema=update_tool.TOOL_SCHEMA,
-                ),
-                Tool(
                     name="project_list",
                     description=(
                         "List all codebases registered in The Door's project registry. "
@@ -210,16 +189,10 @@ class TheDoorMCPServer:
                 return await self._extract_structure(arguments)
             elif name == "validate_output":
                 return await self._validate_output(arguments)
-            elif name == "analyze":
-                return await self._dispatch_tool(analyze_tool, arguments)
-            elif name == "regenerate":
-                return await self._dispatch_tool(regenerate_tool, arguments)
             elif name == "render":
                 return await self._dispatch_tool(render_tool, arguments)
             elif name == "history":
                 return await self._dispatch_tool(history_tool, arguments)
-            elif name == "estimate":
-                return await self._dispatch_tool(estimate_tool, arguments)
             elif name == "diff":
                 return await self._dispatch_tool(diff_tool, arguments)
             elif name == "snapshot_create":
@@ -242,8 +215,6 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(timeline_tool, arguments)
             elif name == "snapshot_prune":
                 return await self._dispatch_tool(snapshot_prune_tool, arguments)
-            elif name == "update":
-                return await self._dispatch_tool(update_tool, arguments)
             elif name == "project_list":
                 return await self._dispatch_tool(project_list_tool, arguments)
             elif name == "system_status":

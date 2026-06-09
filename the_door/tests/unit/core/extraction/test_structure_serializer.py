@@ -1,7 +1,7 @@
 """Unit tests for ``core/extraction/structure_serializer.py``.
 
-The serializer is shared by ``the-door extract`` and ``the-door analyze``,
-so its output must be stable for both. These tests fix the on-disk schema.
+The serializer backs ``the-door extract`` and the ``extract_structure`` MCP
+tool, so its output must be stable. These tests fix the on-disk schema.
 """
 from __future__ import annotations
 

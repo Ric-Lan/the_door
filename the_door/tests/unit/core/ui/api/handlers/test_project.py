@@ -9,13 +9,12 @@ import pytest
 
 from the_door.core.ui.api.context import APIContext
 from the_door.core.ui.api.handlers.project import ProjectHandlers
-from the_door.core.ui.job_store import JobStore
 
 
 def _ctx(tmp_path: Path, switch_fn=None) -> APIContext:
     if switch_fn is None:
         switch_fn = lambda p, f: {"status": "switched", "path": str(p)}
-    return APIContext(lambda: tmp_path, lambda: JobStore(), switch_fn)
+    return APIContext(lambda: tmp_path, switch_fn)
 
 
 class TestGetProject:

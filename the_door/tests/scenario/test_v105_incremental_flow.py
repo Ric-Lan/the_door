@@ -48,9 +48,9 @@ def _step_3_suggester_recommends_incremental(state):
     """Step 3 unblocked by Task 02.5."""
     from the_door.core.guidance.suggester import NextActionSuggester
     actions = NextActionSuggester().suggest(state, context="cli")
-    # When API key present + 1 snapshot, top suggestion is incremental analysis
-    if state.has_api_key:
-        assert actions[0].id == "analyze.incremental"
+    # Zero-key terminal state (T5-A): with ≥1 snapshot, the top suggestion is the
+    # agent-as-LLM incremental path (analyze_changes), regardless of any API key.
+    assert actions[0].id == "analyze_changes.incremental"
 
 
 def _step_4_compute_affected_features_isolates_feat_ui_server(project):
@@ -137,11 +137,8 @@ def _step_6_viewer_diff_api_returns_attribute_changed_only(project, new_snapshot
     """
     from the_door.core.ui.api.context import APIContext
     from the_door.core.ui.api.handlers.diff import DiffHandlers
-    from the_door.core.ui.job_store import JobStore
-    job_store = JobStore()
     ctx = APIContext(
         _project_root_fn=lambda: project,
-        _job_store_fn=lambda: job_store,
         _switch_project_fn=lambda path, force: None,
     )
     handlers = DiffHandlers(ctx)

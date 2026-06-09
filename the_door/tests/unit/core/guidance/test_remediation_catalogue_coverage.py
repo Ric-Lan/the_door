@@ -18,7 +18,6 @@ from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.ui.api.context import APIContext
 from the_door.core.ui.api.handlers.diff import DiffHandlers
 from the_door.core.ui.api.handlers.graph import GraphHandlers
-from the_door.core.ui.job_store import JobStore
 from the_door.models import FeatureSummary
 from tests._seed_helpers import seed_baseline_snapshot
 
@@ -28,10 +27,8 @@ class _HandlersShim:
 
     def __init__(self, project_root: Path) -> None:
         self._project_root = project_root
-        job_store = JobStore()
         ctx = APIContext(
             _project_root_fn=lambda: project_root,
-            _job_store_fn=lambda: job_store,
             _switch_project_fn=lambda path, force: None,
         )
         self._diff = DiffHandlers(ctx)

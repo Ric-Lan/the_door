@@ -3,27 +3,22 @@
 This file tells MCP-compatible AI agents (Claude Code, Kiro, etc.) how to use
 The Door's tools. Read this before calling any tool.
 
-## 🚫 硬規則：「需要 LLM」≠「需要 API key」
+## 🚫 硬規則：唯一路徑＝agent-as-LLM（沒有 API key 接口）
 
-當任何任務涉及「重產 L1/L2 snapshot」、「改 prompt 看效果」、「生成 feature 描述
-或差異說明」、「需要自然語言內容」時：
+The Door 的終態**只有一條路徑、零 API key**（丙案 T5 已移除所有 provider / `analyze`
+/ `update` key-path）。當任何任務涉及「產 L1/L2 snapshot」、「生成 feature 描述或差異
+說明」、「需要自然語言內容」時：
 
-**禁止**在未先檢查 agent-as-LLM 路徑可行性前提出「需要 API key」。
-
-The Door 從設計起就支援兩條路徑（見下方 [Commands & MCP tool reference]）：
-
-1. **有 API key**：`the-door analyze` / `update` 走外部 LLM provider
-2. **沒 API key**：MCP `extract_structure` → **執行任務的 AI agent（也就是你）親自當 LLM 產 L1**
-   → `snapshot_write` 持久化。L2/L3 同理。差異說明同理 — 直接讀兩版 snapshot、自己寫對比敘述、寫回 `.the-door/`。
+**執行任務的 AI agent（也就是你）親自當 LLM**：MCP `extract_structure` → 你產 L1
+→ `edge_residue`（補雜訊殘餘）→ `snapshot_write` 持久化。L2/L3、差異說明同理 —
+直接讀 snapshot、自己寫敘述、寫回 `.the-door/`。
 
 「我是 agent、LLM 是別人」的 frame 是錯的。在本專案的脈絡下，**你就是 LLM**。
-看到 `core/llm/anthropic_provider.py` 不代表這條任務需要 provider — provider 只是
-路徑 1 的實作，路徑 2 完全繞過它。
+The Door 不再內建任何 LLM provider；沒有「需要 API key」這個選項。
 
 判斷流程：
-- 任務需要結構性分析（diff 表、節點計數、topology）→ 不需要 LLM，純程式
-- 任務需要自然語言（feature 描述、變更敘述、L2 模組解釋）→ **預設走路徑 2**，
-  除非使用者明示要 API key、或範圍超過 agent context window 才退到路徑 1
+- 任務需要結構性分析（diff 表、節點計數、topology）→ 純程式（CLI / MCP 工具）
+- 任務需要自然語言（feature 描述、變更敘述、L2 模組解釋）→ **你親自產**（agent-as-LLM 鏈）
 
 ## ⚠️ 開發環境速查（必讀，任何操作前確認）
 
@@ -56,8 +51,7 @@ $ the-door status ./my-project
 專案狀態: 尚未分析 (no .the-door/)
 
 Next:
-  1. the-door analyze ./my-project           (首次分析，需要 API key)
-  2. extract_structure MCP → snapshot_write  (不需要 API key)
+  1. extract_structure MCP → (你產 L1) → edge_residue → snapshot_write
 ```
 
 If you only read one section of this file, read the `Next:` block from `status`.
@@ -67,8 +61,8 @@ Every branch below ends with the same fallback — when in doubt, run `status`.
 
 ## Decision tree
 
-Five branches. Each leaf is exactly one command. If a branch has an
-API-key-dependent fork, it splits into a sub-branch with one command per leaf.
+Five branches. There is exactly one path everywhere — agent-as-LLM, no API key.
+When in doubt, run `the-door status <path>` and follow its `Next:` block.
 
 ### Branch 1 — Have you analyzed this project before?
 
@@ -78,22 +72,12 @@ Check: does `<path>/.the-door/snapshots/` exist with at least one snapshot?
 - **No** → go to Branch 1a
 - **Yes** → continue to Branch 2
 
-#### Branch 1a — First-time analysis: do you have an API key?
+#### Branch 1a — First-time analysis (agent-as-LLM)
 
-- **Yes** →
-  ```bash
-  $ the-door analyze ./my-project
-  ✓ Extracted 169 files / 1431 nodes
-  ✓ Wrote snapshot abc12345-... labeled "v1.0.0"
-
-  Next:
-    1. the-door ui ./my-project          (open viewer)
-    2. the-door diff --baseline v1.0.0   (after next version)
-  ```
-
-- **No** → use the MCP `extract_structure` → (you identify L1 features) →
-  `snapshot_write` chain. See [Commands & MCP tool reference](#commands--mcp-tool-reference)
-  for the agent-as-LLM workflow.
+Use the MCP `extract_structure` → (you identify L1 features) → `edge_residue` →
+`snapshot_write` chain. See
+[Commands & MCP tool reference](#commands--mcp-tool-reference) for the full
+workflow. After it, open `the-door ui ./my-project`.
 
 ### Branch 2 — Has the source changed since the last snapshot?
 
@@ -123,48 +107,30 @@ matches the latest snapshot.
     1. the-door ui ./my-project          (visualize the same diff)
   ```
 
-### Branch 3 — Source changed: do you have an API key?
+### Branch 3 — Source changed: re-analyze the new version (agent-as-LLM)
 
-- **Yes** →
-  ```bash
-  $ the-door update --from-snapshot v1.0.0 ./my-project
-  ✓ Reused 7/9 L1 features from v1.0.0
-  ✓ Re-analyzed 2 changed features
-  ✓ Wrote snapshot def67890-... labeled "v1.0.5"
+Use the MCP `analyze_changes` tool to get the list of affected features against
+the baseline, re-derive only those features yourself, then call `snapshot_write`
+with the `inherit_from` argument pointing at the baseline snapshot (unchanged
+features are inherited). See the
+[incremental agent-as-LLM chain](#agent-as-llm-chain-incremental-update).
 
-  Next:
-    1. the-door ui ./my-project              (visualize the change)
-    2. the-door diff --baseline v1.0.0 ./    (CLI diff)
-  ```
+Then visualize: `the-door ui ./my-project`, or CLI diff:
+`the-door diff --baseline v1.0.0 ./my-project`.
 
-- **No** → use the MCP `analyze_changes` tool to get the list of affected
-  features, update them yourself, then call `snapshot_write` with the
-  `inherit_from` argument pointing at the baseline snapshot.
-
-### Branch 4 — `update --from-snapshot` says "no persisted structure for baseline"
+### Branch 4 — "no persisted structure for baseline"
 
 The baseline snapshot exists but its full L1 structure was never persisted
 (e.g. it predates the snapshot store schema, or only the label was tagged).
+If you still have the baseline source on disk, backfill it (no API key — this
+is a structural backfill, not a re-analysis):
 
-- **You still have the baseline source on disk** →
-  ```bash
-  $ the-door extract --as-version v1.0.0 ./baseline-source
-  ✓ Backfilled snapshot v1.0.0 with persisted L1 structure
+```bash
+$ the-door extract --as-version v1.0.0 ./baseline-source
+✓ Backfilled snapshot v1.0.0 with persisted L1 structure
+```
 
-  Next:
-    1. the-door update --from-snapshot v1.0.0 ./my-project
-  ```
-  (No API key needed — this is a structural backfill, not a re-analysis.)
-
-- **You no longer have the baseline source** →
-  ```bash
-  $ the-door analyze ./my-project
-  ✓ Extracted ... / Wrote snapshot ...
-
-  Next:
-    1. the-door ui ./my-project
-  ```
-  This loses the historical baseline link, but produces a fresh snapshot.
+Then continue with Branch 3 against the backfilled baseline.
 
 ### Branch 5 — None of the above feels right
 
@@ -178,24 +144,25 @@ Read the `Next:` block. It's the source of truth for what the project needs.
 
 ## Commands & MCP tool reference
 
-| Command / Tool | Use when | API key? |
-|---|---|---|
-| `the-door status <path>` | Always first. Reports state + `Next:`. | No |
-| `the-door analyze <path>` | First-time analysis, full LLM pass. | Yes |
-| `the-door update --from-snapshot <ref> <path>` | Incremental re-analysis of a changed source. | Yes |
-| `the-door extract --as-version <label> <path>` | Backfill persisted L1 for an existing snapshot. | No |
-| `the-door diff --baseline <ref> <path>` | CLI diff between snapshots. | No |
-| `the-door ui <path>` | Open the viewer workbench. | No (L2 generation in viewer needs it) |
-| `extract_structure` MCP | Agent-as-LLM: get nodes/edges/topology, then YOU produce L1. | No |
-| `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. | No |
-| `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 | No |
-| `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. | No |
-| `system_status` MCP | Same as `the-door status` but callable from agents. | No |
+No command or tool takes an API key — The Door has no LLM provider.
+
+| Command / Tool | Use when |
+|---|---|
+| `the-door status <path>` | Always first. Reports state + `Next:`. |
+| `the-door extract --as-version <label> <path>` | Backfill persisted L1 for an existing snapshot. |
+| `the-door diff --baseline <ref> <path>` | CLI diff between snapshots. |
+| `the-door ui <path>` | Open the viewer workbench (display-only). |
+| `extract_structure` MCP | Agent-as-LLM: get nodes/edges/topology, then YOU produce L1. |
+| `edge_residue` MCP | Agent-as-LLM: persist edge-noise residue for a codebase (zero-token, deterministic). Required before `snapshot_write` (C3 gate). |
+| `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. |
+| `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 |
+| `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. |
+| `system_status` MCP | Same as `the-door status` but callable from agents. |
 
 For the input/output schemas of each MCP tool see
 [`.kiro/specs/incremental-analysis/design.md`](.kiro/specs/incremental-analysis/design.md).
 
-### Agent-as-LLM chain (no API key, single version)
+### Agent-as-LLM chain (single version)
 
 1. `extract_structure(codebase_path="./my-project")`
    → Returns `files`, `nodes`, `edges`, `topology`, `analyzed_files`.
@@ -220,7 +187,12 @@ For the input/output schemas of each MCP tool see
    ```
    `feature_id` must start with `feat-`. `confidence` is `high` / `medium` / `low`.
 
-3. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
+3. `edge_residue(codebase_path="./my-project")`
+   → Persists `.the-door/edge-residue.json` (edge-noise residue). This is a
+   prerequisite for `snapshot_write` — the C3 execution-order gate denies
+   `snapshot_write` until this artifact exists.
+
+4. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
    → Returns `version_id`, `label`.
 
 ### Agent-as-LLM chain (backfill source_nodes into existing snapshot)
@@ -246,14 +218,17 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
 `class`/`def` and misses `ClassName.method_name` node_ids.  
 **Do NOT** edit snapshot JSON files directly — use `snapshot_patch`.
 
-### Agent-as-LLM chain (no API key, incremental update)
+### Agent-as-LLM chain (incremental update)
 
 1. `analyze_changes(codebase_path="./new-project", baseline="v1.0.0")`
    → Returns list of affected `feature_id`s plus their new node membership.
 
 2. You re-derive only the affected features (same JSON shape as above).
 
-3. `snapshot_write(codebase_path="./new-project", l1_features=[...], relations=[...],
+3. `edge_residue(codebase_path="./new-project")` — refresh the edge-residue
+   artifact (C3 gate prerequisite for `snapshot_write`).
+
+4. `snapshot_write(codebase_path="./new-project", l1_features=[...], relations=[...],
    label="v1.0.5", inherit_from="v1.0.0")` — unchanged features are inherited.
 
 ---
@@ -307,13 +282,12 @@ If running from source (dev environment):
 
 Terms used in earlier versions of this guide and where to find them now:
 
-- **Mode A** (legacy term): "External LLM via API key." Now distributed across
-  the branches above as the "with API key" leaves — see
-  [Branch 1a](#branch-1a--first-time-analysis-do-you-have-an-api-key) and
-  [Branch 3](#branch-3--source-changed-do-you-have-an-api-key).
-- **Mode B** (legacy term): "Agent-as-LLM, no API key needed." Now distributed
-  as the "without API key" leaves — see Branch 1a, Branch 3, and the
-  [Agent-as-LLM chain](#agent-as-llm-chain-no-api-key-single-version) sections.
+- **Mode A** (retired): "External LLM via API key." Removed entirely in T5-A
+  (丙案) — The Door no longer bundles an LLM provider or any `analyze` / `update`
+  key-path. There is no API-key mode.
+- **Mode B** (legacy term): "Agent-as-LLM." This is now **the only mode** — see
+  Branch 1a, Branch 3, and the
+  [Agent-as-LLM chain](#agent-as-llm-chain-single-version) sections.
 - **Snapshot reference**: any of label / git tag / date / SHA / UUID. See
   [Snapshot reference formats](#snapshot-reference-formats).
 - **Next: block**: the trailing section of any CLI command's output that names

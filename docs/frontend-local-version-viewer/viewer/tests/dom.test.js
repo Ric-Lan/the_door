@@ -8,13 +8,10 @@ describe('els (DOM element cache)', () => {
   });
 
   const expectedIds = [
-    'btnDiff', 'btnBaseline', 'btnCurrent', 'btnReanalyze',
+    'btnDiff', 'btnBaseline', 'btnCurrent',
     'summaryText', 'countAdded', 'countRemoved', 'countModified', 'countRisk',
     'listTitle', 'listSource', 'featureList',
     'detailSource', 'detailContent',
-    'pipelineProgress', 'currentStep', 'stepsList',
-    'updateModal', 'inputOldPath', 'inputNewPath', 'modalError', 'inputLanguage',
-    'btnModalCancel', 'btnModalSubmit',
     'graphDrawer', 'graphBackdrop', 'btnGraphToggle', 'btnDrawerClose',
     'btnBackL1', 'btnMindmap',
   ];

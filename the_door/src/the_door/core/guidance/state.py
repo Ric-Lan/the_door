@@ -1,13 +1,10 @@
 import json
 from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
-from typing import Literal
 
 from the_door.core.diff.snapshot_store import SnapshotEntry
 
-ApiProvider = Literal["anthropic", "openai", "ollama"]
-
-__all__ = ["SnapshotEntry", "StateWarning", "SystemState", "ApiProvider", "to_json_dict", "StateInspector"]
+__all__ = ["SnapshotEntry", "StateWarning", "SystemState", "to_json_dict", "StateInspector"]
 
 
 @dataclass(frozen=True)
@@ -25,8 +22,6 @@ class SystemState:
     has_structure_json: bool
     snapshots: tuple[SnapshotEntry, ...]
     l2_features_analyzed: frozenset[str]
-    has_api_key: bool
-    api_provider: ApiProvider | None
     warnings: tuple[StateWarning, ...]
 
     @property
@@ -45,38 +40,15 @@ class StateInspector:
     def inspect(self) -> SystemState:
         dot = self._project_path / ".the-door"
         if not dot.is_dir():
-            provider, has_key = self._detect_api_key()
             return SystemState(
                 project_path=self._project_path,
                 has_dot_the_door=False,
                 has_structure_json=False,
                 snapshots=(),
                 l2_features_analyzed=frozenset(),
-                has_api_key=has_key,
-                api_provider=provider,
                 warnings=(),
             )
         return self._inspect_full(dot)
-
-    def _detect_api_key(self) -> tuple[ApiProvider | None, bool]:
-        import os
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            return ("anthropic", True)
-        if os.environ.get("OPENAI_API_KEY"):
-            return ("openai", True)
-        config_path = Path.home() / ".the-door" / "config.toml"
-        if config_path.is_file():
-            try:
-                import tomllib  # py311+
-            except ImportError:
-                import tomli as tomllib
-            data = tomllib.loads(config_path.read_text(encoding="utf-8"))
-            provider = data.get("default_provider")
-            if provider in ("anthropic", "openai", "ollama"):
-                key_field = f"{provider}_api_key"
-                if data.get(key_field):
-                    return (provider, True)
-        return (None, False)
 
     def _inspect_full(self, dot: Path) -> SystemState:
         warnings_acc: list[StateWarning] = []
@@ -124,16 +96,12 @@ class StateInspector:
                 if p.suffix == ".json":
                     l2_ids.add(p.stem)
 
-        provider, has_key = self._detect_api_key()
-
         return SystemState(
             project_path=self._project_path,
             has_dot_the_door=True,
             has_structure_json=has_structure_json,
             snapshots=tuple(entries),
             l2_features_analyzed=frozenset(l2_ids),
-            has_api_key=has_key,
-            api_provider=provider,
             warnings=tuple(warnings_acc),
         )
 

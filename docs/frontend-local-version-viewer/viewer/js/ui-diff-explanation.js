@@ -5,7 +5,10 @@ import * as api from './api.js';
 export const CONFIDENCE_LABEL = { high: "高", medium: "中", low: "低", unknown: "未評估" };
 
 function currentOutputLanguage() {
-  return document.getElementById("input-language").value;
+  // The language selector was modal-bound; the modal was retired in T5-A. The
+  // GET diff-explanation display path still passes output_language, so default
+  // to the viewer's zh-Hant when no selector is present.
+  return document.getElementById("input-language")?.value || "zh-Hant";
 }
 
 function detailSectionSmall(title, text) {

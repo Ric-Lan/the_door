@@ -18,13 +18,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from the_door.core.ui.api import APIContext, Router, build_routes
-from the_door.core.ui.api.handlers.analysis import AnalysisHandlers
 from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
 from the_door.core.ui.api.handlers.catalog import CatalogHandlers
 from the_door.core.ui.api.handlers.diff import DiffHandlers
 from the_door.core.ui.api.handlers.graph import GraphHandlers
 from the_door.core.ui.api.handlers.project import ProjectHandlers
-from the_door.core.ui.job_store import JobStore
 from the_door.core.ui.static_handler import StaticHandler
 
 
@@ -47,16 +45,13 @@ class UIServer:
         self._httpd: ThreadingHTTPServer | None = None
 
         # Shared state passed to request handler via closure
-        self._job_store = JobStore()
         self._switch_lock = threading.Lock()
         ctx = APIContext(
             lambda: self._project_root,
-            lambda: self._job_store,
             self._switch_project,
         )
         routes = build_routes(
             ProjectHandlers(ctx),
-            AnalysisHandlers(ctx),
             CatalogHandlers(ctx),
             GraphHandlers(ctx),
             DiffHandlers(ctx),
@@ -104,18 +99,10 @@ class UIServer:
             - "switched": Successfully switched to new_path
             - "conflict": A job is running and force=False
         """
+        # T5-A: analysis jobs retired (zero API-key) → no running-job conflict to
+        # arbitrate; project switch is unconditional. `force` kept for API stability.
         with self._switch_lock:
-            running_job_id = self._job_store.get_running_job_id()
-            if running_job_id is not None:
-                if not force:
-                    return {
-                        "status": "conflict",
-                        "active_job_id": running_job_id,
-                        "message": "有進行中的分析任務，請選擇處理方式",
-                    }
-                self._job_store.fail_job(running_job_id, "switched away")
             self._project_root = new_path
-            self._job_store = JobStore()
             return {"status": "switched", "path": str(new_path)}
 
     @property

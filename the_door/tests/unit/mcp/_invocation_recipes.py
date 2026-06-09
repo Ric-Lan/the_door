@@ -126,15 +126,6 @@ Recipe = Callable[[Path], tuple[dict[str, Any], Any]]
 
 
 # ---- analyze: needs an LLM provider; we accept the error/exception path. ----
-def _analyze_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
-    # ASTExtractor will scan but find no .py files → empty extraction.
-    # Then BatchReader.read() with MockLLMProvider-less env will fail.
-    # The tool does NOT wrap in try/except, so it may raise. We rely on the
-    # meta-test marking this recipe to skip via the "expect_exception" channel.
-    project = _seeded_project(tmp_path)
-    return ({"codebase_path": str(project)}, None)
-
-
 # ---- analyze_changes: needs baseline snapshot + persisted structure. -------
 def _analyze_changes_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
     # No baseline → tool returns error envelope (handled gracefully).
@@ -178,12 +169,6 @@ def _doubt_transition_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
     )
 
 
-# ---- estimate: needs a codebase to extract. Empty extraction → may raise.
-def _estimate_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
-    project = _seeded_project(tmp_path)
-    return ({"codebase_path": str(project)}, None)
-
-
 # ---- history: missing narrative.jsonl → success with empty records. --------
 def _history_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
     project = _seeded_project(tmp_path)
@@ -193,15 +178,6 @@ def _history_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
 # ---- project_list: succeeds regardless. ------------------------------------
 def _project_list_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
     return ({}, None)
-
-
-# ---- regenerate: stub-ish, always succeeds. --------------------------------
-def _regenerate_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
-    project = _seeded_project(tmp_path)
-    return (
-        {"feature_id": "feat-x", "codebase_path": str(project)},
-        None,
-    )
 
 
 # ---- render: minimal valid L1 input → success. -----------------------------
@@ -305,30 +281,13 @@ def _timeline_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
     return ({"codebase_path": str(project)}, None)
 
 
-# ---- update: requires two real codebase dirs. Nonexistent paths → error. ---
-def _update_recipe(tmp_path: Path) -> tuple[dict[str, Any], None]:
-    old_dir = tmp_path / "old"
-    new_dir = tmp_path / "new"
-    old_dir.mkdir(parents=True, exist_ok=True)
-    new_dir.mkdir(parents=True, exist_ok=True)
-    # Two real dirs but no .the-door/ in either → orchestrator will fail and
-    # return {"error": ...} envelope.
-    return (
-        {"old_path": str(old_dir), "new_path": str(new_dir)},
-        None,
-    )
-
-
 RECIPES: dict[str, Recipe] = {
     "analyze_changes_tool": _analyze_changes_recipe,
-    "analyze_tool": _analyze_recipe,
     "diff_tool": _diff_recipe,
     "doubt_list_tool": _doubt_list_recipe,
     "doubt_transition_tool": _doubt_transition_recipe,
-    "estimate_tool": _estimate_recipe,
     "history_tool": _history_recipe,
     "project_list_tool": _project_list_recipe,
-    "regenerate_tool": _regenerate_recipe,
     "render_tool": _render_recipe,
     "scan_tool": _scan_recipe,
     "scope_create_tool": _scope_create_recipe,
@@ -339,7 +298,6 @@ RECIPES: dict[str, Recipe] = {
     "snapshot_write_tool": _snapshot_write_recipe,
     "system_status_tool": _system_status_recipe,
     "timeline_tool": _timeline_recipe,
-    "update_tool": _update_recipe,
 }
 
 
@@ -348,8 +306,4 @@ RECIPES: dict[str, Recipe] = {
 # on uncaught exceptions. Keep this list minimal — only add a tool here after
 # confirming the failure mode is genuinely environment-bound (e.g. needs a real
 # LLM provider) and cannot be reasonably stubbed in a static recipe.
-RAISING_TOOLS: frozenset[str] = frozenset(
-    {
-        "analyze_tool",  # BatchReader.read() needs a real LLM provider
-    }
-)
+RAISING_TOOLS: frozenset[str] = frozenset()

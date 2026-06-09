@@ -18,12 +18,10 @@ from the_door.core.extraction.structure_serializer import (
 )
 from the_door.models import (
     ASTNode,
-    CostConfirmationRequired,
     DoubtNotFoundError,
     DoubtTerminalError,
     Edge,
     InvalidTransitionError,
-    PipelineError,
     ScopeDefinitionError,
     SnapshotNotFoundError,
     StructureJSON,
@@ -296,16 +294,8 @@ class TestModelsExceptions:
         assert err.doubt_id == "doubt-abc"
         assert err.current_state == "fixed"
 
-    def test_pipeline_error(self):
-        err = PipelineError("analyze", "timeout")
-        assert err.step_name == "analyze"
-        assert "analyze" in str(err)
-
-    def test_cost_confirmation_required(self):
-        err = CostConfirmationRequired(1.23, 5000)
-        assert err.estimated_cost == 1.23
-        assert err.total_tokens == 5000
-        assert "1.2300" in str(err)
+    # T5-A: test_pipeline_error / test_cost_confirmation_required removed —
+    # PipelineError / CostConfirmationRequired retired with the analyze pipeline.
 
 
 # ── structure_serializer file I/O helpers coverage ───────────────────────────

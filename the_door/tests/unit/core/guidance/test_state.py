@@ -69,22 +69,6 @@ def test_inspect_corrupted_snapshot_emits_warning_continues(tmp_path):
     assert any(w.code == "snapshot_corrupted" for w in state.warnings)
 
 
-def test_inspect_detects_anthropic_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    state = StateInspector(tmp_path).inspect()
-    assert state.has_api_key is True
-    assert state.api_provider == "anthropic"
-
-
-def test_inspect_no_api_key(tmp_path, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
-    state = StateInspector(tmp_path).inspect()
-    assert state.has_api_key is False
-    assert state.api_provider is None
-
-
 def test_inspect_completes_under_50ms(perf_project_fixture):
     import time
     start = time.perf_counter()
@@ -104,8 +88,6 @@ def test_systemstate_is_frozen_hashable():
         has_structure_json=False,
         snapshots=(),
         l2_features_analyzed=frozenset(),
-        has_api_key=False,
-        api_provider=None,
         warnings=(),
     )
     # Frozen
@@ -135,8 +117,6 @@ def test_to_json_dict_serializes_systemstate():
             has_persisted_structure=True,
         ),),
         l2_features_analyzed=frozenset({"feat-b", "feat-a"}),
-        has_api_key=True,
-        api_provider="anthropic",
         warnings=(),
     )
     out = to_json_dict(state)

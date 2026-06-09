@@ -19,8 +19,8 @@ EXPECTED_NAMES = [
     "L1_5Block", "BlockRelation", "InfrastructureBlock", "L1_5Output",
     "L2Module", "ModuleInteraction", "Anomaly", "L2Output",
     "NarrativeNodeRead", "NarrativeRecord",
-    # config
-    "TheDoorConfig", "CostEstimate", "ParseResult",
+    # config (TheDoorConfig / CostEstimate removed in T5-A — zero-key terminal state)
+    "ParseResult",
     # vulnerability
     "VulnerabilityEntry", "DatabaseFreshness", "ScanResult",
     "VulnerabilitySummaryEntry", "VulnerabilitySummary", "VulnerabilityDiffSummary",
@@ -37,17 +37,17 @@ EXPECTED_NAMES = [
     # timeline
     "SemanticDriftEvent", "FeatureTimeline", "TimelineSummary", "TimelineResult",
     "RetentionDecision", "TimelineError", "RetentionConfigError",
-    # pipeline
-    "AnalyzeConfig", "AnalyzeResult", "StepTimeouts", "PipelineConfig",
+    # pipeline (report cluster only — analyze/update execution models removed in T5-A)
     "PipelineStep", "PipelineSummary", "L1ChangeEntry", "L2DetailEntry", "L3Appendix",
-    "DiffChangeExplanation", "UpdateReport", "PipelineResult",
-    "PipelineError", "AnalyzeError", "CostConfirmationRequired",
+    "DiffChangeExplanation", "UpdateReport",
 ]
 
 
-def test_expected_names_count_is_79():
-    assert len(EXPECTED_NAMES) == 79
-    assert len(set(EXPECTED_NAMES)) == 79  # no duplicates
+def test_expected_names_count_is_69():
+    # T5-A removed 8 analyze/pipeline-execution model types (79 → 71), then
+    # TheDoorConfig + CostEstimate (provider config, 71 → 69).
+    assert len(EXPECTED_NAMES) == 69
+    assert len(set(EXPECTED_NAMES)) == 69  # no duplicates
 
 
 def test_all_names_importable_from_the_door_models():
