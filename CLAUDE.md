@@ -276,6 +276,11 @@ If running from source (dev environment):
 }
 ```
 
+> `python -m the_door` 透過 `the_door/__main__.py` 轉接到 console-script 進入點
+> （`the_door.cli.main:main`）。若這支檔案缺失，`python -m the_door` 會報
+> `No module named the_door.__main__`；此時改用上方的 installed 形式
+> （`"command": "the-door"`）即可。
+
 ---
 
 ## Glossary (backward compatibility)
