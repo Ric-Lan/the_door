@@ -8,12 +8,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-「丙案＝控制經結構強制」campaign：把執行模型重塑成「工具化 + blocking hook gate」，讓 agent 走唯一一條結構性強制的 agent-as-LLM 路徑；並據此**終局移除所有 API-key 介面**（provider、`analyze` / `update` 鏈、provider 設定）。終態＝零 API key、單一路徑。
+「丙案＝控制經結構強制」campaign：把執行模型重塑成「工具化 + blocking hook gate」，讓 agent 走唯一一條結構性強制的 agent-as-LLM 路徑；並據此**終局移除所有 API-key 介面**（provider、`analyze` / `update` 鏈、provider 設定）。終態＝零 API key、單一路徑。軌2 的執行序 gate 已全到位＝C2（checklist schema）＋C3（snapshot_write gate）＋C4（擋原生 code-exec）＋C6（跑完回報）＋C5（單一權威）＋水平推廣（snapshot_patch）＋staleness（mtime+size 指紋）。
 
 ### Added
 - **`edge_residue` MCP 工具（T2）**：零-token／零-key 的確定性工具，把邊噪音殘餘（高 fanout 過濾、動態 dispatch caller 級聚合）落盤 `.the-door/edge-residue.json`，供 agent 觀察；同時是 L1 鏈的免-key 補件。
 - **執行序 blocking-hook gate（C3 + C4）**：`snapshot_write` 在目標 codebase 無前置 artifact 前被 deny、stderr 教學指回 `edge_residue`（兌現 extract→residue→write 順序鎖）；co-require 的 C4 擋臨時 inline-python／獨立 `.py` 腳本繞過 MCP 工具的逃生口。放行 `python -m`(pytest／the_door／pip)／pytest／pip／git／the-door。
-- **checklist schema gate（C2）**：把 C3 的「artifact 存在性」升級成結構化、versioned 的執行 checklist（`.the-door/checklist.json`，掛 `SNAPSHOT_CONTRACT_VERSION`）。`edge_residue` 完成時自動蓋章並記錄 covered node 集；C3 gate 改驗三件＝stage 已蓋章＋contract_version 當前＋**node-coverage**（要寫的 `source_nodes` ⊆ 已涵蓋集，validity 讀法）。新增 `core/checklist.py`（單一真相來源）＋ drift-pin（hook 字面 vs 模組常數，含負向驗證）。完整 staleness（刪除/原地改、mtime）仍明確 deferred。
+- **checklist schema gate（C2）**：把 C3 的「artifact 存在性」升級成結構化、versioned 的執行 checklist（`.the-door/checklist.json`，掛 `SNAPSHOT_CONTRACT_VERSION`）。`edge_residue` 完成時自動蓋章並記錄 covered node 集；C3 gate 改驗三件＝stage 已蓋章＋contract_version 當前＋**node-coverage**（要寫的 `source_nodes` ⊆ 已涵蓋集，validity 讀法）。新增 `core/checklist.py`（單一真相來源）＋ drift-pin（hook 字面 vs 模組常數，含負向驗證）。完整 staleness（刪除/原地改）由下方 staleness 條目兌現。
+- **chain-report ledger（C6）**：`snapshot_write` 成功時在 checklist 蓋 `snapshot_write` stage，並把執行 ledger（各關 `stamped_at` ＋ 摘要，剝除龐大 `covered_nodes`／`source_files` 只留計數）嵌入工具回應，讓使用者有事實基礎核對「各關是否執行／產物／結果」、非黑箱（基礎原則 7「跑完回報」）。蓋章 fail-soft（只 `except OSError`——snapshot 已落盤、不因事後紀錄失敗謊報工作失敗）＋記憶體補本防「payload 有 version_id、ledger 卻缺 snapshot_write」自相矛盾。純資訊層、零 gate 改動。
+- **entry-authority（C5）**：修正工具自動生成的 guidance（StateInspector ＋ NextActionSuggester，即 `the-door status` 的權威）涵蓋 `edge_residue` 關——原本「有 structure、無 snapshot」直接建議 `snapshot_write`，agent 機械跟隨 `next_actions` 會撞 C3 deny；現 `next_actions` 正確涵蓋 `edge_residue`，且 C3 deny 訊息指回單一可讀權威（`system_status` 工具／`the-door status`）。刻意**不建靜態 README checklist**（手寫 checklist＝漂移點；既有自動生成 guidance 即單一權威）。
+- **水平推廣 gate（snapshot_patch）**：把 C2／C3 的 node-coverage gate 擴到第二個 `source_nodes` 寫入口 `snapshot_patch`（經 `source_nodes_by_feature`）。共用同一 hook、統一原則「gate node-writes」＝metadata-only patch 豁免、`tool_name` 缺失安全退化成 engage（過度 gate、絕不漏 gate）。證據裁定唯讀工具（`diff`／`analyze_changes`／`extract_structure`／`snapshot_create`）已自驗、不 gate（避免冗餘軟層）。`.claude/settings.json` 加 `snapshot_patch` matcher。
+- **staleness 偵測（mtime+size 指紋）**：兌現 C2 deferred 的完整 staleness。`edge_residue` 蓋章時記錄每個已發現檔案的 `(mtime_ns, size)` 指紋（`stages.edge_residue.source_files`）；C3 gate 新增第 4 道檢查，**stat-only 比對（不重抽 AST）**偵測檔案**刪除**或**原地修改**（node_id 不變）後仍寫 snapshot 的 staleness → deny、教先重跑 `edge_residue`。`.the-door/*.json` 因副檔名過濾不入指紋集 → 無自產物 self-deny。殘餘 honest-deferred＝新增未追蹤檔未被引用、對抗式 mtime 重置。
+- **`python -m the_door` 進入點**：新增 `the_door/__main__.py` 轉接 console-script 進入點，讓開發環境的 MCP 設定可用 `python -m the_door mcp-serve`。
 - **退場護欄測試**：`test_retired_keypath_surfaces.py` 釘樁已退場的 CLI 命令與 MCP 工具不得復現。
 
 ### Changed
