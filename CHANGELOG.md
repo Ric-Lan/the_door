@@ -8,6 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## v1.7.0 — 2026-06-10
+
 「丙案＝控制經結構強制」campaign：把執行模型重塑成「工具化 + blocking hook gate」，讓 agent 走唯一一條結構性強制的 agent-as-LLM 路徑；並據此**終局移除所有 API-key 介面**（provider、`analyze` / `update` 鏈、provider 設定）。終態＝零 API key、單一路徑。軌2 的執行序 gate 已全到位＝C2（checklist schema）＋C3（snapshot_write gate）＋C4（擋原生 code-exec）＋C6（跑完回報）＋C5（單一權威）＋水平推廣（snapshot_patch）＋staleness（mtime+size 指紋）。
 
 ### Added
@@ -33,8 +37,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - models facade：79 → 68 個型別（移除 analyze/pipeline 執行型別、provider 設定型別、ParseResult）。
 
 ### Notes
-- **尚未發版／未 bump 版號**：本 campaign 已在 local main 完成並通過全套測試（Python 0 failed、viewer 0 failed），但尚未指定新版號、未 tag、未 push。
-- **契約**：移除 `SystemState.has_api_key` / `api_provider` 屬於 `/api/status` 輸出的減法變更，已同步更新契約測試；snapshot 契約版本戳不受影響（仍 `"1"`）。
+- **測試基線**：Python 1407 passed / 0 failed、viewer 532 passed / 0 failed。
+- **契約版本不 bump**（仍 `"1"`）：本 campaign 的 schema 變更皆純加法（checklist `stages`／`covered_nodes`／`source_files`、edge_residue 蓋章欄）；移除 `SystemState.has_api_key` / `api_provider` 屬於 `/api/status` 輸出的減法變更，已同步更新契約測試。符合 `docs/contract-versioning.md` §6。
 
 ---
 
