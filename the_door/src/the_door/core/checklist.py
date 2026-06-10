@@ -9,6 +9,9 @@ The gate hook is stdlib-only and does NOT import this module (it cannot rely on
 the_door being on PYTHONPATH); it duplicates the field names below as string
 literals. A drift-pin test (`test_execution_gates.py`) asserts the hook's
 literals match these constants.
+
+This module is the write side (`stamp_stage`) plus a read-side projection
+(`read_ledger`) used by C6 to report the execution chain back to the user.
 """
 from __future__ import annotations
 
@@ -20,6 +23,10 @@ CHECKLIST_FILENAME = "checklist.json"
 
 # Stage keys
 STAGE_EDGE_RESIDUE = "edge_residue"
+STAGE_SNAPSHOT_WRITE = "snapshot_write"
+
+# Canonical chain order for ledger projection; unknown stages sort after these.
+STAGE_ORDER = (STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE)
 
 # Schema field names (pinned against the gate hook by test).
 FIELD_CONTRACT_VERSION = "contract_version"
@@ -46,15 +53,25 @@ def stamp_stage(
     codebase_path: str | Path,
     stage: str,
     *,
-    covered_nodes: list[str],
     contract_version: str,
+    covered_nodes: list[str] | None = None,
+    details: dict | None = None,
 ) -> dict:
     """Record `stage` as completed in the checklist, then write it back.
 
     Loads the existing checklist (rebuilds if missing / corrupt), sets the stage
-    entry (covered_nodes sorted + deduped, node_count derived, UTC stamp), and
-    overwrites contract_version to the latest (single stamping point). Returns
-    the written checklist dict.
+    entry, and overwrites contract_version to the latest (single stamping point).
+    Returns the written checklist dict.
+
+    Stage entry always carries `stamped_at` (UTC). Optionally:
+
+    * `covered_nodes` — when given, writes `covered_nodes` (sorted + deduped) and
+      derived `node_count`. The node-coverage gate (C3) reads these for the
+      edge_residue stage. Omit for stages with no node-coverage semantics (e.g.
+      snapshot_write).
+    * `details` — stage-specific facts merged into the entry (e.g. snapshot_write
+      records version_id / feature_count). Keys MUST NOT collide with the
+      reserved field names (`stage`/`stamped_at`/`node_count`/`covered_nodes`).
     """
     data = read_checklist(codebase_path)
     if not isinstance(data, dict):
@@ -62,12 +79,14 @@ def stamp_stage(
     stages = data.get(FIELD_STAGES)
     if not isinstance(stages, dict):
         stages = {}
-    deduped = sorted(set(covered_nodes))
-    stages[stage] = {
-        FIELD_STAMPED_AT: datetime.now(timezone.utc).isoformat(),
-        FIELD_NODE_COUNT: len(deduped),
-        FIELD_COVERED_NODES: deduped,
-    }
+    entry = {FIELD_STAMPED_AT: datetime.now(timezone.utc).isoformat()}
+    if covered_nodes is not None:
+        deduped = sorted(set(covered_nodes))
+        entry[FIELD_NODE_COUNT] = len(deduped)
+        entry[FIELD_COVERED_NODES] = deduped
+    if details:
+        entry.update(details)
+    stages[stage] = entry
     data[FIELD_STAGES] = stages
     data[FIELD_CONTRACT_VERSION] = contract_version
 
@@ -75,3 +94,32 @@ def stamp_stage(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data
+
+
+def read_ledger(codebase_path: str | Path) -> list[dict]:
+    """Project the checklist's stages into an ordered, summarized ledger (C6).
+
+    Each entry: ``{"stage": <name>, "stamped_at": ..., + node_count / details}``.
+    The bulky ``covered_nodes`` array is deliberately stripped (node_count is
+    kept) so embedding the ledger in a tool response can't be swamped by
+    thousands of node ids.
+
+    Known stages (STAGE_ORDER) come first in canonical order; unknown stages
+    follow in alphabetical order (forward-compatible with future gate stages).
+    Missing / corrupt checklist → [] (fail-soft).
+    """
+    data = read_checklist(codebase_path)
+    if not isinstance(data, dict):
+        return []
+    stages = data.get(FIELD_STAGES)
+    if not isinstance(stages, dict):
+        return []
+    known = [s for s in STAGE_ORDER if s in stages]
+    rest = sorted(s for s in stages if s not in STAGE_ORDER)
+    ledger = []
+    for name in known + rest:
+        entry = dict(stages[name])
+        entry.pop(FIELD_COVERED_NODES, None)  # non-destructive; snapshot_write has none
+        entry["stage"] = name
+        ledger.append(entry)
+    return ledger

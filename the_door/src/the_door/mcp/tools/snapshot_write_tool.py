@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from the_door.core.checklist import STAGE_SNAPSHOT_WRITE, read_ledger, stamp_stage
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.actions import NextAction
@@ -10,8 +11,19 @@ from the_door.core.guidance.remediation import Remediation, make_error_envelope
 from the_door.core.reading.confidence_membrane import CONFIDENCE_CONTRASTS
 from the_door.mcp.tools._response_envelope import wrap
 from the_door.models import FeatureSummary, RelationSummary, SnapshotNotFoundError
+from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
 
 _flow_guard = FlowGuard()
+
+
+def _ledger_with_snapshot_write(codebase_path, sw_details: dict) -> list[dict]:
+    """Return the chain ledger, guaranteeing the just-run snapshot_write stage
+    is present even if the disk stamp failed (fail-soft) — the returned ledger
+    must never under-report a stage the response's own version_id proves ran."""
+    ledger = read_ledger(codebase_path)
+    if not any(e["stage"] == STAGE_SNAPSHOT_WRITE for e in ledger):
+        ledger.append({"stage": STAGE_SNAPSHOT_WRITE, **sw_details})
+    return ledger
 
 VALID_CONFIDENCE = set(CONFIDENCE_CONTRASTS)
 
@@ -317,4 +329,27 @@ async def execute(arguments: dict) -> dict:
     }
     if warnings:
         payload["warnings"] = warnings
+
+    # C6: stamp the snapshot_write stage (disk best-effort) and embed the
+    # whole-chain ledger so the caller can report each stage back to the user.
+    # The stamp is fail-soft on I/O (the snapshot already persisted; failing the
+    # whole call over a post-hoc ledger record would falsely report the user's
+    # real work as failed) — but only OSError is swallowed, so a signature/logic
+    # bug still surfaces. The returned ledger is rebuilt from in-memory facts so
+    # it never under-reports this stage.
+    sw_details = {
+        "version_id": snapshot.version_id,
+        "label": snapshot.label,
+        "feature_count": len(l1_snapshot),
+        "relation_count": len(relations),
+    }
+    try:
+        stamp_stage(
+            codebase_path, STAGE_SNAPSHOT_WRITE,
+            contract_version=SNAPSHOT_CONTRACT_VERSION,
+            details=sw_details,
+        )
+    except OSError:
+        pass
+    payload["execution_ledger"] = _ledger_with_snapshot_write(codebase_path, sw_details)
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
