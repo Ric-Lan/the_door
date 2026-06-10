@@ -33,6 +33,7 @@ FIELD_CONTRACT_VERSION = "contract_version"
 FIELD_STAGES = "stages"
 FIELD_COVERED_NODES = "covered_nodes"
 FIELD_NODE_COUNT = "node_count"
+FIELD_SOURCE_FILES = "source_files"
 FIELD_STAMPED_AT = "stamped_at"
 
 
@@ -55,6 +56,7 @@ def stamp_stage(
     *,
     contract_version: str,
     covered_nodes: list[str] | None = None,
+    source_files: dict | None = None,
     details: dict | None = None,
 ) -> dict:
     """Record `stage` as completed in the checklist, then write it back.
@@ -69,6 +71,11 @@ def stamp_stage(
       derived `node_count`. The node-coverage gate (C3) reads these for the
       edge_residue stage. Omit for stages with no node-coverage semantics (e.g.
       snapshot_write).
+    * `source_files` — when given, writes a `{relpath: [mtime_ns, size]}` map
+      verbatim. The staleness gate (C3 #4) stats each at snapshot_write time and
+      denies if any tracked file was deleted or modified since this stamp
+      (deletion / in-place modification — the C2 §2.5 deferred cases). Omit for
+      stages without file-fingerprint semantics.
     * `details` — stage-specific facts merged into the entry (e.g. snapshot_write
       records version_id / feature_count). Keys MUST NOT collide with the
       reserved field names (`stage`/`stamped_at`/`node_count`/`covered_nodes`).
@@ -84,6 +91,8 @@ def stamp_stage(
         deduped = sorted(set(covered_nodes))
         entry[FIELD_NODE_COUNT] = len(deduped)
         entry[FIELD_COVERED_NODES] = deduped
+    if source_files is not None:
+        entry[FIELD_SOURCE_FILES] = source_files
     if details:
         entry.update(details)
     stages[stage] = entry
@@ -100,9 +109,9 @@ def read_ledger(codebase_path: str | Path) -> list[dict]:
     """Project the checklist's stages into an ordered, summarized ledger (C6).
 
     Each entry: ``{"stage": <name>, "stamped_at": ..., + node_count / details}``.
-    The bulky ``covered_nodes`` array is deliberately stripped (node_count is
-    kept) so embedding the ledger in a tool response can't be swamped by
-    thousands of node ids.
+    The bulky ``covered_nodes`` array and ``source_files`` map are deliberately
+    stripped (node_count is kept) so embedding the ledger in a tool response
+    can't be swamped by thousands of node ids / file fingerprints.
 
     Known stages (STAGE_ORDER) come first in canonical order; unknown stages
     follow in alphabetical order (forward-compatible with future gate stages).
@@ -120,6 +129,7 @@ def read_ledger(codebase_path: str | Path) -> list[dict]:
     for name in known + rest:
         entry = dict(stages[name])
         entry.pop(FIELD_COVERED_NODES, None)  # non-destructive; snapshot_write has none
+        entry.pop(FIELD_SOURCE_FILES, None)  # bulky fingerprint map; keep ledger lean
         entry["stage"] = name
         ledger.append(entry)
     return ledger

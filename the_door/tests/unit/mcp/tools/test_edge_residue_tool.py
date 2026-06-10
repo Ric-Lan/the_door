@@ -19,9 +19,10 @@ from the_door.mcp.tools import edge_residue_tool
 
 
 def _fake_extraction(edges):
-    """edges＝[(from, to, resolution), ...] → 帶 .edges + .nodes 的假 extraction。
+    """edges＝[(from, to, resolution), ...] → 帶 .edges + .nodes + .files 的假 extraction。
 
     .nodes 由 edge 端點推導（union of from/to），供 C2 checklist 蓋章記 covered_nodes。
+    .files＝[]（誠實鏡像真實 ExtractionResult 形狀；staleness 蓋章迭代 extraction.files）。
     """
     Edge = types.SimpleNamespace
     node_ids = sorted({f for (f, _t, _r) in edges} | {t for (_f, t, _r) in edges})
@@ -31,6 +32,7 @@ def _fake_extraction(edges):
             for (f, t, r) in edges
         ],
         nodes=[types.SimpleNamespace(node_id=nid) for nid in node_ids],
+        files=[],
     )
 
 
@@ -178,3 +180,24 @@ def test_e2e_real_extraction(tmp_path):
     assert checklist is not None
     covered = checklist[FIELD_STAGES][STAGE_EDGE_RESIDUE][FIELD_COVERED_NODES]
     assert len(covered) > 0
+
+
+def test_s4_stamps_source_files_fingerprint(tmp_path):
+    """S-4：edge_residue 蓋章記 source_files＝每個 extraction.files 的磁碟真實 (mtime_ns, size)。"""
+    from the_door.core.checklist import (
+        STAGE_EDGE_RESIDUE, FIELD_STAGES, FIELD_SOURCE_FILES, read_checklist,
+    )
+    fixture = (
+        Path(__file__).resolve().parents[3]
+        / "fixtures" / "sample_codebases" / "python_simple"
+    )
+    target = tmp_path / "codebase"
+    shutil.copytree(fixture, target)
+
+    asyncio.run(edge_residue_tool.execute({"codebase_path": str(target)}))
+
+    source_files = read_checklist(target)[FIELD_STAGES][STAGE_EDGE_RESIDUE][FIELD_SOURCE_FILES]
+    assert source_files  # non-empty (fixture has source files)
+    for rel, fp in source_files.items():
+        st = (target / rel).stat()
+        assert fp == [st.st_mtime_ns, st.st_size]

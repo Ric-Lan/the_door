@@ -55,11 +55,24 @@ async def execute(arguments: dict) -> dict:
     # failure must surface — silently "succeeding" would leave the agent stuck at
     # a deny it can't explain.
     covered_nodes = sorted({n.node_id for n in extraction.nodes})
+    # Record a per-file (mtime_ns, size) fingerprint of every discovered source
+    # file so the staleness gate (C3 #4) can detect deletion / in-place
+    # modification since this stamp without re-extracting AST. `.the-door/*.json`
+    # is filtered out of extraction.files by extension → no self-staleness.
+    root = Path(codebase_path)
+    source_files: dict[str, list[int]] = {}
+    for fi in extraction.files:
+        try:
+            st = (root / fi.path).stat()
+        except OSError:
+            continue  # vanished between discovery and stat → skip (fail-soft)
+        source_files[fi.path] = [st.st_mtime_ns, st.st_size]
     try:
         stamp_stage(
             codebase_path,
             STAGE_EDGE_RESIDUE,
             covered_nodes=covered_nodes,
+            source_files=source_files,
             contract_version=SNAPSHOT_CONTRACT_VERSION,
         )
     except Exception as exc:  # disk / permission — fail loud, not silent

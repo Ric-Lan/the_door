@@ -208,6 +208,89 @@ def test_h6_patch_deny_uses_tool_aware_label(tmp_path):
     assert "snapshot_patch" in err
 
 
+# ── staleness: source_files (mtime+size) fingerprint gate (#4) ────────
+# edge_residue records {relpath: [mtime_ns, size]}; the gate stats each at
+# snapshot_write/patch time and denies if a tracked file was deleted or modified
+# (the C2 §2.5 deferred cases — deletion / in-place modification).
+
+
+def _stamp_with_files(codebase, files: dict, covered):
+    """files: {relpath: bytes}. Create real files, fingerprint via real stat,
+    then stamp via the real stamp_stage (producer↔reader honesty)."""
+    for rel, content in files.items():
+        p = codebase / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(content)
+    src = {}
+    for rel in files:
+        st = (codebase / rel).stat()
+        src[rel] = [st.st_mtime_ns, st.st_size]
+    stamp_stage(codebase, STAGE_EDGE_RESIDUE, covered_nodes=covered,
+                source_files=src, contract_version=SNAPSHOT_CONTRACT_VERSION)
+
+
+def test_s5_unchanged_files_allow(tmp_path):
+    _stamp_with_files(tmp_path, {"f.py": b"x=1\n"}, covered=["a"])
+    rc, _ = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 0
+
+
+def test_s6_inplace_modification_denies(tmp_path):
+    _stamp_with_files(tmp_path, {"f.py": b"x=1\n"}, covered=["a"])
+    (tmp_path / "f.py").write_bytes(b"x=1\ny=2\n")  # size changes → deterministic
+    rc, err = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 2
+    assert "變動" in err or "edge_residue" in err
+
+
+def test_s7_deletion_denies(tmp_path):
+    _stamp_with_files(tmp_path, {"f.py": b"x=1\n"}, covered=["a"])
+    (tmp_path / "f.py").unlink()
+    rc, err = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 2
+    assert "刪除" in err or "edge_residue" in err
+
+
+def test_s8_no_source_files_skips_staleness(tmp_path):
+    # Old-shape checklist (no source_files) → staleness skipped → allow.
+    # Distinct from C2-7: pins "staleness skip-when-absent" backward-compat.
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, _ = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 0
+
+
+def test_s9_malformed_fingerprint_entry_fail_soft(tmp_path):
+    # stamp_stage writes source_files verbatim (no validation) → producer-honest
+    # way to inject a malformed entry. Existing file + non-list fp → skip → allow.
+    (tmp_path / "f.py").write_bytes(b"x=1\n")
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                source_files={"f.py": "bad"}, contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, _ = _write({}, tmp_path, source_nodes=["a"])
+    assert rc == 0
+
+
+def test_s10_inherit_only_but_file_changed_denies(tmp_path):
+    # High-value case: inherit-only write (no source_nodes) but code changed.
+    _stamp_with_files(tmp_path, {"f.py": b"x=1\n"}, covered=["a"])
+    (tmp_path / "f.py").write_bytes(b"x=1\ny=2\n")
+    rc, _ = run_hook(C3, {"tool_input": {"codebase_path": str(tmp_path)}})
+    assert rc == 2
+
+
+def test_s12_patch_with_changed_file_denies(tmp_path):
+    # Shared hook: staleness applies to snapshot_patch too.
+    _stamp_with_files(tmp_path, {"f.py": b"x=1\n"}, covered=["a"])
+    (tmp_path / "f.py").write_bytes(b"x=1\ny=2\n")
+    rc, _ = _patch(tmp_path, by_feature={"feat-a": ["a"]})
+    assert rc == 2
+
+
+def test_s11_hook_pins_source_files_field():
+    import the_door.core.checklist as ck
+    assert ck.FIELD_SOURCE_FILES in _c3_source()
+
+
 # ── C4: block native python code-exec ────────────────────────────────
 
 def test_c4_python_inline_denies():

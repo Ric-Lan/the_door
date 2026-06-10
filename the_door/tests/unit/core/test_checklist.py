@@ -12,6 +12,7 @@ from the_door.core.checklist import (
     FIELD_STAGES,
     FIELD_COVERED_NODES,
     FIELD_NODE_COUNT,
+    FIELD_SOURCE_FILES,
     FIELD_STAMPED_AT,
     checklist_path,
     read_checklist,
@@ -129,3 +130,37 @@ def test_c6_5_read_ledger_unknown_stage_appended_after(tmp_path):
     stamp_stage(tmp_path, "future_stage", covered_nodes=[], contract_version="1")
     order = [e["stage"] for e in read_ledger(tmp_path)]
     assert order == [STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE, "future_stage"]
+
+
+# ── staleness: source_files fingerprint (write side) ──────────────────
+
+
+def test_s1_stamp_writes_source_files_keeps_node_fields(tmp_path):
+    """S-1：source_files 原樣寫入；既有 covered_nodes/node_count 不受影響。"""
+    stamp_stage(
+        tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+        source_files={"f.py": [111, 222]}, contract_version="1",
+    )
+    stage = read_checklist(tmp_path)[FIELD_STAGES][STAGE_EDGE_RESIDUE]
+    assert stage[FIELD_SOURCE_FILES] == {"f.py": [111, 222]}
+    assert stage[FIELD_COVERED_NODES] == ["a"]
+    assert stage[FIELD_NODE_COUNT] == 1
+
+
+def test_s2_read_ledger_strips_source_files_keeps_node_count(tmp_path):
+    """S-2：read_ledger 剝除 source_files、保留 node_count；無 KeyError。"""
+    stamp_stage(
+        tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["x", "y"],
+        source_files={"f.py": [1, 2]}, contract_version="1",
+    )
+    er = read_ledger(tmp_path)[0]
+    assert er["stage"] == STAGE_EDGE_RESIDUE
+    assert FIELD_SOURCE_FILES not in er  # 剝除（避免淹沒 C6 ledger）
+    assert er[FIELD_NODE_COUNT] == 2  # 保留
+
+
+def test_s3_stamp_without_source_files_has_no_key(tmp_path):
+    """S-3：不給 source_files → entry 無該鍵（向後相容、既有 caller 零 churn）。"""
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="1")
+    stage = read_checklist(tmp_path)[FIELD_STAGES][STAGE_EDGE_RESIDUE]
+    assert FIELD_SOURCE_FILES not in stage

@@ -23,8 +23,14 @@ with a stderr message teaching the next step — call the `edge_residue` MCP too
                   agent may not reference un-analyzed / fabricated nodes; this
                   also catches "added nodes but didn't re-run edge_residue").
 
-Deferred (NOT detected here — see spec §2.5): deletion / in-place modification
-staleness, mtime/content recompute (a PreToolUse hook must not re-extract AST).
+  4. staleness  — every file the edge_residue stage fingerprinted (source_files:
+                  {relpath: [mtime_ns, size]}) still exists and is unchanged
+                  (stat only, no AST re-extract). Catches the C2 §2.5 deferred
+                  cases: deletion / in-place modification (node_id stable).
+                  Absent source_files (old checklist) → skip (backward compat).
+
+Still deferred (honest boundary): a brand-new untracked file whose nodes are not
+referenced (stat-loop only walks the recorded set), and adversarial mtime reset.
 
 jq-free, stdlib-only (cannot rely on the_door being importable). The field-name
 literals below are pinned against `the_door/core/checklist.py` by a drift test.
@@ -41,6 +47,7 @@ CHECKLIST_FILENAME = "checklist.json"
 STAGE_EDGE_RESIDUE = "edge_residue"
 FIELD_STAGES = "stages"
 FIELD_COVERED_NODES = "covered_nodes"
+FIELD_SOURCE_FILES = "source_files"
 FIELD_CONTRACT_VERSION = "contract_version"
 # Pinned against the_door.models.snapshot.SNAPSHOT_CONTRACT_VERSION.
 CURRENT_CONTRACT_VERSION = "1"
@@ -135,6 +142,29 @@ def main() -> int:
             "⛔ " + label + " 被擋（丙案 C2 node-coverage）：以下 source_nodes 不在 "
             "edge_residue 涵蓋範圍（可能程式已變動或 node_id 不符）：" + sample + "\n" + teach
         )
+
+    # 4. staleness (mtime+size fingerprint): every file edge_residue stamped must
+    # still exist unchanged. Catches the C2 §2.5 deferred cases — deletion /
+    # in-place modification (node_id stable) — without re-extracting AST (stat
+    # only). Absent source_files (old checklist) → skip (backward compat).
+    src_files = stage.get(FIELD_SOURCE_FILES)
+    if isinstance(src_files, dict):
+        for rel, fp in src_files.items():
+            full = os.path.join(codebase_path, rel)
+            try:
+                st = os.stat(full)
+            except OSError:
+                return _deny(
+                    "⛔ " + label + " 被擋（丙案 staleness）：edge_residue 涵蓋的檔案已"
+                    "刪除/移動/無法存取：" + str(rel) + "\n" + teach
+                )
+            if not (isinstance(fp, list) and len(fp) >= 2):
+                continue  # malformed / unknown shape → fail-soft skip (fwd-compat)
+            if st.st_mtime_ns != fp[0] or st.st_size != fp[1]:
+                return _deny(
+                    "⛔ " + label + " 被擋（丙案 staleness）：edge_residue 涵蓋的檔案自"
+                    "蓋章後已變動，請重跑 edge_residue：" + str(rel) + "\n" + teach
+                )
 
     return 0
 
