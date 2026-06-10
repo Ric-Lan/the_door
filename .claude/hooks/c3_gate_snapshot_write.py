@@ -73,6 +73,10 @@ def main() -> int:
     teach = (
         "請先呼叫 MCP 工具 `edge_residue`（codebase_path=" + codebase_path + "）"
         "產生／更新 " + artifact + " 後再 snapshot_write。\n"
+        # C5: point back to the single readable authority, in a form the
+        # MCP-surface agent can act on directly (system_status tool).
+        "（完整鏈與下一步見單一權威：呼叫 system_status 工具，或 the-door status "
+        + codebase_path + "）\n"
     )
 
     # 1. existence + parse

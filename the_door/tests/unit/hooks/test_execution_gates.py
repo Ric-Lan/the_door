@@ -54,6 +54,14 @@ def test_c2_6_no_checklist_denies(tmp_path):
     assert "edge_residue" in err
 
 
+def test_c5_6_deny_points_to_single_authority(tmp_path):
+    """C5-6：deny 指回單一權威（MCP-actionable system_status）＋仍含 edge_residue teach。"""
+    rc, err = run_hook(C3, {"tool_input": {"codebase_path": str(tmp_path)}})
+    assert rc == 2
+    assert "system_status" in err  # MCP-actionable 指回單一權威
+    assert "edge_residue" in err   # actionable teach 保留
+
+
 def test_c2_7_stamped_and_covered_allows(tmp_path):
     # producer↔reader honesty: build the checklist via the real stamp_stage.
     stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a", "b"],

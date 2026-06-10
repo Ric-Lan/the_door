@@ -11,15 +11,24 @@ _Rule = tuple[Callable[[SystemState], bool], tuple[ActionContext, ...], _Factory
 def _rule_first_time(state, context):
     return NextAction(id="extract.first_time",
                       title="首次分析這個專案（agent-as-LLM）",
-                      rationale="專案尚未建立 .the-door/ — 用 extract_structure 抽結構，由 agent 產 L1 後 snapshot_write。",
+                      rationale="專案尚未建立 .the-door/ — 用 extract_structure 抽結構，由 agent 產 L1，跑 edge_residue，再 snapshot_write。",
                       priority=1,
                       mcp_tool="extract_structure",
                       mcp_arguments={"codebase_path": state.project_path.as_posix()})
 
 
+def _rule_edge_residue(state, context):
+    return NextAction(id="edge_residue.run",
+                      title="跑 edge_residue（補雜訊殘餘＋蓋執行 checklist）",
+                      rationale="snapshot_write 前置：edge_residue 落盤殘餘並蓋 checklist，gate 才放行。",
+                      priority=2,
+                      mcp_tool="edge_residue",
+                      mcp_arguments={"codebase_path": state.project_path.as_posix()})
+
+
 def _rule_snapshot_write_first(state, context):
     return NextAction(id="snapshot.write_first", title="寫入首個 snapshot",
-                      rationale="已有 structure.json 但尚未持久化為 snapshot。", priority=2,
+                      rationale="已跑 edge_residue、有 structure.json 但尚未持久化為 snapshot。", priority=2,
                       mcp_tool="snapshot_write",
                       mcp_arguments={"codebase_path": state.project_path.as_posix()})
 
@@ -28,7 +37,7 @@ def _rule_incremental(state, context):
     label = state.latest_snapshot.label or state.latest_snapshot.version_id
     return NextAction(id="analyze_changes.incremental",
                       title="分析新版本（繼承既有 baseline）",
-                      rationale="已有 baseline — 用 analyze_changes 取受影響功能，由 agent 重產後 snapshot_write(inherit_from)。",
+                      rationale="已有 baseline — 用 analyze_changes 取受影響功能，由 agent 重產，跑 edge_residue，再 snapshot_write(inherit_from)。",
                       priority=2,
                       mcp_tool="analyze_changes",
                       mcp_arguments={"codebase_path": state.project_path.as_posix(), "baseline": label})
@@ -94,7 +103,8 @@ def _rule_onboarding(state, context):
 
 _RULES: list[_Rule] = [
     (lambda s: not s.has_dot_the_door, ("cli", "mcp"), _rule_first_time),
-    (lambda s: s.has_structure_json and not s.snapshots, ("mcp", "after_error"), _rule_snapshot_write_first),
+    (lambda s: s.has_structure_json and not s.snapshots and not s.edge_residue_stamped, ("mcp", "after_error"), _rule_edge_residue),
+    (lambda s: s.has_structure_json and not s.snapshots and s.edge_residue_stamped, ("mcp", "after_error"), _rule_snapshot_write_first),
     (lambda s: len(s.snapshots) >= 1, ("cli", "mcp"), _rule_incremental),
     (lambda s: len(s.snapshots) >= 2, ("cli", "viewer"), _rule_viewer_open),
     (lambda s: len(s.snapshots) >= 2, ("cli",), _rule_diff_cli),

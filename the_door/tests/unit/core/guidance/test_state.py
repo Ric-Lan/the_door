@@ -12,6 +12,24 @@ def test_inspect_empty_dir_returns_valid_state(tmp_path):
     assert state.snapshots == ()
     assert state.warnings == ()
     assert state.l2_features_analyzed == frozenset()
+    assert state.edge_residue_stamped is False  # C5: no .the-door → not stamped
+
+
+def test_c5_1_edge_residue_stamped_reflects_checklist(tmp_path):
+    """C5-1：checklist 有 edge_residue 蓋章 → True；無 checklist／只有別的 stage → False。"""
+    from the_door.core.checklist import STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE, stamp_stage
+
+    # 無 checklist（但有 .the-door 目錄）→ False
+    (tmp_path / ".the-door").mkdir()
+    assert StateInspector(tmp_path).inspect().edge_residue_stamped is False
+
+    # 只有非 edge_residue 的 stage → False
+    stamp_stage(tmp_path, STAGE_SNAPSHOT_WRITE, contract_version="1", details={"version_id": "v"})
+    assert StateInspector(tmp_path).inspect().edge_residue_stamped is False
+
+    # edge_residue 蓋章 → True
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="1")
+    assert StateInspector(tmp_path).inspect().edge_residue_stamped is True
 
 
 def _write_snapshot(tmp_path, vid, drift=False):

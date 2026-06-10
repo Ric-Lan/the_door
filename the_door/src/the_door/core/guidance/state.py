@@ -23,6 +23,11 @@ class SystemState:
     snapshots: tuple[SnapshotEntry, ...]
     l2_features_analyzed: frozenset[str]
     warnings: tuple[StateWarning, ...]
+    # C5: has the edge_residue stage been stamped in the execution checklist?
+    # Lets the guidance authority surface edge_residue as snapshot_write's
+    # prerequisite (matching the C3 gate). Last field + default → existing
+    # constructors are unchanged.
+    edge_residue_stamped: bool = False
 
     @property
     def has_snapshots(self) -> bool:
@@ -51,9 +56,20 @@ class StateInspector:
         return self._inspect_full(dot)
 
     def _inspect_full(self, dot: Path) -> SystemState:
+        from the_door.core.checklist import (
+            FIELD_STAGES,
+            STAGE_EDGE_RESIDUE,
+            read_checklist,
+        )
+
         warnings_acc: list[StateWarning] = []
 
         has_structure_json = (dot / "structure.json").is_file()
+
+        checklist = read_checklist(self._project_path)
+        edge_residue_stamped = isinstance(checklist, dict) and isinstance(
+            (checklist.get(FIELD_STAGES) or {}).get(STAGE_EDGE_RESIDUE), dict
+        )
 
         snap_dir = dot / "snapshots"
         struct_dir = dot / "structures"
@@ -103,6 +119,7 @@ class StateInspector:
             snapshots=tuple(entries),
             l2_features_analyzed=frozenset(l2_ids),
             warnings=tuple(warnings_acc),
+            edge_residue_stamped=edge_residue_stamped,
         )
 
 

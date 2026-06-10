@@ -89,6 +89,73 @@ def test_suggester_drift_warning_suggests_repair():
     assert any(a.id == "extract.repair_drift" for a in actions)
 
 
+def test_c5_2_unstamped_suggests_edge_residue_not_snapshot_write():
+    """C5-2：有 structure、無 snapshot、未蓋章 → top edge_residue.run；snapshot.write_first 不在列。"""
+    state = SystemState(
+        project_path=Path("/x"),
+        has_dot_the_door=True, has_structure_json=True,
+        snapshots=(),
+        l2_features_analyzed=frozenset(), warnings=(),
+        edge_residue_stamped=False,
+    )
+    # agent surface = mcp (snapshot_write/edge_residue are MCP tools the agent runs).
+    actions = NextActionSuggester().suggest(state, context="mcp")
+    assert actions[0].id == "edge_residue.run"
+    assert actions[0].mcp_tool == "edge_residue"
+    assert all(a.id != "snapshot.write_first" for a in actions)
+
+
+def test_c5_3_stamped_suggests_snapshot_write():
+    """C5-3：有 structure、無 snapshot、已蓋章 → top snapshot.write_first；edge_residue.run 不在列。"""
+    state = SystemState(
+        project_path=Path("/x"),
+        has_dot_the_door=True, has_structure_json=True,
+        snapshots=(),
+        l2_features_analyzed=frozenset(), warnings=(),
+        edge_residue_stamped=True,
+    )
+    actions = NextActionSuggester().suggest(state, context="mcp")
+    assert actions[0].id == "snapshot.write_first"
+    assert actions[0].mcp_tool == "snapshot_write"
+    assert all(a.id != "edge_residue.run" for a in actions)
+
+
+def test_c5_4_chain_rationales_mention_edge_residue():
+    """C5-4：first_time / incremental 的 rationale prose 含 edge_residue（與 gate 一致）。"""
+    first_time_state = SystemState(
+        project_path=Path("/x"), has_dot_the_door=False, has_structure_json=False,
+        snapshots=(), l2_features_analyzed=frozenset(), warnings=(),
+    )
+    ft = NextActionSuggester().suggest(first_time_state, context="cli")
+    assert any(a.id == "extract.first_time" and "edge_residue" in a.rationale for a in ft)
+
+    incremental_state = SystemState(
+        project_path=Path("/x"), has_dot_the_door=True, has_structure_json=True,
+        snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),),
+        l2_features_analyzed=frozenset(), warnings=(),
+    )
+    inc = NextActionSuggester().suggest(incremental_state, context="cli")
+    assert any(a.id == "analyze_changes.incremental" and "edge_residue" in a.rationale for a in inc)
+
+
+def test_c5_3b_inspector_to_suggester_seam(tmp_path):
+    """C5-3b：走真實 StateInspector→suggester，釘 producer↔consumer 接縫。"""
+    from the_door.core.checklist import STAGE_EDGE_RESIDUE, stamp_stage
+    from the_door.core.guidance.state import StateInspector
+
+    # 有 structure.json、無 snapshot、未蓋章 → edge_residue.run
+    dot = tmp_path / ".the-door"
+    dot.mkdir()
+    (dot / "structure.json").write_text("{}", encoding="utf-8")
+    state = StateInspector(tmp_path).inspect()
+    assert NextActionSuggester().suggest(state, context="mcp")[0].id == "edge_residue.run"
+
+    # 蓋 edge_residue 後 → snapshot.write_first
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="1")
+    state2 = StateInspector(tmp_path).inspect()
+    assert NextActionSuggester().suggest(state2, context="mcp")[0].id == "snapshot.write_first"
+
+
 def test_suggester_is_deterministic():
     state = SystemState(
         project_path=Path("/x"),
@@ -138,6 +205,7 @@ def test_suggester_after_error_no_snapshot_boost():
         snapshots=(),  # no snapshots yet
         l2_features_analyzed=frozenset(),
         warnings=(),
+        edge_residue_stamped=True,  # C5: write_first now requires edge_residue done
     )
     top = NextActionSuggester().suggest(
         state, context="after_error",
@@ -155,6 +223,7 @@ def _state_that_triggers(boost_target_id: str) -> "SystemState":
         project_path=Path("/x"),
         has_dot_the_door=True, has_structure_json=True,
         l2_features_analyzed=frozenset(), warnings=(),
+        edge_residue_stamped=True,  # C5: write_first now gated on edge_residue done
     )
     if boost_target_id == "extract.backfill_structure":
         return SystemState(
