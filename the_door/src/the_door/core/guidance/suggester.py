@@ -75,7 +75,7 @@ def _rule_repair_drift(state, context):
     label = state.latest_snapshot.label or state.latest_snapshot.version_id
     return NextAction(id="extract.repair_drift",
                       title="修復 source_nodes 漂移（重抽結構，無需 API key）",
-                      rationale="偵測到 source_nodes_drift — 重跑 extract 後用 snapshot_patch 補 source_nodes。",
+                      rationale="偵測到 source_nodes_drift — 重跑 extract、跑 edge_residue，再用 snapshot_patch 補 source_nodes。",
                       priority=6,
                       cli_command=f"the-door extract --as-version {label} <baseline_source_path>")
 

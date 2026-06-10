@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""C3 gate (丙案), C2-upgraded: gate mcp__the-door__snapshot_write on the checklist.
+"""C3 gate (丙案), C2-upgraded + horizontal: gate the source_nodes write tools
+(`mcp__the-door__snapshot_write` AND `mcp__the-door__snapshot_patch`) on the
+checklist. (snapshot_patch is also a write of agent source_nodes — via
+`source_nodes_by_feature` — so it goes through the same coverage gate.)
+
+The gate's purpose is node-coverage. It engages on node-writes:
+  * snapshot_write — always a node-write (its purpose is to write L1 features).
+  * snapshot_patch — only when it carries source_nodes (source_nodes_by_feature);
+    a metadata-only patch is not a node-write and is exempt. If tool_name is
+    absent we cannot apply the exemption → engage anyway (safe over-gate).
 
 PreToolUse hook. Reads the hook event JSON on stdin and the target codebase's
 `.the-door/checklist.json`, then verifies (in order; any failure → exit 2 deny
@@ -56,6 +65,11 @@ def _source_nodes(tool_input: dict) -> list:
         for feat in tool_input.get(key) or []:
             if isinstance(feat, dict):
                 out.extend(feat.get("source_nodes") or [])
+    # snapshot_patch writes source_nodes via source_nodes_by_feature: {fid: [node_id]}.
+    by_feat = tool_input.get("source_nodes_by_feature")
+    if isinstance(by_feat, dict):
+        for nodes in by_feat.values():
+            out.extend(nodes or [])
     return out
 
 
@@ -69,10 +83,21 @@ def main() -> int:
     if not codebase_path:
         return 0  # nothing to gate on
 
+    tool_short = (data.get("tool_name") or "").rsplit("__", 1)[-1]
+    src = _source_nodes(tool_input)
+
+    # Engage on node-writes only. snapshot_write always engages (its purpose is
+    # to write L1 features). snapshot_patch engages only when it carries actual
+    # source_nodes; a metadata-only patch is exempt. Absent tool_name → cannot
+    # apply the exemption → engage anyway (safe over-gate, never under-gate).
+    if tool_short == "snapshot_patch" and not src:
+        return 0
+
+    label = tool_short or "snapshot 寫入"
     artifact = os.path.join(codebase_path, ".the-door", CHECKLIST_FILENAME)
     teach = (
         "請先呼叫 MCP 工具 `edge_residue`（codebase_path=" + codebase_path + "）"
-        "產生／更新 " + artifact + " 後再 snapshot_write。\n"
+        "產生／更新 " + artifact + " 後再 " + label + "。\n"
         # C5: point back to the single readable authority, in a form the
         # MCP-surface agent can act on directly (system_status tool).
         "（完整鏈與下一步見單一權威：呼叫 system_status 工具，或 the-door status "
@@ -85,30 +110,29 @@ def main() -> int:
             checklist = json.load(f)
     except Exception:
         return _deny(
-            "⛔ snapshot_write 被擋（丙案 C2/C3）：尚無可用的 checklist。\n" + teach
+            "⛔ " + label + " 被擋（丙案 C2/C3）：尚無可用的 checklist。\n" + teach
         )
     stages = checklist.get(FIELD_STAGES) or {}
     stage = stages.get(STAGE_EDGE_RESIDUE)
     if not isinstance(stage, dict):
         return _deny(
-            "⛔ snapshot_write 被擋（丙案 C2/C3）：checklist 尚未蓋 edge_residue 關。\n" + teach
+            "⛔ " + label + " 被擋（丙案 C2/C3）：checklist 尚未蓋 edge_residue 關。\n" + teach
         )
 
     # 2. currency
     if checklist.get(FIELD_CONTRACT_VERSION) != CURRENT_CONTRACT_VERSION:
         return _deny(
-            "⛔ snapshot_write 被擋（丙案 C2）：checklist contract_version 過期"
+            "⛔ " + label + " 被擋（丙案 C2）：checklist contract_version 過期"
             "（需 " + CURRENT_CONTRACT_VERSION + "）。\n" + teach
         )
 
     # 3. coverage (validity: source_nodes ⊆ covered_nodes)
     covered = set(stage.get(FIELD_COVERED_NODES) or [])
-    src = _source_nodes(tool_input)
     missing = [n for n in src if n not in covered]
     if missing:
         sample = ", ".join(missing[:5])
         return _deny(
-            "⛔ snapshot_write 被擋（丙案 C2 node-coverage）：以下 source_nodes 不在 "
+            "⛔ " + label + " 被擋（丙案 C2 node-coverage）：以下 source_nodes 不在 "
             "edge_residue 涵蓋範圍（可能程式已變動或 node_id 不符）：" + sample + "\n" + teach
         )
 

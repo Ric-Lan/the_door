@@ -89,6 +89,20 @@ def test_suggester_drift_warning_suggests_repair():
     assert any(a.id == "extract.repair_drift" for a in actions)
 
 
+def test_h9_repair_drift_rationale_mentions_edge_residue():
+    """水平推廣 H-9：repair_drift rationale 含 edge_residue（與 snapshot_patch gate 一致）。"""
+    state = SystemState(
+        project_path=Path("/x"), has_dot_the_door=True, has_structure_json=True,
+        snapshots=(SnapshotEntry("v1", "v1.0.0", (), None, "2026-01-01T00:00:00Z", True),),
+        l2_features_analyzed=frozenset(),
+        warnings=(StateWarning(code="source_nodes_drift", location="snapshot/v1/feat-x",
+                               message="...", remediation_code=None),),
+    )
+    actions = NextActionSuggester().suggest(state, context="cli")
+    repair = next(a for a in actions if a.id == "extract.repair_drift")
+    assert "edge_residue" in repair.rationale
+
+
 def test_c5_2_unstamped_suggests_edge_residue_not_snapshot_write():
     """C5-2：有 structure、無 snapshot、未蓋章 → top edge_residue.run；snapshot.write_first 不在列。"""
     state = SystemState(

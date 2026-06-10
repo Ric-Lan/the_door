@@ -138,6 +138,76 @@ def test_c2_15_hook_field_names_pin_checklist_module():
     assert "__nonexistent_field__" not in src
 
 
+# ── 水平推廣: gate snapshot_patch (same c3 hook, source_nodes_by_feature) ──
+
+
+def _patch(codebase_path, by_feature=None, metadata=None, with_tool_name=True):
+    ti = {"codebase_path": str(codebase_path)}
+    if by_feature is not None:
+        ti["source_nodes_by_feature"] = by_feature
+    if metadata is not None:
+        ti["feature_metadata_by_feature"] = metadata
+    event = {"tool_input": ti}
+    if with_tool_name:
+        event["tool_name"] = "mcp__the-door__snapshot_patch"
+    return run_hook(C3, event)
+
+
+def test_h1_patch_no_checklist_denies(tmp_path):
+    rc, err = _patch(tmp_path, by_feature={"feat-x": ["a"]})
+    assert rc == 2
+    assert "edge_residue" in err
+
+
+def test_h2_patch_stamped_and_covered_allows(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a", "b"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, _ = _patch(tmp_path, by_feature={"feat-x": ["a"]})
+    assert rc == 0
+
+
+def test_h3_patch_uncovered_denies_with_tool_label(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    rc, err = _patch(tmp_path, by_feature={"feat-x": ["a", "zzz"]})
+    assert rc == 2
+    assert "coverage" in err or "涵蓋" in err
+    assert "snapshot_patch" in err  # coverage-deny 也用 tool-aware 標籤
+
+
+def test_h4_patch_stale_contract_denies(tmp_path):
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="0")
+    rc, _ = _patch(tmp_path, by_feature={"feat-x": ["a"]})
+    assert rc == 2
+
+
+def test_h5_patch_metadata_only_no_checklist_allows(tmp_path):
+    # metadata-only (no source_nodes_by_feature) → not a node-write → not engaged → allow.
+    rc, _ = _patch(tmp_path, metadata={"feat-x": {"trigger_description": "t"}})
+    assert rc == 0
+
+
+def test_h5b_patch_empty_by_feature_allows(tmp_path):
+    rc, _ = _patch(tmp_path, by_feature={})
+    assert rc == 0
+    rc, _ = _patch(tmp_path, by_feature={"feat-x": []})
+    assert rc == 0
+
+
+def test_h5c_patch_metadata_only_without_tool_name_safe_degrades_to_deny(tmp_path):
+    # No tool_name → cannot apply the snapshot_patch exemption → engage existence
+    # (safe over-gate, never under-gate).
+    rc, _ = _patch(tmp_path, metadata={"feat-x": {"trigger_description": "t"}},
+                   with_tool_name=False)
+    assert rc == 2
+
+
+def test_h6_patch_deny_uses_tool_aware_label(tmp_path):
+    rc, err = _patch(tmp_path, by_feature={"feat-x": ["a"]})
+    assert rc == 2
+    assert "snapshot_patch" in err
+
+
 # ── C4: block native python code-exec ────────────────────────────────
 
 def test_c4_python_inline_denies():
@@ -188,6 +258,18 @@ def test_settings_registers_c3_c4():
     assert any(C4 in c for c in cmds)
     for name in (C3, C4):
         assert (HOOKS_DIR / name).is_file()
+
+
+def test_h8_settings_registers_snapshot_patch_matcher():
+    """水平推廣 H-8：snapshot_patch matcher 指向同一 c3 hook；snapshot_write 仍在。"""
+    data = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    pre = data["hooks"]["PreToolUse"]
+    matchers = [h.get("matcher") for h in pre]
+    assert "mcp__the-door__snapshot_patch" in matchers
+    assert "mcp__the-door__snapshot_write" in matchers  # 不回歸
+    # snapshot_patch matcher 的 command 指向 c3 hook
+    patch_entry = next(h for h in pre if h.get("matcher") == "mcp__the-door__snapshot_patch")
+    assert any(C3 in hk["command"] for hk in patch_entry.get("hooks", []))
 
 
 # ── G-10: 真實 command 字串守衛邏輯（bash） ──────────────────────────
