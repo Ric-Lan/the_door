@@ -1,5 +1,7 @@
 """Main CLI entry point using click. Registers all commands."""
 
+import sys
+
 import click
 
 from the_door.cli.next_action_renderer import render_remediation
@@ -41,10 +43,31 @@ class CliRemediableError(click.ClickException):
         render_remediation(self.remediation)
 
 
+def _force_utf8_io() -> None:
+    """Make stdout/stderr UTF-8 so the CLI's non-ASCII output (✓ ⚠ 中文…) never
+    raises UnicodeEncodeError on a legacy code-page stream (e.g. Windows cp950 /
+    Big5 when stdout is piped). The Door's CLI emits bilingual + symbol output;
+    on a redirected cp950 stream ``click.echo`` would crash (handoff #1).
+
+    Reconfiguring at this single entry funnel fixes all subcommand-dispatched
+    echo sites at once. ``errors="backslashreplace"`` is a belt-and-suspenders
+    fallback so output degrades instead of crashing if utf-8 ever can't apply.
+    Streams that are not a reconfigurable ``TextIOWrapper`` (pytest capture,
+    certain redirections) are skipped — the fix itself never raises. Called from
+    the group callback (runtime), not import time, so importing this module
+    during test collection does not mutate captured streams.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
+
+
 @click.group()
 def main():
     """The Door — LLM constraint pipeline for code structure extraction and validation."""
-    pass
+    _force_utf8_io()
 
 
 main.add_command(extract_cmd)

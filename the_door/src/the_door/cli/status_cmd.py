@@ -1,7 +1,6 @@
 """`the-door status` — report current project state + suggested next actions."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import click
@@ -44,7 +43,9 @@ def _get_unanalyzed_git_tags(project_path: Path, store) -> list[str]:
 )
 def status_cmd(path: str) -> None:
     """Report current project state + suggested next actions."""
-    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    # UTF-8 stdout/stderr is forced once at the CLI entry funnel
+    # (the_door.cli.main:_force_utf8_io) — covers all subcommands' non-ASCII
+    # output (✓ ⚠ 中文) on legacy cp950 streams.
     from the_door.core.diff.snapshot_store import SnapshotStore
     from the_door.core.flow_guard import CheckpointOption, FlowGuard
     from the_door.core.project_identity import ProjectIdentity
