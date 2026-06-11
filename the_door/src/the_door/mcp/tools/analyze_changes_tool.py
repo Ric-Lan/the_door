@@ -23,6 +23,7 @@ from the_door.core.checklist import (
     STAGE_ANALYZE_CHANGES,
     stamp_stage,
 )
+from the_door.core.classification.operational_classifier import summarize_unmapped
 from the_door.core.diff.provenance_membrane import provenance_element_for
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
@@ -164,9 +165,9 @@ async def execute(arguments: dict) -> dict:
         "inherited_features": [_feature_to_json(fs) for fs in diff.inherited_features],
         "affected_features": [_affected_to_json(af) for af in diff.affected_features],
         "unmapped_nodes": {
-            "added": list(diff.unmapped_nodes.added),
-            "removed": list(diff.unmapped_nodes.removed),
-            "modified": list(diff.unmapped_nodes.modified),
+            "added": summarize_unmapped(list(diff.unmapped_nodes.added)),
+            "removed": summarize_unmapped(list(diff.unmapped_nodes.removed)),
+            "modified": summarize_unmapped(list(diff.unmapped_nodes.modified)),
         },
     }
 

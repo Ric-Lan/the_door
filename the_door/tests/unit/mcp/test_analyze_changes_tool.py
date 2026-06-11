@@ -141,8 +141,9 @@ async def test_analyze_changes_returns_incremental_diff(seeded_v105_fixture):
     assert "affected_features" in result
     assert "unmapped_nodes" in result
     assert "next_actions" in result
-    # Spot-check delta shape
-    assert "file.py::new" in result["unmapped_nodes"]["added"]
+    # Spot-check delta shape (Cut 1: added is now {operational, non_operational};
+    # file.py::new is a src-path node → operational, listed verbatim).
+    assert "file.py::new" in result["unmapped_nodes"]["added"]["operational"]
     # C6：inherited feature confidence 經膜投影（值→signal、無裸 enum）
     inh = result["inherited_features"][0]
     assert inh["confidence"]["value"] == "high"
@@ -269,3 +270,94 @@ async def test_analyze_changes_missing_structure_returns_error_envelope(tmp_path
     assert "error" in result
     assert result["error"]["remediation"]["code"] == "no_persisted_structure_for_baseline"
     assert result["error"]["remediation"]["next_action"]["id"] == "extract.backfill_structure"
+
+
+# --- Cut 1: unmapped_nodes summarization (operational vs non-operational) ---
+
+
+def _real_unmapped_diff():
+    """Build a genuine IncrementalDiff via compute_affected_features whose
+    ``unmapped_nodes.removed`` holds N test-path + M src-path node_ids owned by
+    no feature. Uses the real ``NodeDelta`` tuple type, not a hand-built dict.
+    """
+    from the_door.core.diff.feature_attribution import compute_affected_features
+    from the_door.models import ASTNode, FeatureSummary, StructureJSON, VersionSnapshot
+
+    def _node(node_id: str) -> ASTNode:
+        return ASTNode(
+            node_id=node_id,
+            type="function",
+            name=node_id.split("::", 1)[-1],
+            file=node_id.split("::", 1)[0],
+            language="python",
+            parameters=[],
+        )
+
+    owned = "the_door/src/the_door/core/a.py::keep"
+    orphan_src = "the_door/src/the_door/core/orphan.py::gone"
+    test_a = "the_door/tests/unit/test_x.py::test_one"
+    test_b = "the_door/tests/unit/test_y.py::test_two"
+
+    baseline_structure = StructureJSON(
+        nodes=[_node(owned), _node(orphan_src), _node(test_a), _node(test_b)]
+    )
+    current_structure = StructureJSON(nodes=[_node(owned)])  # removed everything else
+
+    baseline = VersionSnapshot(
+        version_id="ver-1",
+        timestamp="2026-06-11T00:00:00Z",
+        trigger="manual",
+        l1_snapshot={
+            "feat-a": FeatureSummary(
+                feature_id="feat-a",
+                label="a",
+                description="owns the kept src node",
+                source_node_count=1,
+                confidence="high",
+                source_nodes=(owned,),
+            )
+        },
+    )
+    diff = compute_affected_features(baseline_structure, current_structure, baseline)
+    return diff, orphan_src, (test_a, test_b)
+
+
+def test_summarize_unmapped_buckets_real_node_delta():
+    from the_door.core.classification.operational_classifier import summarize_unmapped
+
+    diff, orphan_src, test_ids = _real_unmapped_diff()
+    # removed bucket has 1 src + 2 test nodes, none owned by a feature.
+    summary = summarize_unmapped(list(diff.unmapped_nodes.removed))
+
+    assert summary["operational"] == [orphan_src]
+    assert summary["non_operational"]["by_category"]["test"] == 2
+    assert summary["non_operational"]["total"] == 2
+    # No bare test id leaks into the serialized summary.
+    blob = json.dumps(summary)
+    for tid in test_ids:
+        assert tid not in blob
+
+
+def test_summarize_unmapped_empty_bucket():
+    from the_door.core.classification.operational_classifier import summarize_unmapped
+
+    summary = summarize_unmapped([])
+    assert summary == {"operational": [], "non_operational": {"by_category": {}, "total": 0}}
+
+
+@pytest.mark.asyncio
+async def test_analyze_changes_unmapped_nodes_new_shape(seeded_v105_fixture):
+    """execute() projects all three buckets through the summarizer: each is a
+    dict with an ``operational`` list and a ``non_operational`` summary."""
+    from the_door.mcp.tools import analyze_changes_tool
+
+    result = await analyze_changes_tool.execute({
+        "codebase_path": str(seeded_v105_fixture),
+        "baseline": "v1.0.0",
+    })
+
+    for bucket in ("added", "removed", "modified"):
+        b = result["unmapped_nodes"][bucket]
+        assert isinstance(b["operational"], list)
+        assert set(b["non_operational"].keys()) == {"by_category", "total"}
+        assert isinstance(b["non_operational"]["total"], int)

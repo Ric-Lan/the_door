@@ -145,3 +145,13 @@ async def test_analyze_changes_response_shape(tmp_path, monkeypatch):
         assert "feature_id" in af
         assert "delta" in af
         assert set(af["delta"].keys()) >= {"added", "removed", "modified"}
+
+    # Cut 1: unmapped_nodes' three buckets are summarized, not bare lists. Each
+    # bucket is {operational: [ids], non_operational: {by_category, total}}.
+    unmapped = response["unmapped_nodes"]
+    for bucket in ("added", "removed", "modified"):
+        b = unmapped[bucket]
+        assert isinstance(b["operational"], list)
+        assert set(b["non_operational"].keys()) == {"by_category", "total"}
+        assert isinstance(b["non_operational"]["by_category"], dict)
+        assert isinstance(b["non_operational"]["total"], int)
