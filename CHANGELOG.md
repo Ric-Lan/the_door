@@ -10,6 +10,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.1 — 2026-06-11
+
+修 v1.7.0 的發版級 packaging bug：pip 非-editable 安裝後找不到 JSON schemas，核心流程壞掉。
+
+### Fixed
+- **JSON schemas 未隨 wheel 打包 ＋ runtime 路徑寫死 dev 佈局**：實機測 v1.7.0 非-editable
+  `pip install` 時 `snapshot_write` 報 `[Errno 2] ... snapshot.schema.json` 找不到。雙重病灶
+  ＝①schemas 放在套件外（`the_door/schemas/`，非 `src/the_door/` 內）→ build wheel 排除；
+  ②4 個載入點用 `Path(__file__).parent×5 / "schemas"` 假設 dev/editable 佈局，裝起來少 `src/`
+  一層 → overshoot 到 `<python>/Lib/schemas`。pytest 對源碼樹永遠綠、過去都用 editable install
+  ⟹ 從未被非-editable install 暴露。修正：`git mv` 11 schema 進 `src/the_door/schemas/`；
+  `snapshot_store` / `doubt_store` / `scope_verifier` / `schema_check` 改用
+  `importlib.resources.files("the_door") / "schemas"`（dev+裝起來皆 robust）；pyproject 加
+  `[tool.setuptools.package-data]` ＋ 新增 `MANIFEST.in`。影響面＝snapshot_write／validate／
+  doubt／scope 等所有 schema 載入。新增 `tests/unit/test_schema_packaging.py`（路徑解析＋打包設定釘樁）防退化。
+
+### Notes
+- 純 packaging/路徑修正，schema 內容不動 → 契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+- Python 1420 passed / 0 failed；viewer 532 passed / 0 red；wheel 實證含 11 schema。
+
+---
+
 ## v1.7.0 — 2026-06-10
 
 「丙案＝控制經結構強制」campaign：把執行模型重塑成「工具化 + blocking hook gate」，讓 agent 走唯一一條結構性強制的 agent-as-LLM 路徑；並據此**終局移除所有 API-key 介面**（provider、`analyze` / `update` 鏈、provider 設定）。終態＝零 API key、單一路徑。軌2 的執行序 gate 已全到位＝C2（checklist schema）＋C3（snapshot_write gate）＋C4（擋原生 code-exec）＋C6（跑完回報）＋C5（單一權威）＋水平推廣（snapshot_patch）＋staleness（mtime+size 指紋）。
