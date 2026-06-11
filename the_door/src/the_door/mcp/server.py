@@ -24,6 +24,161 @@ from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 from the_door.mcp.tools import edge_residue_tool
 
 
+def _build_tools() -> list[Tool]:
+    """Module-level tool list — single source of truth for registered tools."""
+    return [
+        Tool(
+            name="extract_structure",
+            description="Extract AST structure and topology from a codebase path.",
+            inputSchema={
+                "type": "object",
+                "required": ["codebase_path"],
+                "properties": {
+                    "codebase_path": {
+                        "type": "string",
+                        "description": "Path to the codebase root directory",
+                    }
+                },
+            },
+        ),
+        Tool(
+            name="validate_output",
+            description="Validate LLM output against Structure JSON using 5 checks.",
+            inputSchema={
+                "type": "object",
+                "required": ["llm_output", "structure_json"],
+                "properties": {
+                    "llm_output": {
+                        "type": "object",
+                        "description": "The LLM-generated L1 output JSON",
+                    },
+                    "structure_json": {
+                        "type": "object",
+                        "description": "The Structure JSON from extract_structure",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="render",
+            description="Generate Mermaid flowchart text from L1 or L1.5 JSON.",
+            inputSchema=render_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="history",
+            description="Return narrative chain for a given codebase path.",
+            inputSchema=history_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="diff",
+            description="Compare current analysis against a baseline version.",
+            inputSchema=diff_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="snapshot_create",
+            description="Create a manual snapshot from the most recent analysis output.",
+            inputSchema=snapshot_create_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="snapshot_list",
+            description="List all available snapshots.",
+            inputSchema=snapshot_list_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="snapshot_write",
+            description=(
+                "Write L1 analysis results produced by the calling AI directly into the snapshot store. "
+                "Use this after extract_structure + your own analysis, instead of calling analyze. "
+                "No external LLM API key required — you are the LLM."
+            ),
+            inputSchema=snapshot_write_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="scan",
+            description="Scan codebase for known vulnerabilities.",
+            inputSchema=scan_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="scope_verify",
+            description="Run scope verification against a scope definition.",
+            inputSchema=scope_verify_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="scope_create",
+            description="Create a new scope definition file.",
+            inputSchema=scope_create_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="doubt_list",
+            description="List doubt records with optional filters.",
+            inputSchema=doubt_list_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="doubt_transition",
+            description="Transition a doubt to a new state.",
+            inputSchema=doubt_transition_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="timeline",
+            description="Analyze feature evolution timeline across snapshots.",
+            inputSchema=timeline_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="snapshot_prune",
+            description="Compute snapshot retention decisions based on retention policy.",
+            inputSchema=snapshot_prune_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="project_list",
+            description=(
+                "List all codebases registered in The Door's project registry. "
+                "Use this to discover available projects before calling extract_structure or snapshot_write."
+            ),
+            inputSchema=project_list_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="system_status",
+            description="Report current project state + next-action suggestions",
+            inputSchema=system_status_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="analyze_changes",
+            description=(
+                "Read-only incremental analysis: compute IncrementalDiff between current "
+                "codebase and a baseline snapshot (label / tag / SHA / date / version_id)."
+            ),
+            inputSchema=analyze_changes_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="snapshot_patch",
+            description=(
+                "Patch source_nodes of an existing snapshot in-place without changing "
+                "version_id or timestamp. Use after extract_structure to backfill node "
+                "attribution for existing snapshots."
+            ),
+            inputSchema=snapshot_patch_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="localize_data_model",
+            description="Tier 0 local localization of data-model touch points (zero token).",
+            inputSchema=localize_datamodel_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="verify_data_model_contract",
+            description="Tier 1 bidirectional contract diff over agent-normalized field-sets.",
+            inputSchema=verify_contract_tool.TOOL_SCHEMA,
+        ),
+        Tool(
+            name="edge_residue",
+            description="Persist the membrane noise residue (off-grid + low-confidence edges) as a viewable artifact. Zero token, zero key. Run after extract_structure, before snapshot_write.",
+            inputSchema=edge_residue_tool.TOOL_SCHEMA,
+        ),
+    ]
+
+
+REGISTERED_TOOL_NAMES: frozenset[str] = frozenset(t.name for t in _build_tools())
+
+
 class TheDoorMCPServer:
     """MCP Server exposing The Door's core functionality."""
 
@@ -34,154 +189,7 @@ class TheDoorMCPServer:
     def _setup_tools(self):
         @self._server.list_tools()
         async def list_tools():
-            return [
-                Tool(
-                    name="extract_structure",
-                    description="Extract AST structure and topology from a codebase path.",
-                    inputSchema={
-                        "type": "object",
-                        "required": ["codebase_path"],
-                        "properties": {
-                            "codebase_path": {
-                                "type": "string",
-                                "description": "Path to the codebase root directory",
-                            }
-                        },
-                    },
-                ),
-                Tool(
-                    name="validate_output",
-                    description="Validate LLM output against Structure JSON using 5 checks.",
-                    inputSchema={
-                        "type": "object",
-                        "required": ["llm_output", "structure_json"],
-                        "properties": {
-                            "llm_output": {
-                                "type": "object",
-                                "description": "The LLM-generated L1 output JSON",
-                            },
-                            "structure_json": {
-                                "type": "object",
-                                "description": "The Structure JSON from extract_structure",
-                            },
-                        },
-                    },
-                ),
-                Tool(
-                    name="render",
-                    description="Generate Mermaid flowchart text from L1 or L1.5 JSON.",
-                    inputSchema=render_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="history",
-                    description="Return narrative chain for a given codebase path.",
-                    inputSchema=history_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="diff",
-                    description="Compare current analysis against a baseline version.",
-                    inputSchema=diff_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="snapshot_create",
-                    description="Create a manual snapshot from the most recent analysis output.",
-                    inputSchema=snapshot_create_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="snapshot_list",
-                    description="List all available snapshots.",
-                    inputSchema=snapshot_list_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="snapshot_write",
-                    description=(
-                        "Write L1 analysis results produced by the calling AI directly into the snapshot store. "
-                        "Use this after extract_structure + your own analysis, instead of calling analyze. "
-                        "No external LLM API key required — you are the LLM."
-                    ),
-                    inputSchema=snapshot_write_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="scan",
-                    description="Scan codebase for known vulnerabilities.",
-                    inputSchema=scan_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="scope_verify",
-                    description="Run scope verification against a scope definition.",
-                    inputSchema=scope_verify_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="scope_create",
-                    description="Create a new scope definition file.",
-                    inputSchema=scope_create_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="doubt_list",
-                    description="List doubt records with optional filters.",
-                    inputSchema=doubt_list_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="doubt_transition",
-                    description="Transition a doubt to a new state.",
-                    inputSchema=doubt_transition_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="timeline",
-                    description="Analyze feature evolution timeline across snapshots.",
-                    inputSchema=timeline_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="snapshot_prune",
-                    description="Compute snapshot retention decisions based on retention policy.",
-                    inputSchema=snapshot_prune_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="project_list",
-                    description=(
-                        "List all codebases registered in The Door's project registry. "
-                        "Use this to discover available projects before calling extract_structure or snapshot_write."
-                    ),
-                    inputSchema=project_list_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="system_status",
-                    description="Report current project state + next-action suggestions",
-                    inputSchema=system_status_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="analyze_changes",
-                    description=(
-                        "Read-only incremental analysis: compute IncrementalDiff between current "
-                        "codebase and a baseline snapshot (label / tag / SHA / date / version_id)."
-                    ),
-                    inputSchema=analyze_changes_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="snapshot_patch",
-                    description=(
-                        "Patch source_nodes of an existing snapshot in-place without changing "
-                        "version_id or timestamp. Use after extract_structure to backfill node "
-                        "attribution for existing snapshots."
-                    ),
-                    inputSchema=snapshot_patch_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="localize_data_model",
-                    description="Tier 0 local localization of data-model touch points (zero token).",
-                    inputSchema=localize_datamodel_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="verify_data_model_contract",
-                    description="Tier 1 bidirectional contract diff over agent-normalized field-sets.",
-                    inputSchema=verify_contract_tool.TOOL_SCHEMA,
-                ),
-                Tool(
-                    name="edge_residue",
-                    description="Persist the membrane noise residue (off-grid + low-confidence edges) as a viewable artifact. Zero token, zero key. Run after extract_structure, before snapshot_write.",
-                    inputSchema=edge_residue_tool.TOOL_SCHEMA,
-                ),
-            ]
+            return _build_tools()
 
         @self._server.call_tool()
         async def call_tool(name: str, arguments: dict):
