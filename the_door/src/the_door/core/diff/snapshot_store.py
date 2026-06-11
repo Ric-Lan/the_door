@@ -14,6 +14,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from importlib.resources import files
 from pathlib import Path
 
 from the_door.core.diff.baseline_resolver import BaselineResolver
@@ -37,15 +38,17 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Schema loading — same pattern as core/scope/doubt_store.py
+# Resolve via importlib.resources so it works both in the dev/editable layout
+# and when pip-installed (schemas ship inside the the_door package).
 # ---------------------------------------------------------------------------
-_SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent.parent / "schemas"
+_SCHEMAS_DIR = files("the_door") / "schemas"
 _SNAPSHOT_SCHEMA_PATH = _SCHEMAS_DIR / "snapshot.schema.json"
 _snapshot_schema: dict | None = None
 
 
 def _load_snapshot_schema() -> dict:
     """Load the snapshot JSON schema."""
-    with open(_SNAPSHOT_SCHEMA_PATH, encoding="utf-8") as f:
+    with _SNAPSHOT_SCHEMA_PATH.open(encoding="utf-8") as f:
         return json.load(f)
 
 

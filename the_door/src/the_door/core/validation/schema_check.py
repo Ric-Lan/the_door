@@ -2,15 +2,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from importlib.resources import files
 
 import jsonschema
 
 from the_door.models import CheckResult
 
 
-# Load schemas once at module level
-_SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent.parent / "schemas"
+# Load schemas once at module level. Resolve via importlib.resources so it works
+# both in the dev/editable layout and when pip-installed (schemas ship inside
+# the the_door package).
+_SCHEMAS_DIR = files("the_door") / "schemas"
 _L1_SCHEMA_PATH = _SCHEMAS_DIR / "l1-output.schema.json"
 _L1_5_SCHEMA_PATH = _SCHEMAS_DIR / "l1-5-output.schema.json"
 _L2_SCHEMA_PATH = _SCHEMAS_DIR / "l2-output.schema.json"
@@ -20,11 +22,11 @@ class SchemaCheck:
     """Validate LLM output against JSON schemas."""
 
     def __init__(self):
-        with open(_L1_SCHEMA_PATH) as f:
+        with _L1_SCHEMA_PATH.open(encoding="utf-8") as f:
             self._l1_schema = json.load(f)
-        with open(_L1_5_SCHEMA_PATH) as f:
+        with _L1_5_SCHEMA_PATH.open(encoding="utf-8") as f:
             self._l1_5_schema = json.load(f)
-        with open(_L2_SCHEMA_PATH) as f:
+        with _L2_SCHEMA_PATH.open(encoding="utf-8") as f:
             self._l2_schema = json.load(f)
         self._validator_cls = jsonschema.Draft202012Validator
 

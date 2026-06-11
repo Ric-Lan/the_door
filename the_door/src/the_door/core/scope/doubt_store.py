@@ -10,6 +10,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from importlib.resources import files
 from pathlib import Path
 
 import jsonschema
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Schema loading — same pattern as core/scope/scope_verifier.py
 # ---------------------------------------------------------------------------
-_SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent.parent / "schemas"
+_SCHEMAS_DIR = files("the_door") / "schemas"
 _DOUBT_RECORD_SCHEMA_PATH = _SCHEMAS_DIR / "doubt-record.schema.json"
 
 _doubt_schema: dict | None = None
@@ -38,7 +39,7 @@ _doubt_schema: dict | None = None
 
 def _load_doubt_schema() -> dict:
     """Load the doubt-record JSON schema."""
-    with open(_DOUBT_RECORD_SCHEMA_PATH, encoding="utf-8") as f:
+    with _DOUBT_RECORD_SCHEMA_PATH.open(encoding="utf-8") as f:
         return json.load(f)
 
 

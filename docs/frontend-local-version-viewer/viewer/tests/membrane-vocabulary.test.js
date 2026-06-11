@@ -24,10 +24,11 @@ import { CHANGE_TYPE_LABEL } from '../js/ui-detail.js';
 import { DIFF_LABELS } from '../js/layers.js';
 import { CONFIDENCE_LABEL } from '../js/ui-diff-explanation.js';
 
-// 測檔在 viewer/tests/ → 上溯 4 層到 repo root，再 the_door/schemas（schema 不在 src 下）。
+// 測檔在 viewer/tests/ → 上溯 4 層到 repo root，再 the_door/src/the_door/schemas
+//（schemas 已移進套件內＝src/the_door/schemas，供 pip install 打包）。
 const SCHEMA_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../../../the_door/schemas',
+  '../../../../the_door/src/the_door/schemas',
 );
 const JS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../js');
 

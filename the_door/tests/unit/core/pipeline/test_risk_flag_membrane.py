@@ -4,7 +4,7 @@
 absence 守界（spec §0）：未舉旗標＝「未帶此旗標」、非「已驗證 clear」。
 """
 import json
-from pathlib import Path
+from importlib.resources import files
 
 import pytest
 
@@ -20,9 +20,7 @@ def test_vocabulary_is_closed_3_set():
 
 def test_vocabulary_aligns_with_schema_enum():
     """詞彙單一來源對齊 schema risk_flags items enum（防漂移）。"""
-    schema_path = (
-        Path(__file__).resolve().parents[4] / "schemas" / "update-report.schema.json"
-    )
+    schema_path = files("the_door") / "schemas" / "update-report.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     enum = (
         schema["properties"]["l1_changes"]["items"]["properties"]

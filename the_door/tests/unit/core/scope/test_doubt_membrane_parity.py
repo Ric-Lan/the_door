@@ -1,11 +1,11 @@
 """J3：每值意義單一來源——schema description == doubt_membrane gloss（逐字）。"""
 import json
-from pathlib import Path
+from importlib.resources import files
 
 from the_door.core.scope import doubt_membrane as dm
 
 _SCHEMA = json.loads(
-    (Path(__file__).parents[4] / "schemas" / "doubt-record.schema.json").read_text(encoding="utf-8")
+    (files("the_door") / "schemas" / "doubt-record.schema.json").read_text(encoding="utf-8")
 )
 
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+from importlib.resources import files
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,13 +30,13 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Schema loading — same pattern as core/validation/schema_check.py
 # ---------------------------------------------------------------------------
-_SCHEMAS_DIR = Path(__file__).parent.parent.parent.parent.parent / "schemas"
+_SCHEMAS_DIR = files("the_door") / "schemas"
 _SCOPE_DEF_SCHEMA_PATH = _SCHEMAS_DIR / "scope-definition.schema.json"
 
 
 def _load_scope_schema() -> dict:
     """Load the scope-definition JSON schema (cached at module level)."""
-    with open(_SCOPE_DEF_SCHEMA_PATH, encoding="utf-8") as f:
+    with _SCOPE_DEF_SCHEMA_PATH.open(encoding="utf-8") as f:
         return json.load(f)
 
 
