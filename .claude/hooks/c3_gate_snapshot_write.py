@@ -29,6 +29,15 @@ with a stderr message teaching the next step — call the `edge_residue` MCP too
                   cases: deletion / in-place modification (node_id stable).
                   Absent source_files (old checklist) → skip (backward compat).
 
+  5. C7 inherited-description immutability — when snapshot_write carries
+                  inherit_from, a feature UNCHANGED in that baseline (∈ the
+                  analyze_changes stage's inherited_hashes) must keep its baseline
+                  description ("繼承的不譯"). sha256 string compare only — never a
+                  semantic judgement. ALL uncertainty (no inherit_from / no
+                  analyze_changes stamp / baseline_ref absent|mismatched / no
+                  written description) fails open; deny only on positive
+                  rewrite-of-an-unchanged-description.
+
 Still deferred (honest boundary): a brand-new untracked file whose nodes are not
 referenced (stat-loop only walks the recorded set), and adversarial mtime reset.
 
@@ -38,6 +47,7 @@ Fail-open on unparseable stdin / missing codebase_path → exit 0 (never brick a
 call it cannot reason about). A MISSING checklist, by contrast, is a deny — that
 is the gate's whole job.
 """
+import hashlib
 import json
 import os
 import sys
@@ -45,10 +55,14 @@ import sys
 # Pinned against the_door.core.checklist constants (see test_execution_gates.py).
 CHECKLIST_FILENAME = "checklist.json"
 STAGE_EDGE_RESIDUE = "edge_residue"
+STAGE_ANALYZE_CHANGES = "analyze_changes"
 FIELD_STAGES = "stages"
 FIELD_COVERED_NODES = "covered_nodes"
 FIELD_SOURCE_FILES = "source_files"
 FIELD_CONTRACT_VERSION = "contract_version"
+# C7 (inherited-description immutability) field names.
+FIELD_INHERITED_HASHES = "inherited_hashes"
+FIELD_BASELINE_REF = "baseline_ref"
 # Pinned against the_door.models.snapshot.SNAPSHOT_CONTRACT_VERSION.
 CURRENT_CONTRACT_VERSION = "1"
 
@@ -77,6 +91,22 @@ def _source_nodes(tool_input: dict) -> list:
     if isinstance(by_feat, dict):
         for nodes in by_feat.values():
             out.extend(nodes or [])
+    return out
+
+
+def _written_descriptions(tool_input: dict) -> dict:
+    """{feature_id: description} for every feature the snapshot_write carries
+    (l1_features ∪ updated_features). Features without a description are omitted
+    (nothing to compare → fail-open per feature)."""
+    out = {}
+    for key in ("l1_features", "updated_features"):
+        for feat in tool_input.get(key) or []:
+            if not isinstance(feat, dict):
+                continue
+            fid = feat.get("feature_id")
+            desc = feat.get("description")
+            if isinstance(fid, str) and isinstance(desc, str):
+                out[fid] = desc
     return out
 
 
@@ -165,6 +195,37 @@ def main() -> int:
                     "⛔ " + label + " 被擋（丙案 staleness）：edge_residue 涵蓋的檔案自"
                     "蓋章後已變動，請重跑 edge_residue：" + str(rel) + "\n" + teach
                 )
+
+    # 5. inherited-description immutability (C7): when this snapshot_write inherits
+    # from a baseline, a feature that is UNCHANGED in that baseline (∈ the
+    # analyze_changes stage's inherited_hashes) must not have its description
+    # rewritten ("繼承的不譯"). Pure structural check (sha256 compare) — never a
+    # semantic judgement. ALL uncertainty fails open (never false-deny / brick):
+    # no inherit_from, no analyze_changes stamp, baseline_ref absent/mismatched,
+    # or no written descriptions → skip. Deny only on a positive violation.
+    inherit_from = tool_input.get("inherit_from")
+    if isinstance(inherit_from, str) and inherit_from:
+        ac_stage = stages.get(STAGE_ANALYZE_CHANGES)
+        if isinstance(ac_stage, dict):
+            stamped_ref = ac_stage.get(FIELD_BASELINE_REF)
+            # baseline consistency gate: the stamp must be for THIS baseline.
+            # hook is stdlib-only and can't resolve label→version_id, so it can
+            # only string-compare; absent/mismatch → fail-open.
+            if isinstance(stamped_ref, str) and stamped_ref == inherit_from:
+                inherited_hashes = ac_stage.get(FIELD_INHERITED_HASHES)
+                if isinstance(inherited_hashes, dict):
+                    for fid, desc in _written_descriptions(tool_input).items():
+                        expected = inherited_hashes.get(fid)
+                        if not isinstance(expected, str):
+                            continue  # not an unchanged feature → free to write
+                        actual = hashlib.sha256(desc.encode("utf-8")).hexdigest()
+                        if actual != expected:
+                            return _deny(
+                                "⛔ " + label + " 被擋（丙案 C7 繼承不譯）：feature `"
+                                + fid + "` 在 baseline 未變動，但你改寫了它的描述。"
+                                "請從寫入中省略它（讓它繼承 baseline 原文），或保留原描述"
+                                "逐字不變。\n（變動+差異的 feature 才翻譯；繼承的不重譯。）\n"
+                            )
 
     return 0
 

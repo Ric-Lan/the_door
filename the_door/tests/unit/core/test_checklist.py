@@ -164,3 +164,23 @@ def test_s3_stamp_without_source_files_has_no_key(tmp_path):
     stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"], contract_version="1")
     stage = read_checklist(tmp_path)[FIELD_STAGES][STAGE_EDGE_RESIDUE]
     assert FIELD_SOURCE_FILES not in stage
+
+
+def test_c7_read_ledger_strips_inherited_hashes(tmp_path):
+    """C7：read_ledger 剝除 inherited_hashes（每未變動 feature 一筆，大專案會淹沒
+    C6 ledger）；baseline_ref 等小欄保留、stage 仍在。"""
+    from the_door.core.checklist import (
+        STAGE_ANALYZE_CHANGES,
+        FIELD_INHERITED_HASHES,
+        FIELD_BASELINE_REF,
+    )
+    stamp_stage(
+        tmp_path, STAGE_ANALYZE_CHANGES, contract_version="1",
+        details={
+            FIELD_INHERITED_HASHES: {"feat-a": "abc", "feat-b": "def"},
+            FIELD_BASELINE_REF: "v1.0.0",
+        },
+    )
+    entry = next(e for e in read_ledger(tmp_path) if e["stage"] == STAGE_ANALYZE_CHANGES)
+    assert FIELD_INHERITED_HASHES not in entry  # 剝除
+    assert entry[FIELD_BASELINE_REF] == "v1.0.0"  # 小欄保留

@@ -291,6 +291,138 @@ def test_s11_hook_pins_source_files_field():
     assert ck.FIELD_SOURCE_FILES in _c3_source()
 
 
+# ── C7: inherited-description immutability gate (check #5) ────────────
+# When snapshot_write carries inherit_from, a feature that is UNCHANGED in the
+# baseline (∈ analyze_changes' inherited_hashes) must not have its description
+# rewritten ("繼承的不譯"). Pure structural check (sha256 compare). All
+# uncertainty (no stamp / baseline_ref mismatch / missing field) → fail-open.
+
+import hashlib  # noqa: E402
+
+from the_door.core.checklist import (  # noqa: E402
+    STAGE_ANALYZE_CHANGES,
+    FIELD_INHERITED_HASHES,
+    FIELD_AFFECTED_FEATURES,
+    FIELD_BASELINE_REF,
+)
+
+
+def _sha(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+def _stamp_ac(codebase, *, inherited_hashes, baseline_ref="__set__", affected=None,
+              omit_baseline_ref=False):
+    details = {
+        FIELD_INHERITED_HASHES: inherited_hashes,
+        FIELD_AFFECTED_FEATURES: affected or [],
+    }
+    if not omit_baseline_ref:
+        details[FIELD_BASELINE_REF] = baseline_ref
+    stamp_stage(codebase, STAGE_ANALYZE_CHANGES,
+                contract_version=SNAPSHOT_CONTRACT_VERSION, details=details)
+
+
+def _write_inherit(codebase, inherit_from, features, *, edge=True):
+    """snapshot_write with inherit_from + l1_features carrying descriptions.
+    edge=True stamps edge_residue (covered_nodes=[]) so existence/coverage/
+    staleness pass and check #5 is what's under test."""
+    if edge:
+        stamp_stage(codebase, STAGE_EDGE_RESIDUE, covered_nodes=[],
+                    contract_version=SNAPSHOT_CONTRACT_VERSION)
+    ti = {"codebase_path": str(codebase), "inherit_from": inherit_from,
+          "l1_features": features}
+    return run_hook(C3, {"tool_input": ti,
+                         "tool_name": "mcp__the-door__snapshot_write"})
+
+
+def test_c7_1_rewriting_inherited_description_denies(tmp_path):
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1")
+    rc, err = _write_inherit(tmp_path, "v1", [
+        {"feature_id": "feat-b", "label": "B", "description": "MEMORY BLUR", "confidence": "high"},
+    ])
+    assert rc == 2
+    assert "feat-b" in err
+
+
+def test_c7_2_identical_inherited_description_allows(tmp_path):
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1")
+    rc, _ = _write_inherit(tmp_path, "v1", [
+        {"feature_id": "feat-b", "label": "B", "description": "db", "confidence": "high"},
+    ])
+    assert rc == 0
+
+
+def test_c7_3_omitting_inherited_feature_allows(tmp_path):
+    # Write only an affected/new feature; the inherited one is omitted (inherits).
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1",
+              affected=["feat-a"])
+    rc, _ = _write_inherit(tmp_path, "v1", [
+        {"feature_id": "feat-a", "label": "A", "description": "anything new", "confidence": "high"},
+    ])
+    assert rc == 0
+
+
+def test_c7_4_no_analyze_changes_stamp_failopen(tmp_path):
+    # edge stamped but no analyze_changes stamp → cannot know unchanged set → allow.
+    rc, _ = _write_inherit(tmp_path, "v1", [
+        {"feature_id": "feat-b", "label": "B", "description": "DIFFERENT", "confidence": "high"},
+    ])
+    assert rc == 0
+
+
+def test_c7_5_missing_baseline_ref_field_failopen(tmp_path):
+    # Old-shape analyze_changes stamp without baseline_ref → fail-open (no crash).
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, omit_baseline_ref=True)
+    rc, _ = _write_inherit(tmp_path, "v1", [
+        {"feature_id": "feat-b", "label": "B", "description": "DIFFERENT", "confidence": "high"},
+    ])
+    assert rc == 0
+
+
+def test_c7_6_baseline_ref_mismatch_failopen(tmp_path):
+    # Stamp computed against v1, but write inherits from v2 → can't confirm same
+    # baseline → fail-open (don't false-deny).
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1")
+    rc, _ = _write_inherit(tmp_path, "v2", [
+        {"feature_id": "feat-b", "label": "B", "description": "DIFFERENT", "confidence": "high"},
+    ])
+    assert rc == 0
+
+
+def test_c7_7_no_inherit_from_not_engaged(tmp_path):
+    # Direct mode (no inherit_from): #5 must not engage even if a stamp exists.
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1")
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=[],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    ti = {"codebase_path": str(tmp_path),
+          "l1_features": [{"feature_id": "feat-b", "label": "B",
+                           "description": "DIFFERENT", "confidence": "high"}]}
+    rc, _ = run_hook(C3, {"tool_input": ti, "tool_name": "mcp__the-door__snapshot_write"})
+    assert rc == 0
+
+
+def test_c7_8_updated_features_path_also_gated(tmp_path):
+    # The immutability check also covers the updated_features write path.
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=[],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    _stamp_ac(tmp_path, inherited_hashes={"feat-b": _sha("db")}, baseline_ref="v1")
+    ti = {"codebase_path": str(tmp_path), "inherit_from": "v1",
+          "updated_features": [{"feature_id": "feat-b", "label": "B",
+                                "description": "MEMORY BLUR", "confidence": "high"}]}
+    rc, err = run_hook(C3, {"tool_input": ti, "tool_name": "mcp__the-door__snapshot_write"})
+    assert rc == 2
+    assert "feat-b" in err
+
+
+def test_c7_9_hook_pins_c7_field_literals():
+    import the_door.core.checklist as ck
+    src = _c3_source()
+    for const in (ck.STAGE_ANALYZE_CHANGES, ck.FIELD_INHERITED_HASHES,
+                  ck.FIELD_BASELINE_REF):
+        assert const in src, f"hook missing C7 literal {const!r}"
+
+
 # ── C4: block native python code-exec ────────────────────────────────
 
 def test_c4_python_inline_denies():

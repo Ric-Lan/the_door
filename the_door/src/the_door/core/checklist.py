@@ -22,11 +22,14 @@ from pathlib import Path
 CHECKLIST_FILENAME = "checklist.json"
 
 # Stage keys
+STAGE_ANALYZE_CHANGES = "analyze_changes"
 STAGE_EDGE_RESIDUE = "edge_residue"
 STAGE_SNAPSHOT_WRITE = "snapshot_write"
 
 # Canonical chain order for ledger projection; unknown stages sort after these.
-STAGE_ORDER = (STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE)
+# analyze_changes precedes edge_residue in the incremental chain
+# (analyze_changes → edge_residue → snapshot_write).
+STAGE_ORDER = (STAGE_ANALYZE_CHANGES, STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE)
 
 # Schema field names (pinned against the gate hook by test).
 FIELD_CONTRACT_VERSION = "contract_version"
@@ -35,6 +38,13 @@ FIELD_COVERED_NODES = "covered_nodes"
 FIELD_NODE_COUNT = "node_count"
 FIELD_SOURCE_FILES = "source_files"
 FIELD_STAMPED_AT = "stamped_at"
+
+# C7 (inherited-description immutability) — fields stamped by the analyze_changes
+# stage and read by the gate hook's check #5. Pinned against the hook by test.
+FIELD_INHERITED_HASHES = "inherited_hashes"      # {feature_id: sha256(description)}
+FIELD_AFFECTED_FEATURES = "affected_features"    # [feature_id] (informational)
+FIELD_BASELINE_VERSION_ID = "baseline_version_id"
+FIELD_BASELINE_REF = "baseline_ref"              # raw inherit_from string the agent passed
 
 
 def checklist_path(codebase_path: str | Path) -> Path:
@@ -109,9 +119,11 @@ def read_ledger(codebase_path: str | Path) -> list[dict]:
     """Project the checklist's stages into an ordered, summarized ledger (C6).
 
     Each entry: ``{"stage": <name>, "stamped_at": ..., + node_count / details}``.
-    The bulky ``covered_nodes`` array and ``source_files`` map are deliberately
-    stripped (node_count is kept) so embedding the ledger in a tool response
-    can't be swamped by thousands of node ids / file fingerprints.
+    The bulky ``covered_nodes`` array, ``source_files`` map, and
+    ``inherited_hashes`` map (C7 — one entry per unchanged feature) are
+    deliberately stripped (node_count is kept) so embedding the ledger in a tool
+    response can't be swamped by thousands of node ids / file fingerprints /
+    feature hashes.
 
     Known stages (STAGE_ORDER) come first in canonical order; unknown stages
     follow in alphabetical order (forward-compatible with future gate stages).
@@ -130,6 +142,7 @@ def read_ledger(codebase_path: str | Path) -> list[dict]:
         entry = dict(stages[name])
         entry.pop(FIELD_COVERED_NODES, None)  # non-destructive; snapshot_write has none
         entry.pop(FIELD_SOURCE_FILES, None)  # bulky fingerprint map; keep ledger lean
+        entry.pop(FIELD_INHERITED_HASHES, None)  # C7: bulky per-feature hash map
         entry["stage"] = name
         ledger.append(entry)
     return ledger

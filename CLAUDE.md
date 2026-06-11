@@ -156,7 +156,7 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `edge_residue` MCP | Agent-as-LLM: persist edge-noise residue for a codebase (zero-token, deterministic). Required before `snapshot_write` (C3 gate). |
 | `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. |
 | `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 |
-| `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. |
+| `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. Also stamps the `analyze_changes` checklist stage (unchanged-feature fingerprints) for the C7 inherited-description gate. |
 | `system_status` MCP | Same as `the-door status` but callable from agents. |
 
 For the input/output schemas of each MCP tool see
@@ -225,16 +225,31 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
 ### Agent-as-LLM chain (incremental update)
 
 1. `analyze_changes(codebase_path="./new-project", baseline="v1.0.0")`
-   → Returns list of affected `feature_id`s plus their new node membership.
+   → Returns affected `feature_id`s + new node membership. It also stamps the
+   `analyze_changes` checklist stage, recording which baseline features are
+   **unchanged** (their description fingerprints) — the C7 gate reads this.
 
-2. You re-derive only the affected features (same JSON shape as above).
+2. You re-derive **only the affected features** (same JSON shape as above).
+   **繼承的不譯**：do NOT re-describe unchanged features. Either omit them (they
+   inherit the baseline text automatically via `inherit_from`) or, if you full-
+   replace, keep their `description` byte-identical to the baseline. The C7 gate
+   denies a `snapshot_write` that rewrites an unchanged feature's description.
 
 3. `edge_residue(codebase_path="./new-project")` — refresh the edge-residue
    artifact and re-stamp the checklist (C2/C3 gate prerequisite; also refreshes
    the covered node set so the new features' `source_nodes` pass coverage).
 
-4. `snapshot_write(codebase_path="./new-project", l1_features=[...], relations=[...],
+4. `snapshot_write(codebase_path="./new-project", updated_features=[...],
    label="v1.0.5", inherit_from="v1.0.0")` — unchanged features are inherited.
+   Prefer `updated_features` (carry only the affected ones) over a full
+   `l1_features` replacement — it makes the C7 immutability check trivially pass.
+
+> **Gate boundary (honest):** C3/C7 enforce execution order, node coverage,
+> file staleness, and inherited-description immutability — all **structural**.
+> They do NOT (and structurally cannot) enforce "use tool output instead of
+> grepping the source yourself" or "your prose is a faithful translation": those
+> are pure-behaviour / intent, which no tool-call hook can gate (種子 §5 固有缺口).
+> Those rest on this guide + the C6 execution-ledger report, not a blocking gate.
 
 ---
 

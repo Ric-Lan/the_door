@@ -200,6 +200,62 @@ async def test_analyze_changes_provenance_robust_with_explicit_source_path(seede
 
 
 @pytest.mark.asyncio
+async def test_analyze_changes_stamps_checklist_for_c7(seeded_v105_fixture):
+    """C7 Task 2: a successful analyze_changes stamps the `analyze_changes` stage
+    with inherited_hashes (sha256 of each unchanged feature's description),
+    baseline_ref, baseline_version_id — the artifact the C7 gate reads."""
+    import hashlib
+
+    from the_door.core.checklist import (
+        FIELD_BASELINE_REF,
+        FIELD_BASELINE_VERSION_ID,
+        FIELD_INHERITED_HASHES,
+        FIELD_STAGES,
+        STAGE_ANALYZE_CHANGES,
+        read_checklist,
+    )
+    from the_door.mcp.tools import analyze_changes_tool
+
+    await analyze_changes_tool.execute({
+        "codebase_path": str(seeded_v105_fixture),
+        "baseline": "v1.0.0",
+    })
+
+    cl = read_checklist(seeded_v105_fixture)
+    stage = cl[FIELD_STAGES][STAGE_ANALYZE_CHANGES]
+    assert stage[FIELD_BASELINE_REF] == "v1.0.0"
+    assert stage[FIELD_BASELINE_VERSION_ID]
+    hashes = stage[FIELD_INHERITED_HASHES]
+    # feat-seeded's owned nodes (a, b) are unchanged → inherited → hashed.
+    expected = hashlib.sha256(
+        "baseline feature owning the seeded nodes".encode("utf-8")
+    ).hexdigest()
+    assert hashes["feat-seeded"] == expected
+
+
+@pytest.mark.asyncio
+async def test_analyze_changes_error_path_does_not_stamp(tmp_path):
+    """C7 Task 2: the stamp lives in the post-pipeline block only — an early
+    error return (missing structure) must NOT leave an analyze_changes stage."""
+    from the_door.core.checklist import (
+        FIELD_STAGES,
+        STAGE_ANALYZE_CHANGES,
+        read_checklist,
+    )
+    from the_door.mcp.tools import analyze_changes_tool
+
+    _seed_project(tmp_path, baseline_label="v1.0.0", persist_structure=False)
+    result = await analyze_changes_tool.execute({
+        "codebase_path": str(tmp_path),
+        "baseline": "v1.0.0",
+    })
+    assert "error" in result
+    cl = read_checklist(tmp_path)
+    stages = (cl or {}).get(FIELD_STAGES, {})
+    assert STAGE_ANALYZE_CHANGES not in stages
+
+
+@pytest.mark.asyncio
 async def test_analyze_changes_missing_structure_returns_error_envelope(tmp_path):
     _seed_project(tmp_path, baseline_label="v1.0.0", persist_structure=False)
 

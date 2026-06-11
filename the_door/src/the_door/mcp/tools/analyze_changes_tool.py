@@ -1,16 +1,31 @@
-"""analyze_changes MCP tool — read-only incremental diff against a baseline.
+"""analyze_changes MCP tool — incremental diff against a baseline.
 
 Glue between the orchestrator (:mod:`core.pipeline.incremental_pipeline`) and
 the MCP surface. Successful runs return a JSON-serializable IncrementalDiff plus
 ``next_actions`` injected by :mod:`_response_envelope`. Failed runs return a
 standard error envelope built from the orchestrator's ``Remediation``.
+
+Does not modify snapshots or source. On the success path it stamps the
+control-plane ``analyze_changes`` checklist stage (C7) — recording which
+baseline features are unchanged (inherited_hashes) so the snapshot_write gate
+can enforce "繼承的不譯" (inherited descriptions must not be rewritten).
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
+from the_door.core.checklist import (
+    FIELD_AFFECTED_FEATURES,
+    FIELD_BASELINE_REF,
+    FIELD_BASELINE_VERSION_ID,
+    FIELD_INHERITED_HASHES,
+    STAGE_ANALYZE_CHANGES,
+    stamp_stage,
+)
 from the_door.core.diff.provenance_membrane import provenance_element_for
 from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
 from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.remediation import make_error_envelope
 from the_door.core.pipeline.incremental_pipeline import (
@@ -154,4 +169,34 @@ async def execute(arguments: dict) -> dict:
             "modified": list(diff.unmapped_nodes.modified),
         },
     }
+
+    # C7: stamp the analyze_changes stage (control-plane only; fail-soft on I/O
+    # like snapshot_write's C6 stamp — the real product is the returned diff).
+    # Records, for the gate's inherited-description immutability check:
+    #   inherited_hashes — sha256 of each UNCHANGED feature's description;
+    #   affected_features — feature_ids that legitimately changed;
+    #   baseline_ref / baseline_version_id — to confirm the gate's inherit_from
+    #   targets the same baseline. Lives here (post-pipeline) so it never fires
+    #   on the earlier _decision early-returns, which have no `diff`.
+    try:
+        inherited_hashes = {
+            fs.feature_id: hashlib.sha256(
+                (fs.description or "").encode("utf-8")
+            ).hexdigest()
+            for fs in diff.inherited_features
+        }
+        stamp_stage(
+            codebase_path,
+            STAGE_ANALYZE_CHANGES,
+            contract_version=SNAPSHOT_CONTRACT_VERSION,
+            details={
+                FIELD_INHERITED_HASHES: inherited_hashes,
+                FIELD_AFFECTED_FEATURES: [af.feature_id for af in diff.affected_features],
+                FIELD_BASELINE_VERSION_ID: diff.baseline_version_id,
+                FIELD_BASELINE_REF: baseline_ref,
+            },
+        )
+    except OSError:
+        pass
+
     return wrap(payload, project_path=codebase_path, context="mcp")

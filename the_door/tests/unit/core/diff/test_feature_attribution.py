@@ -77,6 +77,47 @@ def test_identical_structures_no_affected_features():
     assert result.unmapped_nodes.modified == ()
 
 
+def test_inherited_union_affected_equals_baseline_exhaustive():
+    """C7 invariant: every baseline feature is partitioned into exactly inherited
+    OR affected — the partition is exhaustive and disjoint. The C7 gate keys its
+    inherited_hashes off `inherited_features`; if some baseline feature were
+    omitted from both sets it would have no hash and silently pass the immunity
+    check. This pins that hole closed against future refactors of
+    compute_affected_features.
+    """
+    from the_door.core.diff.feature_attribution import compute_affected_features
+
+    # Two features: one whose node changes (affected), one untouched (inherited).
+    base_struct = _sample_structure_with_nodes(
+        [("a.py::foo", 1), ("b.py::bar", 1)]
+    )
+    cur_struct = _sample_structure_with_nodes(
+        [("a.py::foo", 9), ("b.py::bar", 1)]  # foo's signature changes
+    )
+    fs_a = FeatureSummary(
+        feature_id="feat-a", label="A", description="da",
+        source_node_count=1, confidence="high", source_nodes=("a.py::foo",),
+    )
+    fs_b = FeatureSummary(
+        feature_id="feat-b", label="B", description="db",
+        source_node_count=1, confidence="high", source_nodes=("b.py::bar",),
+    )
+    baseline = VersionSnapshot(
+        version_id="ver-multi", timestamp="2026-05-17T00:00:00Z",
+        trigger="manual", l1_snapshot={"feat-a": fs_a, "feat-b": fs_b},
+    )
+
+    diff = compute_affected_features(base_struct, cur_struct, baseline)
+    inherited_ids = {fs.feature_id for fs in diff.inherited_features}
+    affected_ids = {af.feature_id for af in diff.affected_features}
+
+    baseline_ids = set(baseline.l1_snapshot.keys())
+    assert inherited_ids | affected_ids == baseline_ids, "partition not exhaustive"
+    assert inherited_ids & affected_ids == set(), "partition not disjoint"
+    assert affected_ids == {"feat-a"}
+    assert inherited_ids == {"feat-b"}
+
+
 def test_added_node_in_feature_sources_marks_affected():
     from the_door.core.diff.feature_attribution import compute_affected_features
 
