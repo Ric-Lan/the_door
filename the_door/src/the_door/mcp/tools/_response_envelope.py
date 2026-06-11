@@ -9,6 +9,7 @@ from the_door.core.flow_guard import Decision
 from the_door.core.guidance.actions import ActionContext, to_json_dict as action_to_json
 from the_door.core.guidance.state import StateInspector
 from the_door.core.guidance.suggester import NextActionSuggester
+from the_door.core.guidance.verification_guidance import verification_guidance
 
 
 def wrap(payload: dict, project_path: Path, context: ActionContext = "mcp") -> dict:
@@ -35,4 +36,5 @@ def wrap(payload: dict, project_path: Path, context: ActionContext = "mcp") -> d
     state = StateInspector(Path(project_path)).inspect()
     actions = NextActionSuggester().suggest(state, context=context)
     payload["next_actions"] = [action_to_json(a) for a in actions]
+    payload["verification_guidance"] = verification_guidance()
     return payload
