@@ -2,14 +2,19 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from the_door.core.extraction.ast_extractor import ASTExtractor
+from the_door.core.llm.edge_projection import project_edges_for_prompt
+from the_door.core.structure_view.structure_index import write_artifacts
 from the_door.core.topology.topology_analyzer import TopologyAnalyzer
 from the_door.core.validation.output_validator import OutputValidator
+from the_door.mcp.tools._response_envelope import wrap
+from the_door.models import StructureJSON
 from the_door.mcp.tools import render_tool, history_tool
 from the_door.mcp.tools import diff_tool, snapshot_create_tool, snapshot_list_tool
 from the_door.mcp.tools import scan_tool
@@ -29,7 +34,7 @@ def _build_tools() -> list[Tool]:
     return [
         Tool(
             name="extract_structure",
-            description="Extract AST structure and topology from a codebase path.",
+            description="Extract AST structure: returns an L0 index (regions + peel labels + sizes + drill addresses); full nodes/edges/topology land in .the-door/structure-view/ artifacts.",
             inputSchema={
                 "type": "object",
                 "required": ["codebase_path"],
@@ -257,33 +262,20 @@ class TheDoorMCPServer:
             analyzer = TopologyAnalyzer()
             topology = analyzer.analyze(result.nodes, result.edges)
 
-            output = {
-                "files": [{"path": f.path, "language": f.language} for f in result.files],
-                "nodes": [
-                    {
-                        "node_id": n.node_id, "type": n.type, "name": n.name,
-                        "file": n.file, "language": n.language,
-                        "decorators": n.decorators, "parameters": n.parameters,
-                        "return_type": n.return_type, "docstring": n.docstring,
-                        "comments": n.comments,
-                    }
-                    for n in result.nodes
-                ],
-                "edges": [
-                    {"from": e.from_node, "to": e.to_node, "type": e.type}
-                    for e in result.edges
-                ],
-                "topology": [
-                    {
-                        "node_id": t.node_id, "in_degree": t.in_degree,
-                        "out_degree": t.out_degree, "topology_rank": t.topology_rank,
-                        "is_entry_point": t.is_entry_point, "batch_assignment": t.batch_assignment,
-                    }
-                    for t in topology.entries
-                ],
-                "analyzed_files": [f.path for f in result.files],
-            }
-            return [TextContent(type="text", text=json.dumps(output, ensure_ascii=False))]
+            structure = StructureJSON(
+                files=result.files, nodes=result.nodes,
+                edges=result.edges, topology=topology.entries,
+            )
+            # 殘餘基數（L2 視圖的 residue_as_caller 用）；與 edge_residue 工具同一純函式
+            edge_dicts = [
+                {"from": e.from_node, "to": e.to_node, "type": e.type, "resolution": e.resolution}
+                for e in result.edges
+            ]
+            _, residue = project_edges_for_prompt(edge_dicts)
+
+            index = write_artifacts(codebase_path, structure, residue)
+            payload = wrap(index, Path(codebase_path))
+            return [TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))]
         except (FileNotFoundError, ValueError) as e:
             return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
 

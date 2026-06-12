@@ -128,15 +128,25 @@ class TestExtractStructureTool:
         assert "error" in data
 
     @pytest.mark.asyncio
-    async def test_extract_with_valid_path(self, server, sample_codebase):
-        """Test: extract_structure with valid path returns Structure JSON."""
+    async def test_extract_with_valid_path_returns_index(self, server, sample_codebase):
+        """extract_structure 回 L0 索引（非全量），bulk 落 structure-view artifact。"""
         result = await server._extract_structure({"codebase_path": sample_codebase})
         assert len(result) == 1
         data = json.loads(result[0].text)
-        assert "files" in data
-        assert "nodes" in data
-        assert "edges" in data
-        assert "topology" in data
+        # 索引形狀
+        assert "totals" in data and "regions" in data and "consumption_guide" in data
+        assert data["totals"]["nodes"] > 0
+        # 全量欄位不再內嵌
+        assert "nodes" not in data and "edges" not in data and "topology" not in data
+        # wrap envelope 照常
+        assert "next_actions" in data and "verification_guidance" in data
+        # artifact 落檔
+        from pathlib import Path
+        view_dir = Path(sample_codebase) / ".the-door" / "structure-view"
+        assert (view_dir / "index.json").is_file()
+        assert (view_dir / "structure.full.json.gz").is_file()
+        for r in data["regions"]:
+            assert Path(r["artifact_path"]).is_file()
 
 
 class TestExtractStructureOutput:
@@ -144,14 +154,18 @@ class TestExtractStructureOutput:
 
     @pytest.mark.asyncio
     async def test_extract_structure_includes_analyzed_files(self, server, sample_codebase):
-        """extract_structure result includes analyzed_files list."""
+        """extract_structure result: analyzed_files readable from structure.full.json.gz."""
+        import gzip
         result = await server._extract_structure({"codebase_path": sample_codebase})
         data = json.loads(result[0].text)
 
-        assert "analyzed_files" in data
-        assert isinstance(data["analyzed_files"], list)
-        assert len(data["analyzed_files"]) > 0
-        assert all(isinstance(f, str) for f in data["analyzed_files"])
+        full_path = Path(data["full_structure_path"])
+        with gzip.open(full_path, "rt", encoding="utf-8") as f:
+            full = json.load(f)
+
+        assert "files" in full
+        assert isinstance(full["files"], list)
+        assert len(full["files"]) > 0
 
 
 class TestValidateOutputTool:
