@@ -120,14 +120,6 @@ class Region:
     flow_to: dict[str, int] = field(default_factory=dict)    # 鄰區 -> 邊數（本區為 from）
     flow_from: dict[str, int] = field(default_factory=dict)  # 鄰區 -> 邊數（本區為 to）
 
-    def __eq__(self, other):  # dict 欄位使 frozen 預設 eq 失真，明定
-        if not isinstance(other, Region):
-            return NotImplemented
-        return (self.region_id, self.node_ids, self.internal_edges, self.inbound_edges,
-                self.outbound_edges, self.flow_to, self.flow_from) == (
-                other.region_id, other.node_ids, other.internal_edges, other.inbound_edges,
-                other.outbound_edges, other.flow_to, other.flow_from)
-
 
 def region_of(node_id: str) -> str:
     """node_id 的路徑頂層段；無 '/' → _ROOT_BUCKET。"""
@@ -165,7 +157,7 @@ def partition(nodes: list[ASTNode], edges: list[Edge]) -> list[Region]:
     return regions
 ```
 
-注意：`__hash__` 因自訂 `__eq__` 會被清掉——本型別不需 hash，不補。
+注意：dataclass 生成的 `__eq__` 對 dict 欄位做值比較即正確，**不要**自訂 `__eq__`（含 dict 欄位的 frozen dataclass 不可 hash，本型別也不需要 hash）。
 
 - [ ] **Step 4: 跑測試確認通過**
 
