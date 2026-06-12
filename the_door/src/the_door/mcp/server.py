@@ -1,6 +1,7 @@
 """The Door MCP Server — exposes all tools."""
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 
@@ -51,7 +52,7 @@ def _build_tools() -> list[Tool]:
             description="Validate LLM output against Structure JSON using 5 checks.",
             inputSchema={
                 "type": "object",
-                "required": ["llm_output", "structure_json"],
+                "required": ["llm_output"],
                 "properties": {
                     "llm_output": {
                         "type": "object",
@@ -59,7 +60,11 @@ def _build_tools() -> list[Tool]:
                     },
                     "structure_json": {
                         "type": "object",
-                        "description": "The Structure JSON from extract_structure",
+                        "description": "The Structure JSON from extract_structure（優先於 codebase_path）",
+                    },
+                    "codebase_path": {
+                        "type": "string",
+                        "description": "省略 structure_json 時，從 <codebase_path>/.the-door/structure-view/structure.full.json.gz 讀結構（extract_structure 已落檔）。",
                     },
                 },
             },
@@ -281,8 +286,19 @@ class TheDoorMCPServer:
 
     async def _validate_output(self, arguments: dict):
         llm_output = arguments.get("llm_output", {})
-        structure_json = arguments.get("structure_json", {})
+        structure_json = arguments.get("structure_json")
+        codebase_path = arguments.get("codebase_path")
         try:
+            if structure_json is None and codebase_path:
+                gz = (Path(codebase_path) / ".the-door" / "structure-view"
+                      / "structure.full.json.gz")
+                if gz.is_file():
+                    with gzip.open(gz, "rt", encoding="utf-8") as f:
+                        structure_json = json.load(f)
+            if structure_json is None:
+                return [TextContent(type="text", text=json.dumps({
+                    "error": "no structure_json given and no structure-view artifact found; "
+                             "run extract_structure first or pass structure_json"}))]
             validator = OutputValidator()
             result = validator.validate(llm_output, structure_json)
             output = {

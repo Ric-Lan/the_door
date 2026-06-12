@@ -206,3 +206,36 @@ class TestValidateOutputTool:
         assert "language" in data
         assert "anchor" in data
         assert "relation" in data
+
+
+class TestValidateOutputSeam:
+    """validate_output 的 structure-view artifact 接縫（spec §4.2）。"""
+
+    @pytest.mark.asyncio
+    async def test_fallback_reads_structure_view_artifact(self, server, sample_codebase):
+        await server._extract_structure({"codebase_path": sample_codebase})  # 先落 artifact
+        result = await server._validate_output({
+            "llm_output": {"l1_features": [], "relations": []},
+            "codebase_path": sample_codebase,
+        })
+        data = json.loads(result[0].text)
+        assert "error" not in data and "passed" in data  # 取得結構、走完驗證
+
+    @pytest.mark.asyncio
+    async def test_explicit_structure_json_takes_precedence(self, server, sample_codebase):
+        result = await server._validate_output({
+            "llm_output": {"l1_features": [], "relations": []},
+            "structure_json": {"files": [], "nodes": [], "edges": [], "topology": []},
+            "codebase_path": "/nonexistent",  # 若 fallback 被誤走會炸
+        })
+        data = json.loads(result[0].text)
+        assert "passed" in data
+
+    @pytest.mark.asyncio
+    async def test_neither_source_returns_error(self, server, tmp_path):
+        result = await server._validate_output({
+            "llm_output": {"l1_features": []},
+            "codebase_path": str(tmp_path),  # 無 artifact
+        })
+        data = json.loads(result[0].text)
+        assert "error" in data
