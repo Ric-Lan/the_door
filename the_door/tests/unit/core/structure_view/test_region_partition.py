@@ -5,7 +5,7 @@ from the_door.models import ASTNode, Edge
 
 def _node(node_id: str) -> ASTNode:
     return ASTNode(node_id=node_id, type="function", name=node_id.rsplit("::", 1)[-1],
-                   file=node_id.split("::", 1)[0], language="python")
+                   file="", language="python")
 
 
 def _edges_fixture() -> tuple[list[ASTNode], list[Edge]]:
@@ -45,6 +45,7 @@ def test_partition_degenerate_single_root():
     regions = partition(nodes, edges)
     assert len(regions) == 1 and regions[0].region_id == "src"
     assert regions[0].outbound_edges == 0 and regions[0].inbound_edges == 0
+    assert regions[0].internal_edges == 1
 
 
 def test_partition_rootlevel_node_gets_safe_region_id():
