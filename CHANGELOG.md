@@ -10,6 +10,36 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.2 — 2026-06-12
+
+dogfood 暴露問題的逐項處理：低信心交叉驗證引導（新）＋ Cut1 operational-classification ＋
+C7 繼承不譯 gate ＋ cp950 IO 修正。皆純加法，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **非-high 信心交叉驗證引導**：每個 MCP 工具回應（`_response_envelope.wrap` 正常路徑）附一條
+  靜態、建議式的 `verification_guidance`，指向已註冊證據工具（第一版＝`extract_structure`）。
+  定位＝infra **surface 不 judge**（不掃 payload、不偵測 confidence；觸發與否由消費端 LLM 自評）。
+  「觸發處境」＝非-high 信心＝{未評估(None) ∪ 中信心 ∪ 低信心}，引導分清兩成因（未評估→補做評估；
+  中/低→補強證據）。checkpoint envelope 不附。新模組 `core/guidance/verification_guidance.py`。
+- **`analyze_changes` unmapped_nodes 三桶摘要（Cut1）**：非操作性 unmapped_nodes 改以
+  `core/classification/operational_classifier.py` 摘要，payload 大幅縮減（v170 −71%）。
+
+### Changed
+- **`server.py` 工具名單一來源**：抽 `_build_tools()` ＋衍生 `REGISTERED_TOOL_NAMES` frozenset，
+  供「引導工具名 ∈ 已註冊集」invariant 可列舉驗證（Tool 定義內容不變、僅搬移）。
+
+### Fixed
+- **C7 繼承不譯 gate（丙案軌2）**：`snapshot_write` 對未變動 feature 的 description 立 immutability
+  gate（inherited_hashes sha256；不確定 fail-open）。
+- **cp950 非-ASCII 輸出崩潰**：強制 UTF-8 stdout/stderr，避免 Windows cp950 終端輸出非-ASCII 時崩潰。
+
+### Notes
+- 純加法／IO／packaging 性質，snapshot schema 不動 → `SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`。
+- 引導的 efficacy 層（「實質改變 LLM 行為→更忠實翻譯」）誠實標 **low 信心**、未洗成定論
+  （spec §6.2 方法論：efficacy＝LLM@分級信心，非 phantom 驗證）。
+
+---
+
 ## v1.7.1 — 2026-06-11
 
 修 v1.7.0 的發版級 packaging bug：pip 非-editable 安裝後找不到 JSON schemas，核心流程壞掉。
