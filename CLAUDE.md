@@ -152,7 +152,7 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `the-door extract --as-version <label> <path>` | Backfill persisted L1 for an existing snapshot. |
 | `the-door diff --baseline <ref> <path>` | CLI diff between snapshots. |
 | `the-door ui <path>` | Open the viewer workbench (display-only). |
-| `extract_structure` MCP | Agent-as-LLM: get nodes/edges/topology, then YOU produce L1. |
+| `extract_structure` MCP | Agent-as-LLM: get the L0 region index + drill-down artifacts, then YOU produce L1. |
 | `edge_residue` MCP | Agent-as-LLM: persist edge-noise residue for a codebase (zero-token, deterministic). Required before `snapshot_write` (C3 gate). |
 | `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. |
 | `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 |
@@ -165,7 +165,21 @@ For the input/output schemas of each MCP tool see
 ### Agent-as-LLM chain (single version)
 
 1. `extract_structure(codebase_path="./my-project")`
-   → Returns `files`, `nodes`, `edges`, `topology`, `analyzed_files`.
+   → Returns an **L0 index** (not the full structure): `totals`, `regions[]`
+   (each with node_count / share % / edge flow / batches / `peel` label with
+   evidence / `artifact_path`), and a `consumption_guide`. Full
+   nodes/edges/topology land in `.the-door/structure-view/` artifacts:
+   - Read the index first. Regions labeled `peel: one_way_consumer` (e.g.
+     test code) are structurally peripheral — judge from the attached evidence
+     (flow counts) whether to skip them for L1 derivation; the data stays on
+     disk, nothing is filtered.
+   - Drill down per region: `regions/<region_id>.json.gz` holds per-node L2
+     views (attrs + in/out edges keyed `from_node_id`/`to_node_id` + topology
+     + residue counts) — use these views instead of joining raw lists yourself.
+   - Consume in `batch_assignment` order (batch 1 = entry points, 2..5 by
+     descending in_degree) to plan reading.
+   - `validate_output` no longer needs the structure inline: pass
+     `codebase_path` and it reads `structure.full.json.gz` itself.
 
 2. You group `nodes` by functional purpose (not by file or class) and produce:
    ```json
