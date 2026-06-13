@@ -274,6 +274,38 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
 > are pure-behaviour / intent, which no tool-call hook can gate (種子 §5 固有缺口).
 > Those rest on this guide + the C6 execution-ledger report, not a blocking gate.
 
+### Agent-as-LLM chain (version_narrative)
+
+`version_narrative` 是 diff 層產物：描述「這個版本相比 baseline 做了什麼」的白話敘述，
+由 agent 自己讀 diff 資料後撰寫，持久化進 current snapshot。
+
+**前置要求（重要）**：先 `snapshot_list`，向使用者聲明預計翻譯的 baseline-current 配對，
+收到確認後才執行。`narrative_summary.note` 明示此規則。不得自行決定範圍。
+
+1. `snapshot_list(codebase_path="./my-project")`
+   → 讀 `narrative_summary`（缺口數量 + note）與各筆 `has_version_narrative`
+   → **向使用者呈現缺口，詢問「要補哪幾對？」，等待明確回覆**
+
+2. 對每個確認的 (baseline=vX, current=vY) pair：
+
+   a. `analyze_changes(codebase_path="./my-project", baseline="vX")`
+      → 取得 `affected_features`（增/改/刪）＋`inherited_features`（不動）
+      → 注意取回的 `baseline_version_id`（UUID）——這是下一步 `version_narratives` 的 key
+
+   b. 你自己寫白話敘述（1–4 句），重點：
+      - 說清楚「加了什麼、改了什麼、拿掉了什麼」（來自 affected_features）
+      - 面向非技術讀者
+      - **只能使用 diff 資料（affected/inherited features + summary）的資訊，不引入 snapshot 以外的描述**
+      - `affected_features` 全空（純繼承版本，無 feature 變動）→ 省略 narrative，不強制寫
+
+   c. `snapshot_patch(codebase_path="./my-project",
+                      version_ref="vY",
+                      version_narratives={"<baseline_version_id UUID>": "..."})`
+      → `version_narratives` 的 key **必須是 `analyze_changes` 回傳的 `baseline_version_id`（UUID）**
+      → 不得使用 label（label 可改寫，UUID 是永久身分）
+
+3. 驗證（optional）：`GET /api/diff?baseline=vX&current=vY`，確認 `"version_narrative"` 欄非 null。
+
 ---
 
 ## Snapshot reference formats
