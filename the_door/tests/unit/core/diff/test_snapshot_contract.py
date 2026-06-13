@@ -49,6 +49,7 @@ def _maximal_snapshot() -> VersionSnapshot:
         vulnerability_db_freshness=DatabaseFreshness(
             timestamp="2026-06-03T00:00:00+00:00", mode="online", stale_warning=None),
         codebase_path=Path("/proj"),
+        version_narratives={"baseline-uuid-abc": "Added authentication feature, removed legacy auth module."},
     )
 
 

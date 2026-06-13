@@ -14,6 +14,12 @@
     "codebase_path": { "type": ["string", "null"] },
     "contract_version": { "type": ["string", "null"], "description": "Snapshot contract version stamped at birth (SNAPSHOT_CONTRACT_VERSION). If you change a field's MEANING/shape here, or change L1/analysis semantics, bump that constant — see docs/contract-versioning.md. null = pre-S7 legacy snapshot." },
     "project_summary": { "type": ["string", "null"], "description": "Non-technical project summary synthesized by the analyzing agent from this snapshot's L1 feature descriptions (2-4 sentences, no capabilities beyond L1). null = not synthesized." },
+    "version_narratives": {
+      "type": "object",
+      "description": "Map of baseline version_id (UUID) to plain-language narrative describing what changed in this version relative to that baseline. Empty object = no narratives.",
+      "additionalProperties": { "type": "string" },
+      "default": {}
+    },
     "l1_snapshot": {
       "type": "object",
       "additionalProperties": {

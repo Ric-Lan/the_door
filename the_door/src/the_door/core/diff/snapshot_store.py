@@ -383,6 +383,7 @@ class SnapshotStore:
             "codebase_path": str(snapshot.codebase_path) if snapshot.codebase_path else None,
             "contract_version": snapshot.contract_version,
             "project_summary": snapshot.project_summary,
+            "version_narratives": dict(snapshot.version_narratives),
             "l1_snapshot": l1_data,
             "analyzed_files": snapshot.analyzed_files,
             "l1_5_snapshot": l1_5_data,
@@ -494,5 +495,6 @@ class SnapshotStore:
             codebase_path=Path(raw_cp) if raw_cp else None,
             contract_version=data.get("contract_version"),  # 缺鍵→None＝O3 舊快照
             project_summary=data.get("project_summary"),  # 缺鍵→None＝未綜合（舊快照）
+            version_narratives=dict(data.get("version_narratives") or {}),
         )
 
