@@ -10,6 +10,36 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.4 — 2026-06-13
+
+snapshot 級 `project_summary`（非技術專案簡介）全鏈。翻譯鏈最後一哩：
+agent-as-LLM 讀自己產的 L1 描述、收斂成 2-4 句給非技術讀者看的專案簡介。
+純加法，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **`VersionSnapshot.project_summary`**（`str | None`）＋ schema（非 required；
+  serialize 無條件 emit ＝ schema↔serializer 雙射約束，deserialize 缺鍵→None＝
+  舊快照未綜合）。
+- **`snapshot_write` 收 optional `project_summary`**：direct 模式給/不給→存/None；
+  inherit 模式未給→沿用 baseline 簡介、給→覆寫（組成變了才重寫，guide 級約定非 gate）。
+- **`/api/l1` 回應頂層附 `project_summary`**（snapshot 級，不污染 graph nodes/edges 職責）。
+- **viewer 單版本 summary-band 顯示簡介**＋誠實統計尾註「綜合自 N 個功能、x 個低信心、
+  y 個未評估」（純函式 `projectSummaryLine`；未評估≠低信心分開計，H1；無簡介→
+  fallback 現行「共 N 個功能」文案）。
+
+### Changed
+- CLAUDE.md agent-as-LLM 鏈指引同步：單版本鏈步驟 2/4 補 `project_summary` 產出；
+  增量鏈補繼承規則（affected set 非空→重寫簡介、全空→省略自動沿用）。
+
+### Notes
+- 純加法、snapshot schema 欄位語義無變更 → 契約版號不 bump。
+- 消費層驗收（自己驗自己）：live 跑通完整 agent-as-LLM 鏈（v105 inherit + 12-feature
+  真簡介 → snapshot → `/api/l1` → viewer summary-band 人眼確認）；簡介品質效力誠實標
+  **medium**（單樣本自產自評、不升格通用）。後端 1495 / 前端 vitest 544。
+- spec＝`docs/superpowers/specs/2026-06-13-project-summary-synthesis-spec.md`。
+
+---
+
 ## v1.7.3 — 2026-06-13
 
 立體化結構（撥離索引＋分層消費通道）全週期 ＋ viewer provenance 標示。
