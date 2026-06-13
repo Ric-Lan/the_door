@@ -32,6 +32,7 @@ async def execute(arguments: dict) -> dict:
                 "git_tags": s.git_tags,
                 "label": s.label,
                 "provenance": provenance_element_for(s.contract_version).to_json(),
+                "has_project_summary": s.project_summary is not None,
             }
             for s in snapshots
         ]

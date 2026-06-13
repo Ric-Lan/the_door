@@ -44,3 +44,24 @@ def test_snapshot_list_projects_provenance_to_membrane(listed_project):
         assert "version_id" in s and "label" in s
     # 經 create_snapshot 蓋戳 ⟹ current
     assert all(s["provenance"]["value"] == "current" for s in snapshots)
+
+
+def test_snapshot_list_has_project_summary_false_when_absent(listed_project):
+    result = asyncio.run(snapshot_list_tool.execute(
+        {"codebase_path": str(listed_project)}
+    ))
+    for s in result["snapshots"]:
+        assert s["has_project_summary"] is False
+
+
+def test_snapshot_list_has_project_summary_true_when_present(tmp_path):
+    store = SnapshotStore(tmp_path)
+    store.create_snapshot(
+        l1_snapshot={}, feature_relations=[], analyzed_files=[],
+        trigger="manual", label="v-with-summary",
+        project_summary="這個系統提供 CLI 分析。",
+    )
+    result = asyncio.run(snapshot_list_tool.execute(
+        {"codebase_path": str(tmp_path)}
+    ))
+    assert result["snapshots"][0]["has_project_summary"] is True
