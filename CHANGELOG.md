@@ -10,6 +10,36 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.3 — 2026-06-13
+
+立體化結構（撥離索引＋分層消費通道）全週期 ＋ viewer provenance 標示。
+皆純加法，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **立體化結構（縱軸＝粒度）**：新套件 `core/structure_view/` ——
+  `region_partition`（頂層段聚類＋流向矩陣）／`peel_membrane`（撥離膜，enum 僅
+  `one_way_consumer`、閾值 50:1＋min50、證據附稽核；禁可達性訊號）／`node_view`
+  （L2 統一 `node_id` 定址、零 join）／`structure_index`（L0 索引＋artifact 落
+  `.the-door/structure-view/`：index.json＋regions/<id>.json.gz＋structure.full.json.gz）。
+- **`extract_structure` 回 L0 撥離索引**（自身專案首口 2.8M→3.5K 字元）；全量結構
+  落 structure-view artifact，按區域/批次drill-down 消費。
+- **`validate_output` 可選 `codebase_path`**：從 structure-view artifact 讀全量結構
+  （`structure_json` inline 仍優先），補齊 agent-as-LLM 鏈的程式端驗證接縫。
+- **viewer 版本選單 provenance 標示**：`/api/snapshots` 附 bare `provenance`
+  （current/legacy/unknown，`derive_provenance` 單一詞彙來源）；前端對舊契約快照標
+  「（舊契約）」、pre-stamp 快照標「（無契約戳）」，current 不加字。
+
+### Changed
+- CLAUDE.md agent-as-LLM 鏈步驟 1 改 L0 索引消費法（讀索引→按 peel 標示裁決→
+  區域 artifact drill-down→批次順序規劃閱讀）。
+
+### Notes
+- 消費層驗收（自己驗自己）：四筆失敗實錄 F-a..F-d 全數不復發；「翻譯更正確/更省」
+  效力誠實標 **medium**（單樣本自驗，不升格通用）。詳
+  `docs/superpowers/specs/2026-06-12-stereoscopic-structure-acceptance.md`。
+
+---
+
 ## v1.7.2 — 2026-06-12
 
 dogfood 暴露問題的逐項處理：低信心交叉驗證引導（新）＋ Cut1 operational-classification ＋

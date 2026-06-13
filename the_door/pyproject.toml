@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "the-door"
-version = "1.7.2"
+version = "1.7.3"
 description = "LLM constraint pipeline for translating code structure into functional-language diagrams"
 readme = "README.md"
 requires-python = ">=3.10"
