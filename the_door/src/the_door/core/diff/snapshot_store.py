@@ -208,9 +208,10 @@ class SnapshotStore:
     ) -> tuple["VersionSnapshot", list[str]]:
         """Patch an existing snapshot in-place.
 
-        Updates source_nodes (via source_nodes_by_feature) and/or metadata
-        fields trigger_description and confidence_reason (via feature_metadata_by_feature).
-        Both parameters are optional and independent; either can be omitted.
+        Updates source_nodes (via source_nodes_by_feature), metadata fields
+        trigger_description and confidence_reason (via feature_metadata_by_feature),
+        and/or the non-technical project summary (project_summary).
+        All parameters are optional and independent; any can be omitted.
 
         version_id and timestamp are never modified.
 
