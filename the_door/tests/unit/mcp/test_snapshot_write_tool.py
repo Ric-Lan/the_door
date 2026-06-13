@@ -391,6 +391,31 @@ class TestSnapshotWriteTool:
         assert "error" in result
         assert result["error"]["remediation"]["code"] == "baseline_not_found"
 
+    @pytest.mark.asyncio
+    async def test_returns_project_summary_in_payload(self, tmp_project):
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+            "relations": VALID_RELATIONS,
+            "label": "v1.0.0-summary-test",
+            "project_summary": "這個工具提供 CLI 分析功能。",
+        })
+        assert result["project_summary"] == "這個工具提供 CLI 分析功能。"
+
+    @pytest.mark.asyncio
+    async def test_returns_project_summary_none_when_not_provided(self, tmp_project):
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+            "relations": VALID_RELATIONS,
+            "label": "v1.0.0-no-summary-test",
+        })
+        assert result["project_summary"] is None
+
 
 @pytest.mark.asyncio
 async def test_confidence_reason_roundtrips(tmp_project):

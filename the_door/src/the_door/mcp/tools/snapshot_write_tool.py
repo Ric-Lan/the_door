@@ -341,6 +341,7 @@ async def execute(arguments: dict) -> dict:
         "timestamp": snapshot.timestamp,
         "feature_count": len(l1_snapshot),
         "relation_count": len(relations),
+        "project_summary": snapshot.project_summary,
     }
     if warnings:
         payload["warnings"] = warnings
