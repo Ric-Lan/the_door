@@ -219,4 +219,20 @@ describe('snapshotLabel', () => {
   it('prefers label over timestamp', () => {
     expect(snapshotLabel({ label: 'my-label', timestamp: '2026-05-14T12:34:56' })).toBe('my-label');
   });
+
+  it('appends （舊契約） suffix for legacy provenance', () => {
+    expect(snapshotLabel({ label: 'v1.0.0', provenance: 'legacy' })).toBe('v1.0.0（舊契約）');
+  });
+
+  it('appends （無契約戳） suffix for unknown provenance', () => {
+    expect(snapshotLabel({ label: 'v1.0.0', provenance: 'unknown' })).toBe('v1.0.0（無契約戳）');
+  });
+
+  it('adds no suffix for current provenance', () => {
+    expect(snapshotLabel({ label: 'v1.0.0', provenance: 'current' })).toBe('v1.0.0');
+  });
+
+  it('adds no suffix when provenance is absent (older API)', () => {
+    expect(snapshotLabel({ label: 'v1.0.0' })).toBe('v1.0.0');
+  });
 });

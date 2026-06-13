@@ -66,6 +66,29 @@ def test_serialize_snapshot_null_label():
     json.dumps(result)
 
 
+def test_serialize_snapshot_provenance_current():
+    from the_door.core.ui.serializers import serialize_snapshot
+    from the_door.models.snapshot import SNAPSHOT_CONTRACT_VERSION
+    snap = _make_snapshot(contract_version=SNAPSHOT_CONTRACT_VERSION)
+    result = serialize_snapshot(snap)
+    assert result["provenance"] == "current"
+    json.dumps(result)
+
+
+def test_serialize_snapshot_provenance_legacy():
+    from the_door.core.ui.serializers import serialize_snapshot
+    snap = _make_snapshot(contract_version="0-nonexistent")
+    result = serialize_snapshot(snap)
+    assert result["provenance"] == "legacy"
+
+
+def test_serialize_snapshot_provenance_unknown_for_prestamp():
+    from the_door.core.ui.serializers import serialize_snapshot
+    snap = _make_snapshot(contract_version=None)
+    result = serialize_snapshot(snap)
+    assert result["provenance"] == "unknown"
+
+
 def test_serialize_doubt_field_mapping():
     from the_door.core.ui.serializers import serialize_doubt
     doubt = _make_doubt()

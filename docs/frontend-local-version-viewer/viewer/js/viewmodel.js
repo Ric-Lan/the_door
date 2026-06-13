@@ -83,9 +83,14 @@ export function buildL1ViewModelFromStatic(graphData) {
   };
 }
 
+// provenance 後綴只標非 current（誠實 surface 跨契約/無戳；current 不加字＝避免每項都掛雜訊）
+const PROVENANCE_SUFFIX = { legacy: "（舊契約）", unknown: "（無契約戳）" };
+
 export function snapshotLabel(snapshot) {
   if (!snapshot) return "（未知）";
-  if (snapshot.git_tags?.length) return snapshot.git_tags[0];
-  if (snapshot.label) return snapshot.label;
-  return snapshot.timestamp?.slice(0, 16).replace("T", " ") ?? "（無時間）";
+  const base =
+    snapshot.git_tags?.length ? snapshot.git_tags[0]
+    : snapshot.label ? snapshot.label
+    : snapshot.timestamp?.slice(0, 16).replace("T", " ") ?? "（無時間）";
+  return base + (PROVENANCE_SUFFIX[snapshot.provenance] ?? "");
 }

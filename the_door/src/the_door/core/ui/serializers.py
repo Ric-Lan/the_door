@@ -7,13 +7,17 @@ Field mappings follow the API contract defined in requirements.md:
 """
 from __future__ import annotations
 
+from the_door.core.diff.provenance_membrane import derive_provenance
 from the_door.models import DoubtRecord, TimelineResult, VersionSnapshot
 
 
 def serialize_snapshot(snapshot: VersionSnapshot) -> dict:
     """Serialize VersionSnapshot to API response format (Req 4 AC3).
 
-    Returns: {version_id, timestamp, trigger, label, git_tags}
+    Returns: {version_id, timestamp, trigger, label, git_tags, provenance}
+
+    provenance 是 bare 字串（current/legacy/unknown）——viewer 是人類面，
+    依 report_membrane 慣例不升膜；膜投影只在 agent 邊界（MCP snapshot_list）。
     """
     return {
         "version_id": snapshot.version_id,
@@ -21,6 +25,7 @@ def serialize_snapshot(snapshot: VersionSnapshot) -> dict:
         "trigger": snapshot.trigger,
         "label": snapshot.label,
         "git_tags": list(snapshot.git_tags),
+        "provenance": derive_provenance(snapshot.contract_version),
     }
 
 
