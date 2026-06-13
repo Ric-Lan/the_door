@@ -230,6 +230,44 @@ class TestNodeBuilder:
         file_nodes = [n for n in result.nodes if "constants.py" in n.file]
         assert len(file_nodes) == 0
 
+    def test_function_node_has_start_and_end_line(self, tmp_path):
+        source = "x = 1\n\ndef hello():\n    pass\n"
+        # 行號： 1: x=1  2: (空行)  3: def hello()  4:     pass
+        (tmp_path / "test.py").write_text(source)
+        extractor = ASTExtractor()
+        result = extractor.extract(str(tmp_path))
+        node = next(n for n in result.nodes if n.name == "hello")
+        assert node.start_line == 3
+        assert node.end_line == 4
+
+    def test_decorated_function_start_line_is_decorator_line(self, tmp_path):
+        source = "@app.route(\"/test\")\ndef handler():\n    pass\n"
+        # 行號： 1: @app.route  2: def handler  3:     pass
+        (tmp_path / "test.py").write_text(source)
+        extractor = ASTExtractor()
+        result = extractor.extract(str(tmp_path))
+        node = next(n for n in result.nodes if n.name == "handler")
+        assert node.start_line == 1   # decorator 行，非 def 行
+        assert node.end_line == 3
+
+    def test_class_method_has_independent_start_end_lines(self, tmp_path):
+        source = (
+            "class Foo:\n"          # line 1
+            "    def bar(self):\n"  # line 2
+            "        pass\n"        # line 3
+            "    def baz(self):\n"  # line 4
+            "        return 1\n"    # line 5
+        )
+        (tmp_path / "test.py").write_text(source)
+        extractor = ASTExtractor()
+        result = extractor.extract(str(tmp_path))
+        bar = next(n for n in result.nodes if n.name == "bar")
+        baz = next(n for n in result.nodes if n.name == "baz")
+        assert bar.start_line == 2
+        assert bar.end_line == 3
+        assert baz.start_line == 4
+        assert baz.end_line == 5
+
 
 # === EdgeBuilder tests (Task 9.3) ===
 

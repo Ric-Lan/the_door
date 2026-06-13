@@ -94,10 +94,16 @@ class NodeBuilder:
 
         if definition.type == "function_definition":
             results.append(
-                self._build_python_function(definition, file_info, parent_class, decorators)
+                self._build_python_function(
+                    definition, file_info, parent_class, decorators,
+                    outer_start_line=node.start_point[0] + 1,
+                )
             )
         elif definition.type == "class_definition":
-            self._handle_python_class(definition, file_info, results, decorators)
+            self._handle_python_class(
+                definition, file_info, results, decorators,
+                outer_start_line=node.start_point[0] + 1,
+            )
 
     def _handle_python_class(
         self,
@@ -105,6 +111,7 @@ class NodeBuilder:
         file_info: FileInfo,
         results: list[ASTNode],
         decorators: list[str],
+        outer_start_line: int | None = None,
     ) -> None:
         """Extract a class node and recurse into its body for methods."""
         name = self._child_text(node, "identifier")
@@ -121,6 +128,8 @@ class NodeBuilder:
                 name=name,
                 file=file_info.path,
                 language=file_info.language,
+                start_line=outer_start_line if outer_start_line is not None else node.start_point[0] + 1,
+                end_line=node.end_point[0] + 1,
                 decorators=decorators,
                 parameters=[],
                 return_type=None,
@@ -141,6 +150,7 @@ class NodeBuilder:
         file_info: FileInfo,
         parent_class: str | None,
         decorators: list[str],
+        outer_start_line: int | None = None,
     ) -> ASTNode:
         """Build an ASTNode from a Python function_definition."""
         name = self._child_text(node, "identifier")
@@ -156,6 +166,8 @@ class NodeBuilder:
             name=name,
             file=file_info.path,
             language=file_info.language,
+            start_line=outer_start_line if outer_start_line is not None else node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
             decorators=decorators,
             parameters=params,
             return_type=return_type,
@@ -307,6 +319,8 @@ class NodeBuilder:
                 name=name,
                 file=file_info.path,
                 language=file_info.language,
+                start_line=node.start_point[0] + 1,
+                end_line=node.end_point[0] + 1,
                 decorators=[],
                 parameters=[],
                 return_type=None,
@@ -330,6 +344,8 @@ class NodeBuilder:
             name=name,
             file=file_info.path,
             language=file_info.language,
+            start_line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
             decorators=[],
             parameters=[],
             return_type=None,
@@ -347,6 +363,8 @@ class NodeBuilder:
             name=name,
             file=file_info.path,
             language=file_info.language,
+            start_line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
             decorators=[],
             parameters=[],
             return_type=None,
@@ -389,6 +407,8 @@ class NodeBuilder:
                         name=name,
                         file=file_info.path,
                         language=file_info.language,
+                        start_line=node.start_point[0] + 1,
+                        end_line=node.end_point[0] + 1,
                     ))
                 return
             if "class_definition" in node.type or "class_declaration" in node.type:
@@ -400,6 +420,8 @@ class NodeBuilder:
                         name=name,
                         file=file_info.path,
                         language=file_info.language,
+                        start_line=node.start_point[0] + 1,
+                        end_line=node.end_point[0] + 1,
                     ))
                 return
             for child in node.children:
@@ -494,6 +516,8 @@ class NodeBuilder:
             name=name,
             file=file_info.path,
             language=file_info.language,
+            start_line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
             parameters=self._extract_parameters(node, cfg.parameters_field),
             return_type=self._extract_return_type(node, cfg.return_type_field),
             decorators=self._extract_decorators(node, cfg.decorator_types),
