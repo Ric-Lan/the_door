@@ -161,6 +161,51 @@ class TestBuildStructureDict:
         assert d["vulnerabilities"] == []
         assert "vulnerability_db_freshness" not in d
 
+    def test_node_start_end_line_survives_round_trip(self, populated_structure):
+        from the_door.core.extraction.structure_serializer import parse_structure_dict
+        node = ASTNode(
+            node_id="src/f.py::my_func",
+            type="function",
+            name="my_func",
+            file="src/f.py",
+            language="python",
+            start_line=10,
+            end_line=15,
+        )
+        structure = StructureJSON(
+            files=[FileInfo(path="src/f.py", language="python")],
+            nodes=[node],
+        )
+        d = build_structure_dict(structure, scan_result=None)
+        assert d["nodes"][0]["start_line"] == 10
+        assert d["nodes"][0]["end_line"] == 15
+        recovered = parse_structure_dict(d)
+        assert recovered.nodes[0].start_line == 10
+        assert recovered.nodes[0].end_line == 15
+
+    def test_old_structure_dict_without_line_fields_parses_to_none(self):
+        from the_door.core.extraction.structure_serializer import parse_structure_dict
+        old_dict = {
+            "files": [{"path": "src/a.py", "language": "python"}],
+            "nodes": [{
+                "node_id": "src/a.py::foo",
+                "type": "function",
+                "name": "foo",
+                "file": "src/a.py",
+                "language": "python",
+                "decorators": [],
+                "parameters": [],
+                "return_type": None,
+                "docstring": None,
+                "comments": [],
+            }],
+            "edges": [],
+            "topology": [],
+        }
+        result = parse_structure_dict(old_dict)
+        assert result.nodes[0].start_line is None
+        assert result.nodes[0].end_line is None
+
 
 # ── default_structure_path ──────────────────────────────────────────
 
