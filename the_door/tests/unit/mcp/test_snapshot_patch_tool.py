@@ -189,3 +189,29 @@ class TestSnapshotPatchToolExecuteMetadata:
         assert isinstance(result["patched_features"], list)
         assert "feat-a" in result["patched_features"]
         assert "feat-b" in result["patched_features"]
+
+
+class TestSnapshotPatchToolVersionNarratives:
+    def test_patch_narratives_returned_in_payload(self, seeded_project):
+        import asyncio
+        result = asyncio.run(snapshot_patch_tool.execute({
+            "codebase_path": str(seeded_project),
+            "version_ref": "v1.0.0",
+            "version_narratives": {"base-uuid-111": "Added CLI dispatch."},
+        }))
+        assert result["version_narratives"] == {"base-uuid-111": "Added CLI dispatch."}
+
+    def test_patch_merges_narratives_across_calls(self, seeded_project):
+        import asyncio
+        asyncio.run(snapshot_patch_tool.execute({
+            "codebase_path": str(seeded_project),
+            "version_ref": "v1.0.0",
+            "version_narratives": {"base-uuid-111": "First narrative."},
+        }))
+        result = asyncio.run(snapshot_patch_tool.execute({
+            "codebase_path": str(seeded_project),
+            "version_ref": "v1.0.0",
+            "version_narratives": {"base-uuid-222": "Second narrative."},
+        }))
+        assert "base-uuid-111" in result["version_narratives"]
+        assert "base-uuid-222" in result["version_narratives"]

@@ -62,6 +62,16 @@ TOOL_SCHEMA = {
                 "未提供則不動原有值。"
             ),
         },
+        "version_narratives": {
+            "type": "object",
+            "description": (
+                "Optional. Map of baseline_version_id (UUID) → narrative string. "
+                "Merge-write: provided keys overwrite existing values, absent keys are preserved. "
+                "Obtain baseline version_id from snapshot_list output (version_id field). "
+                "Do not use label as key — labels are mutable, version_id is permanent."
+            ),
+            "additionalProperties": {"type": "string"},
+        },
     },
 }
 
@@ -70,6 +80,7 @@ async def execute(arguments: dict) -> dict:
     """Patch source_nodes and/or metadata of an existing snapshot without changing version_id."""
     codebase_path = arguments["codebase_path"]
     store = SnapshotStore(Path(codebase_path))
+    version_narratives = arguments.get("version_narratives") or {}
     try:
         snap, skipped = store.patch_snapshot(
             version_ref=arguments["version_ref"],
@@ -77,6 +88,7 @@ async def execute(arguments: dict) -> dict:
             analyzed_files=arguments.get("analyzed_files"),
             feature_metadata_by_feature=arguments.get("feature_metadata_by_feature"),
             project_summary=arguments.get("project_summary"),
+            version_narratives=version_narratives,
         )
     except SnapshotNotFoundError as e:
         return make_error_envelope(
@@ -98,5 +110,6 @@ async def execute(arguments: dict) -> dict:
         "patched_features": patched,
         "skipped_features": skipped,
         "project_summary": snap.project_summary,
+        "version_narratives": dict(snap.version_narratives),
     }
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
