@@ -10,6 +10,36 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.5 — 2026-06-13
+
+diff 層 `version_narrative`：agent 讀 diff 資料自己寫白話敘述，持久化進 current snapshot。
+純加法，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **`VersionSnapshot.version_narratives`**（`dict[str, str]`，預設空 dict）＋ schema＋
+  serialize/deserialize（缺鍵→空 dict＝舊快照向下相容）。
+- **`snapshot_patch` / `snapshot_write` 收 optional `version_narratives`**：
+  key＝baseline `version_id`（UUID），value＝白話敘述字串；patch 採 merge 語意
+  （舊 key 保留、新 key 附加、同 key 覆寫）。
+- **`snapshot_list` 每筆附 `has_version_narrative`＋`narrative_baselines`**；
+  頂層附 `narrative_summary`（total / has_narrative / missing_narrative / note），
+  note 在有缺口時引導 agent 先問使用者確認配對範圍、不得自行決定。
+- **`/api/diff` 回應附 `version_narrative`**（`str | null`；從 current snapshot 的
+  `version_narratives[baseline.version_id]` 取，無則 null）。
+- **viewer diff 模式 narrative band**（`#version-narrative-band`）：有 narrative 時
+  顯示文字，無時 hidden；使用 `textContent`（非 innerHTML）防 XSS。
+- **CLAUDE.md** 補入 `version_narrative` agent-as-LLM 鏈指引
+  （`snapshot_list` → 問使用者 → `analyze_changes` → 寫敘述 → `snapshot_patch`；
+  UUID key 強制規定、affected_features 全空→省略敘述）。
+
+### Notes
+- 純加法、snapshot schema 欄位語義無變更 → 契約版號不 bump。
+- 後端 1521 passed / 前端 vitest 544 passed。
+- spec＝`docs/superpowers/specs/2026-06-13-version-narrative-design.md`；
+  plan＝`docs/superpowers/plans/2026-06-13-version-narrative.md`。
+
+---
+
 ## v1.7.4 — 2026-06-13
 
 snapshot 級 `project_summary`（非技術專案簡介）全鏈。翻譯鏈最後一哩：
