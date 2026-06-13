@@ -127,6 +127,17 @@ TOOL_SCHEMA = {
                 "provide it only when the feature set changed enough to warrant a rewrite."
             ),
         },
+        "version_narratives": {
+            "type": "object",
+            "description": (
+                "Optional. Map of baseline_version_id (UUID) → plain-language narrative "
+                "describing what changed in this version relative to that baseline. "
+                "Not inherited from baseline even in inherit_from mode — each version's "
+                "narratives describe transitions FROM a specific baseline TO this version. "
+                "Obtain baseline version_id from snapshot_list (version_id field)."
+            ),
+            "additionalProperties": {"type": "string"},
+        },
         "label": {"type": "string", "description": "Human-readable snapshot label (e.g. 'v1.0.0')."},
         "commit_hash": {"type": "string", "description": "Git commit SHA at analysis time (optional)."},
         "git_tags": {
@@ -196,6 +207,7 @@ async def execute(arguments: dict) -> dict:
     inherit_from = arguments.get("inherit_from")
     choice = arguments.get("choice")
     arg_summary = arguments.get("project_summary")  # 未給＝None；inherit 時退回 baseline
+    arg_narratives = dict(arguments.get("version_narratives") or {})
 
     store = SnapshotStore(Path(codebase_path))
 
@@ -330,6 +342,7 @@ async def execute(arguments: dict) -> dict:
         trigger="manual",
         label=label,
         project_summary=project_summary,
+        version_narratives=arg_narratives,
     )
 
     from the_door.core.registry import ProjectRegistry
@@ -342,6 +355,7 @@ async def execute(arguments: dict) -> dict:
         "feature_count": len(l1_snapshot),
         "relation_count": len(relations),
         "project_summary": snapshot.project_summary,
+        "version_narratives": dict(snapshot.version_narratives),
     }
     if warnings:
         payload["warnings"] = warnings

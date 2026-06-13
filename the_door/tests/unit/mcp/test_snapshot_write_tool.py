@@ -464,3 +464,28 @@ async def test_empty_source_nodes_returns_warning(tmp_project):
     assert "error" not in result
     assert "warnings" in result
     assert any("source_nodes" in w for w in result["warnings"])
+
+
+class TestSnapshotWriteToolVersionNarratives:
+    @pytest.mark.asyncio
+    async def test_version_narratives_persisted_and_returned(self, tmp_project):
+        from the_door.mcp.tools.snapshot_write_tool import execute
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+            "version_narratives": {"base-uuid-111": "Added auth feature."},
+        })
+        assert result["version_narratives"] == {"base-uuid-111": "Added auth feature."}
+        loaded = _load_snapshot_by_vid(tmp_project, result["version_id"])
+        assert loaded.version_narratives == {"base-uuid-111": "Added auth feature."}
+
+    @pytest.mark.asyncio
+    async def test_version_narratives_defaults_empty_when_omitted(self, tmp_project):
+        from the_door.mcp.tools.snapshot_write_tool import execute
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+        })
+        assert result["version_narratives"] == {}
+        loaded = _load_snapshot_by_vid(tmp_project, result["version_id"])
+        assert loaded.version_narratives == {}
