@@ -21,6 +21,8 @@ class ASTNode:
     name: str
     file: str
     language: str
+    start_line: int | None = None   # 1-indexed, inclusive; None = not available
+    end_line: int | None = None     # 1-indexed, inclusive; None = not available
     decorators: list[str] = field(default_factory=list)
     parameters: list[str] = field(default_factory=list)
     return_type: str | None = None
