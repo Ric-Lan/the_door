@@ -62,3 +62,17 @@ def test_view_deterministic_edge_order():
     a = assemble_views(nodes, edges, topo, residue)
     b = assemble_views(nodes, list(reversed(edges)), topo, residue)
     assert a == b
+
+
+def test_view_includes_start_and_end_line():
+    nodes = [
+        ASTNode(node_id="src/a.py::f1", type="function", name="f1",
+                file="src/a.py", language="python", start_line=3, end_line=7),
+        ASTNode(node_id="src/b.py::f2", type="function", name="f2",
+                file="src/b.py", language="python"),  # start_line=None
+    ]
+    views = assemble_views(nodes, [], [], {})
+    assert views["src/a.py::f1"]["start_line"] == 3
+    assert views["src/a.py::f1"]["end_line"] == 7
+    assert views["src/b.py::f2"]["start_line"] is None
+    assert views["src/b.py::f2"]["end_line"] is None

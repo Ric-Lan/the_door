@@ -44,6 +44,9 @@ def test_wrap_out_edges_preassembled_no_manual_join(self_index):
     assert "core/guidance/state.py::inspect" in targets          # 鏈式建構子呼叫
     assert "core/guidance/actions.py::to_json_dict" in targets   # 別名匯入
     assert wrap_view["topology"]["out_degree"] == len(wrap_view["out_edges"])  # 跨軸一致
+    # start_line / end_line 磁碟層驗證（gzip region 檔含新欄位）
+    assert "start_line" in wrap_view, "start_line missing from gzip region artifact"
+    assert wrap_view["start_line"] is not None, "start_line should be populated from tree-sitter"
 
 
 def test_index_stays_index_sized(self_index):

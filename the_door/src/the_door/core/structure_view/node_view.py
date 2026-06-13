@@ -37,6 +37,8 @@ def assemble_views(
             "type": n.type, "name": n.name, "file": n.file, "language": n.language,
             "decorators": n.decorators, "parameters": n.parameters,
             "return_type": n.return_type, "docstring": n.docstring, "comments": n.comments,
+            "start_line": n.start_line,
+            "end_line": n.end_line,
             "topology": ({
                 "in_degree": t.in_degree, "out_degree": t.out_degree,
                 "topology_rank": t.topology_rank, "is_entry_point": t.is_entry_point,
