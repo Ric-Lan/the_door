@@ -204,6 +204,7 @@ class SnapshotStore:
         source_nodes_by_feature: dict[str, list[str]] | None = None,
         analyzed_files: list[str] | None = None,
         feature_metadata_by_feature: dict[str, dict] | None = None,
+        project_summary: str | None = None,
     ) -> tuple["VersionSnapshot", list[str]]:
         """Patch an existing snapshot in-place.
 
@@ -249,6 +250,8 @@ class SnapshotStore:
         snap_kwargs: dict = {"l1_snapshot": new_l1}
         if analyzed_files is not None:
             snap_kwargs["analyzed_files"] = analyzed_files
+        if project_summary is not None:
+            snap_kwargs["project_summary"] = project_summary
         snap = dataclasses.replace(snap, **snap_kwargs)
 
         self._write_snapshot(snap)

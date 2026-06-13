@@ -250,3 +250,30 @@ class TestPatchSnapshotFeatureMetadata:
         )
         assert skipped == []
         assert snap.l1_snapshot["feat-a"].source_nodes == ()
+
+
+class TestPatchSnapshotProjectSummary:
+    def test_patch_sets_project_summary(self, seeded):
+        snap, _ = seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            project_summary="這個系統提供 CLI 分析。",
+        )
+        assert snap.project_summary == "這個系統提供 CLI 分析。"
+
+    def test_patch_project_summary_omitted_preserves_existing(self, tmp_path):
+        store = SnapshotStore(tmp_path)
+        store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+            trigger="manual", label="v1.0.0",
+            project_summary="original summary",
+        )
+        snap, _ = store.patch_snapshot(version_ref="v1.0.0")
+        assert snap.project_summary == "original summary"
+
+    def test_patch_project_summary_persisted_to_disk(self, seeded):
+        seeded.patch_snapshot(
+            version_ref="v1.0.0",
+            project_summary="持久化測試。",
+        )
+        reloaded = seeded.resolve_baseline("v1.0.0")
+        assert reloaded.project_summary == "持久化測試。"
