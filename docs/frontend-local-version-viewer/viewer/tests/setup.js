@@ -28,6 +28,7 @@ document.body.innerHTML = `
 
     <div id="summary-band"><p id="summary-text">載入中…</p></div>
     <div id="diff-mode-banner" hidden></div>
+    <div id="version-narrative-band" hidden></div>
     <div id="breadcrumb"></div>
 
     <main class="workspace">

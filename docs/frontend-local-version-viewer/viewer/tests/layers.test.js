@@ -12,6 +12,7 @@ vi.mock('../js/ui-detail.js', () => ({
 vi.mock('../js/ui-topbar.js', () => ({
   renderTopBar: vi.fn(),
   updateLogoMark: vi.fn(),
+  renderVersionNarrativeBand: vi.fn(),
 }));
 
 vi.mock('../js/ui-list.js', () => ({

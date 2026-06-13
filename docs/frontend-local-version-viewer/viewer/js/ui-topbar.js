@@ -119,3 +119,15 @@ export function updateLogoMark() {
   img.dataset.state = next;
   img.setAttribute('src', `./assets/mark-${next}.svg`);
 }
+
+export function renderVersionNarrativeBand(diff) {
+  const el = document.getElementById("version-narrative-band");
+  if (!el) return;
+  const narrative = diff?.version_narrative ?? null;
+  if (narrative) {
+    el.textContent = narrative;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}

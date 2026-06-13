@@ -2,7 +2,7 @@ import { state } from "./state.js";
 import { els } from "./dom.js";
 import { API_BASE } from "./api.js";
 import { initGraph, renderLegend } from "./graph.js";
-import { updateLogoMark } from "./ui-topbar.js";
+import { updateLogoMark, renderVersionNarrativeBand } from "./ui-topbar.js";
 import { changeSymbol } from "./ui-list.js";
 import { pickRef } from "./version-picker.js";
 import {
@@ -100,6 +100,7 @@ export async function loadDiffOverlay(baselineId, currentId) {
     const data = await res.json();
 
     state.versionDiff = data;
+    renderVersionNarrativeBand(data);
 
     const s = data.summary || {};
     const total = s.total_changed ?? 0;
