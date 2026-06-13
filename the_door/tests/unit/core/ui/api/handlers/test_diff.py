@@ -80,6 +80,66 @@ class TestVersions:
         assert status == 500
         assert body["error"]["code"] == "diff_error"
 
+    def test_diff_includes_version_narrative_when_present(self, tmp_path):
+        h = DiffHandlers(_ctx(tmp_path))
+        baseline_snap = MagicMock()
+        baseline_snap.version_id = "vid-baseline"
+        baseline_snap.label = "v0"
+        current_snap = MagicMock()
+        current_snap.version_id = "vid-current"
+        current_snap.label = "v1"
+        current_snap.version_narratives = {"vid-baseline": "Added auth feature."}
+        diff_result = MagicMock()
+        diff_result.node_diffs = []
+        diff_result.summary.added_count = 1
+        diff_result.summary.removed_count = 0
+        diff_result.summary.attribute_changed_count = 0
+        diff_result.summary.dependency_changed_count = 0
+        diff_result.summary.total_changed_count = 1
+        with (
+            patch("the_door.core.ui.api.handlers.diff.SnapshotStore") as mock_ss,
+            patch("the_door.core.ui.api.handlers.diff.DiffEngine") as mock_de,
+            patch("the_door.core.ui.api.handlers.diff.StateInspector") as mock_si,
+            patch("the_door.core.ui.api.handlers.diff.NextActionSuggester") as mock_nas,
+        ):
+            mock_ss.return_value.resolve_baseline.side_effect = [baseline_snap, current_snap]
+            mock_de.return_value.compute_l1_diff.return_value = diff_result
+            mock_si.return_value.inspect.return_value = MagicMock()
+            mock_nas.return_value.suggest.return_value = []
+            status, body = h.versions(baseline="v0", current="v1")
+        assert status == 200
+        assert body["version_narrative"] == "Added auth feature."
+
+    def test_diff_version_narrative_null_when_absent(self, tmp_path):
+        h = DiffHandlers(_ctx(tmp_path))
+        baseline_snap = MagicMock()
+        baseline_snap.version_id = "vid-baseline"
+        baseline_snap.label = "v0"
+        current_snap = MagicMock()
+        current_snap.version_id = "vid-current"
+        current_snap.label = "v1"
+        current_snap.version_narratives = {}
+        diff_result = MagicMock()
+        diff_result.node_diffs = []
+        diff_result.summary.added_count = 0
+        diff_result.summary.removed_count = 0
+        diff_result.summary.attribute_changed_count = 0
+        diff_result.summary.dependency_changed_count = 0
+        diff_result.summary.total_changed_count = 0
+        with (
+            patch("the_door.core.ui.api.handlers.diff.SnapshotStore") as mock_ss,
+            patch("the_door.core.ui.api.handlers.diff.DiffEngine") as mock_de,
+            patch("the_door.core.ui.api.handlers.diff.StateInspector") as mock_si,
+            patch("the_door.core.ui.api.handlers.diff.NextActionSuggester") as mock_nas,
+        ):
+            mock_ss.return_value.resolve_baseline.side_effect = [baseline_snap, current_snap]
+            mock_de.return_value.compute_l1_diff.return_value = diff_result
+            mock_si.return_value.inspect.return_value = MagicMock()
+            mock_nas.return_value.suggest.return_value = []
+            status, body = h.versions(baseline="v0", current="v1")
+        assert status == 200
+        assert body["version_narrative"] is None
+
 
 class TestGetExplanation:
     def test_missing_params_returns_400(self, tmp_path):

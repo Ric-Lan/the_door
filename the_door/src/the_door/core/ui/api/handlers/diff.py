@@ -106,6 +106,7 @@ class DiffHandlers:
             state = StateInspector(self._ctx.project_root).inspect()
             actions = NextActionSuggester().suggest(state, context="viewer")
             body["next_actions"] = [action_to_json(a) for a in actions]
+            body["version_narrative"] = current_snap.version_narratives.get(baseline_snap.version_id)
             return 200, body
         except Exception as exc:
             return 500, make_error_envelope(
