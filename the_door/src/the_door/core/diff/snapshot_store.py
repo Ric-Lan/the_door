@@ -104,6 +104,7 @@ class SnapshotStore:
         vulnerabilities: list[VulnerabilityEntry] | None = None,
         db_freshness: DatabaseFreshness | None = None,
         project_summary: str | None = None,
+        version_narratives: dict[str, str] | None = None,
     ) -> VersionSnapshot:
         """Create and persist a new snapshot. Returns the created VersionSnapshot.
 
@@ -134,6 +135,7 @@ class SnapshotStore:
             codebase_path=self._project_root,
             contract_version=SNAPSHOT_CONTRACT_VERSION,  # 出生蓋戳（單一蓋戳點）
             project_summary=project_summary,
+            version_narratives=dict(version_narratives) if version_narratives else {},
         )
 
         self._write_snapshot(snapshot)
@@ -205,6 +207,7 @@ class SnapshotStore:
         analyzed_files: list[str] | None = None,
         feature_metadata_by_feature: dict[str, dict] | None = None,
         project_summary: str | None = None,
+        version_narratives: dict[str, str] | None = None,
     ) -> tuple["VersionSnapshot", list[str]]:
         """Patch an existing snapshot in-place.
 
@@ -253,6 +256,9 @@ class SnapshotStore:
             snap_kwargs["analyzed_files"] = analyzed_files
         if project_summary is not None:
             snap_kwargs["project_summary"] = project_summary
+        if version_narratives:
+            merged_narratives = {**snap.version_narratives, **version_narratives}
+            snap_kwargs["version_narratives"] = merged_narratives
         snap = dataclasses.replace(snap, **snap_kwargs)
 
         self._write_snapshot(snap)
