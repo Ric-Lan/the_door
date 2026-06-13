@@ -90,6 +90,7 @@ class VersionSnapshot:
     vulnerability_db_freshness: DatabaseFreshness | None = None
     codebase_path: Path | None = None
     contract_version: str | None = None  # 出生契約戳（O3：舊快照 None＝unknown）
+    project_summary: str | None = None  # 非技術專案簡介（agent 綜合 L1 產出；None＝未綜合）
 
 
 class SnapshotError(Exception):

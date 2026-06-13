@@ -196,10 +196,15 @@ For the input/output schemas of each MCP tool see
      ],
      "relations": [
        { "from_feature": "feat-a", "to_feature": "feat-b", "relation": "depends_on" }
-     ]
+     ],
+     "project_summary": "2-4 句、給非技術讀者的專案簡介：這個產品是做什麼的。"
    }
    ```
    `feature_id` must start with `feat-`. `confidence` is `high` / `medium` / `low`.
+   `project_summary`（optional）＝把上面 features 的描述**收斂**成非技術讀者看得懂的
+   一段話。鐵則：**只能綜合 features 已含的資訊**，不得引入 L1 之外的能力宣稱；低信心
+   feature 的能力用保守措辭。viewer 會自動附「綜合自 N 個功能、x 個低信心」誠實尾註
+   （你不用自己寫統計）。
 
 3. `edge_residue(codebase_path="./my-project")`
    → Persists `.the-door/edge-residue.json` (edge-noise residue) **and stamps
@@ -210,8 +215,8 @@ For the input/output schemas of each MCP tool see
    every `source_node` you write is within the covered set** (re-run
    `edge_residue` if you changed the code and reference new nodes).
 
-4. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], label="v1.0.0")`
-   → Returns `version_id`, `label`.
+4. `snapshot_write(codebase_path="./my-project", l1_features=[...], relations=[...], project_summary="...", label="v1.0.0")`
+   → Returns `version_id`, `label`.（`project_summary` optional；給了就持久化、viewer 顯示。）
 
 ### Agent-as-LLM chain (backfill source_nodes into existing snapshot)
 
@@ -257,6 +262,10 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
    label="v1.0.5", inherit_from="v1.0.0")` — unchanged features are inherited.
    Prefer `updated_features` (carry only the affected ones) over a full
    `l1_features` replacement — it makes the C7 immutability check trivially pass.
+   **`project_summary`（簡介）的繼承規則**：affected set **非空**（有 feature 增/刪/改
+   ⟹ 產品組成變了）→ 重寫 `project_summary` 一起帶入；affected set **全空** → 省略，
+   自動沿用 baseline 的簡介（與「繼承的不譯」同精神：組成沒變、簡介不重寫）。
+   注意這是 guide 級約定、非 gate——簡介是聚合產物，C7 只鎖逐 feature 重譯。
 
 > **Gate boundary (honest):** C3/C7 enforce execution order, node coverage,
 > file staleness, and inherited-description immutability — all **structural**.

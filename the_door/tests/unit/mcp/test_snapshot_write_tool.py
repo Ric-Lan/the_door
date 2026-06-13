@@ -100,6 +100,31 @@ class TestSnapshotWriteTool:
         assert data["l1_snapshot"]["feat-auth"]["confidence"] == "high"
 
     @pytest.mark.asyncio
+    async def test_project_summary_persisted_when_provided(self, tmp_project):
+        """Direct-mode project_summary 落盤並 round-trip。"""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+            "project_summary": "這個專案提供登入與資料存取。",
+        })
+        loaded = _load_snapshot_by_vid(tmp_project, result["version_id"])
+        assert loaded.project_summary == "這個專案提供登入與資料存取。"
+
+    @pytest.mark.asyncio
+    async def test_project_summary_defaults_none_when_omitted(self, tmp_project):
+        """Direct-mode 未給 project_summary → None（誠實缺席、不警告）。"""
+        from the_door.mcp.tools.snapshot_write_tool import execute
+
+        result = await execute({
+            "codebase_path": str(tmp_project),
+            "l1_features": VALID_FEATURES,
+        })
+        loaded = _load_snapshot_by_vid(tmp_project, result["version_id"])
+        assert loaded.project_summary is None
+
+    @pytest.mark.asyncio
     async def test_source_nodes_persisted_when_provided(self, tmp_project):
         """source_nodes from the caller are persisted on disk so the viewer
         can drill from L1 to L2 without re-inferring node ownership."""

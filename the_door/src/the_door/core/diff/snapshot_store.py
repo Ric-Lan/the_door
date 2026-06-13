@@ -103,6 +103,7 @@ class SnapshotStore:
         l1_5_snapshot: dict[str, BlockSummary] | None = None,
         vulnerabilities: list[VulnerabilityEntry] | None = None,
         db_freshness: DatabaseFreshness | None = None,
+        project_summary: str | None = None,
     ) -> VersionSnapshot:
         """Create and persist a new snapshot. Returns the created VersionSnapshot.
 
@@ -132,6 +133,7 @@ class SnapshotStore:
             vulnerability_db_freshness=db_freshness,
             codebase_path=self._project_root,
             contract_version=SNAPSHOT_CONTRACT_VERSION,  # 出生蓋戳（單一蓋戳點）
+            project_summary=project_summary,
         )
 
         self._write_snapshot(snapshot)
@@ -376,6 +378,7 @@ class SnapshotStore:
             "label": snapshot.label,
             "codebase_path": str(snapshot.codebase_path) if snapshot.codebase_path else None,
             "contract_version": snapshot.contract_version,
+            "project_summary": snapshot.project_summary,
             "l1_snapshot": l1_data,
             "analyzed_files": snapshot.analyzed_files,
             "l1_5_snapshot": l1_5_data,
@@ -486,5 +489,6 @@ class SnapshotStore:
             vulnerability_db_freshness=db_freshness,
             codebase_path=Path(raw_cp) if raw_cp else None,
             contract_version=data.get("contract_version"),  # 缺鍵→None＝O3 舊快照
+            project_summary=data.get("project_summary"),  # 缺鍵→None＝未綜合（舊快照）
         )
 

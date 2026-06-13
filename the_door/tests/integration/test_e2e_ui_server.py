@@ -106,6 +106,7 @@ def _seed_snapshot(project_root: Path) -> str:
         analyzed_files=["app.py", "auth.py"],
         trigger="manual",
         label="v1.0",
+        project_summary="這個系統提供使用者登入與名單檢視。",
     )
     return snapshot.version_id
 
@@ -360,6 +361,15 @@ class TestGetL1:
         assert len(body["edges"]) == 1
         assert body["edges"][0]["source"] == "feat-auth"
         assert body["edges"][0]["target"] == "feat-users"
+
+    def test_l1_includes_project_summary(self, server_url):
+        """端到端：seed 的 project_summary 經真實 HTTP → handler → snapshot 讀回。
+
+        消費層驗收（spec §5）：證明簡介確實串到 /api/l1 回應頂層，
+        非單元 mock。viewer 由此欄產出 summary-band 文字。"""
+        status, body = _get(f"{server_url}/api/l1")
+        assert status == 200
+        assert body["project_summary"] == "這個系統提供使用者登入與名單檢視。"
 
     def test_l1_node_has_required_fields(self, server_url):
         """Each node in L1_Graph_ViewModel has id, label, confidence, description."""

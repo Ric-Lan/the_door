@@ -202,6 +202,63 @@ class TestContractVersionStamp:
         assert snap.contract_version is not None
 
 
+class TestProjectSummaryRoundTrip:
+    """project_summary：snapshot 級非技術簡介（agent-as-LLM 綜合 L1 產出）。
+
+    None＝未綜合（誠實缺席）；on-disk 無條件帶鍵（schema↔serializer 雙射約束，
+    同 commit_hash 慣例）；舊快照缺鍵→None。
+    """
+
+    def test_project_summary_round_trips(self, store):
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+            trigger="manual", label="with-summary",
+            project_summary="這個系統提供登入與報表匯出。",
+        )
+        loaded = store.get_snapshot(snap.version_id)
+        assert loaded is not None
+        assert loaded.project_summary == "這個系統提供登入與報表匯出。"
+
+    def test_project_summary_defaults_to_none(self, store):
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+        )
+        loaded = store.get_snapshot(snap.version_id)
+        assert loaded.project_summary is None
+
+    def test_project_summary_key_emitted_even_when_none(self, store, tmp_path):
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+        )
+        raw = json.loads(
+            (tmp_path / ".the-door" / "snapshots" / f"{snap.version_id}.json")
+            .read_text(encoding="utf-8")
+        )
+        assert "project_summary" in raw
+        assert raw["project_summary"] is None
+
+    def test_legacy_snapshot_without_project_summary_loads_as_none(self, tmp_path):
+        snapdir = tmp_path / ".the-door" / "snapshots"
+        snapdir.mkdir(parents=True)
+        legacy = {
+            "version_id": "v-nosummary",
+            "timestamp": "2025-01-01T00:00:00+00:00",
+            "trigger": "manual",
+            "commit_hash": None,
+            "git_tags": [],
+            "label": "nosummary",
+            "l1_snapshot": {},
+            "l1_5_snapshot": {},
+            "feature_relations_snapshot": [],
+            "vulnerabilities_snapshot": [],
+            "analyzed_files": [],
+        }
+        (snapdir / "v-nosummary.json").write_text(json.dumps(legacy), encoding="utf-8")
+        loaded = SnapshotStore(tmp_path).get_snapshot("v-nosummary")
+        assert loaded is not None
+        assert loaded.project_summary is None
+
+
 class TestNullSeverityRoundTrip:
     """F-severity-default V3：None-severity 漏洞經 fail-closed 落盤口通過＋round-trip 保 None。"""
 

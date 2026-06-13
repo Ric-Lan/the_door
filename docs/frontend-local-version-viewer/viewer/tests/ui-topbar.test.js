@@ -108,6 +108,23 @@ describe('renderTopBar — summaryText', () => {
     renderTopBar();
     expect(els.summaryText.textContent).toBe('（載入中…）');
   });
+
+  it('shows project_summary line with honest tail when present (single version)', () => {
+    state.l1Model = {
+      features: [{ confidence: 'high' }, { confidence: 'low' }],
+      stats: { feature_count: 2 },
+      project_summary: '這個系統提供登入與報表。',
+    };
+    state.mode = 'baseline';
+    renderTopBar();
+    expect(els.summaryText.textContent).toBe('這個系統提供登入與報表。（綜合自 2 個功能，其中 1 個低信心）');
+  });
+
+  it('falls back to count text when project_summary is null (legacy snapshot)', () => {
+    state.l1Model = { features: [1, 2, 3], project_summary: null };
+    renderTopBar();
+    expect(els.summaryText.textContent).toBe('共 3 個功能');
+  });
 });
 
 // ── renderTopBar — count badges ────────────────────────────────────

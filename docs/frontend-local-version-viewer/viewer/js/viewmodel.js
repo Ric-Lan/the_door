@@ -86,6 +86,22 @@ export function buildL1ViewModelFromStatic(graphData) {
 // provenance 後綴只標非 current（誠實 surface 跨契約/無戳；current 不加字＝避免每項都掛雜訊）
 const PROVENANCE_SUFFIX = { legacy: "（舊契約）", unknown: "（無契約戳）" };
 
+// 單版本專案簡介行：簡介本文＋誠實統計尾註。
+// 統計從 features 自算（不持久化、避免雙重計數）；未評估(unknown/null)≠低信心，分開計（H1）。
+// summary falsy（null/undefined/空字串）→ null（呼叫端 fallback 現行文案）。
+export function projectSummaryLine(summary, features) {
+  if (!summary) return null;
+  const list = features || [];
+  const n = list.length;
+  const low = list.filter((f) => f.confidence === "low").length;
+  const unknown = list.filter((f) => !f.confidence || f.confidence === "unknown").length;
+  const parts = [];
+  if (low > 0) parts.push(`${low} 個低信心`);
+  if (unknown > 0) parts.push(`${unknown} 個未評估`);
+  const detail = parts.length ? `，其中 ${parts.join("、")}` : "";
+  return `${summary}（綜合自 ${n} 個功能${detail}）`;
+}
+
 export function snapshotLabel(snapshot) {
   if (!snapshot) return "（未知）";
   const base =

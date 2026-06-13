@@ -36,6 +36,35 @@ class TestGetL1:
             status, body = h.get_l1()
         assert status == 200
 
+    def test_response_includes_project_summary(self, tmp_path):
+        h = GraphHandlers(_ctx(tmp_path))
+        snap = MagicMock()
+        snap.l1_snapshot = {}
+        snap.feature_relations_snapshot = []
+        snap.project_summary = "這個專案做登入。"
+        with (
+            patch("the_door.core.ui.api.handlers.graph.SnapshotStore") as mock_ss,
+            patch("the_door.core.ui.api.handlers.graph.build_l1_graph_view_model_from_snapshot", return_value={"nodes": []}),
+        ):
+            mock_ss.return_value.get_latest.return_value = snap
+            status, body = h.get_l1()
+        assert status == 200
+        assert body["project_summary"] == "這個專案做登入。"
+
+    def test_response_project_summary_none_when_absent(self, tmp_path):
+        h = GraphHandlers(_ctx(tmp_path))
+        snap = MagicMock()
+        snap.l1_snapshot = {}
+        snap.feature_relations_snapshot = []
+        snap.project_summary = None
+        with (
+            patch("the_door.core.ui.api.handlers.graph.SnapshotStore") as mock_ss,
+            patch("the_door.core.ui.api.handlers.graph.build_l1_graph_view_model_from_snapshot", return_value={"nodes": []}),
+        ):
+            mock_ss.return_value.get_latest.return_value = snap
+            status, body = h.get_l1()
+        assert body["project_summary"] is None
+
 
 class TestGetL2:
     def test_not_generated_returns_404(self, tmp_path):

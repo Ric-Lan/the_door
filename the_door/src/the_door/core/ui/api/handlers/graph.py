@@ -81,6 +81,8 @@ class GraphHandlers:
             view_model = build_l1_graph_view_model_from_snapshot(
                 l1_snapshot_dict, feature_relations_list
             )
+            # snapshot 級非技術簡介（None＝未綜合）；附在 view_model 頂層供 viewer summary-band 用
+            view_model["project_summary"] = snapshot.project_summary
             return 200, view_model
         except Exception as exc:
             return 500, self._make_error(

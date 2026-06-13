@@ -58,6 +58,7 @@ export async function loadL1Graph(versionId = null) {
         source: "L1Output.features",
       })),
       stats: { feature_count: (state.l1GraphViewModel.nodes || []).length },
+      project_summary: state.l1GraphViewModel.project_summary ?? null,
     };
 
     initGraph("graph-container", state.l1GraphViewModel);

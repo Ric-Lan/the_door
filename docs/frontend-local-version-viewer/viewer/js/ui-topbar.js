@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { els } from './dom.js';
+import { projectSummaryLine } from './viewmodel.js';
 
 function snapshotLabel(snapshot) {
   if (snapshot.git_tags?.length) return snapshot.git_tags[0];
@@ -20,13 +21,19 @@ export function renderTopBar() {
   if (hasDiff) {
     els.summaryText.textContent = um?.summary || '（無摘要）';
   } else if (state.l1Model) {
-    const fc = state.l1Model.stats?.feature_count ?? state.l1Model.features?.length ?? 0;
-    const vId = state.mode === 'baseline' ? state.versionA : state.versionB;
-    const snap = state.snapshots.find(s => s.version_id === vId);
-    const label = snap ? snapshotLabel(snap) : null;
-    els.summaryText.textContent = label
-      ? `${label} · 共 ${fc} 個功能`
-      : `共 ${fc} 個功能`;
+    // 有非技術專案簡介→顯示簡介＋誠實統計尾註；無（舊 snapshot/未綜合）→ fallback 現行文案
+    const summaryLine = projectSummaryLine(state.l1Model.project_summary, state.l1Model.features);
+    if (summaryLine) {
+      els.summaryText.textContent = summaryLine;
+    } else {
+      const fc = state.l1Model.stats?.feature_count ?? state.l1Model.features?.length ?? 0;
+      const vId = state.mode === 'baseline' ? state.versionA : state.versionB;
+      const snap = state.snapshots.find(s => s.version_id === vId);
+      const label = snap ? snapshotLabel(snap) : null;
+      els.summaryText.textContent = label
+        ? `${label} · 共 ${fc} 個功能`
+        : `共 ${fc} 個功能`;
+    }
   } else {
     els.summaryText.textContent = '（載入中…）';
   }

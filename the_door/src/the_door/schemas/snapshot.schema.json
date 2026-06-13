@@ -13,6 +13,7 @@
     "label": { "type": ["string", "null"] },
     "codebase_path": { "type": ["string", "null"] },
     "contract_version": { "type": ["string", "null"], "description": "Snapshot contract version stamped at birth (SNAPSHOT_CONTRACT_VERSION). If you change a field's MEANING/shape here, or change L1/analysis semantics, bump that constant — see docs/contract-versioning.md. null = pre-S7 legacy snapshot." },
+    "project_summary": { "type": ["string", "null"], "description": "Non-technical project summary synthesized by the analyzing agent from this snapshot's L1 feature descriptions (2-4 sentences, no capabilities beyond L1). null = not synthesized." },
     "l1_snapshot": {
       "type": "object",
       "additionalProperties": {

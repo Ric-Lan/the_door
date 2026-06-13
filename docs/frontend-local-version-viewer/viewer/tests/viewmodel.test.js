@@ -3,6 +3,7 @@ import {
   buildViewModelFromReport,
   buildL1ViewModelFromStatic,
   snapshotLabel,
+  projectSummaryLine,
 } from '../js/viewmodel.js';
 
 describe('buildViewModelFromReport', () => {
@@ -234,5 +235,35 @@ describe('snapshotLabel', () => {
 
   it('adds no suffix when provenance is absent (older API)', () => {
     expect(snapshotLabel({ label: 'v1.0.0' })).toBe('v1.0.0');
+  });
+});
+
+describe('projectSummaryLine', () => {
+  it('returns null when summary is null/undefined', () => {
+    expect(projectSummaryLine(null, [])).toBeNull();
+    expect(projectSummaryLine(undefined, [])).toBeNull();
+  });
+
+  it('returns null for empty-string summary (treated as absent)', () => {
+    expect(projectSummaryLine('', [{ confidence: 'high' }])).toBeNull();
+  });
+
+  it('shows synthesis count with no tail when all high confidence', () => {
+    const features = [{ confidence: 'high' }, { confidence: 'high' }, { confidence: 'medium' }];
+    expect(projectSummaryLine('登入與報表。', features)).toBe('登入與報表。（綜合自 3 個功能）');
+  });
+
+  it('appends low-confidence tail when low > 0', () => {
+    const features = [{ confidence: 'high' }, { confidence: 'low' }, { confidence: 'low' }, { confidence: 'medium' }, { confidence: 'high' }];
+    expect(projectSummaryLine('簡介。', features)).toBe('簡介。（綜合自 5 個功能，其中 2 個低信心）');
+  });
+
+  it('separates low and unknown (未評估≠低信心)', () => {
+    const features = [{ confidence: 'low' }, { confidence: 'unknown' }, { confidence: null }, { confidence: 'high' }];
+    expect(projectSummaryLine('簡介。', features)).toBe('簡介。（綜合自 4 個功能，其中 1 個低信心、2 個未評估）');
+  });
+
+  it('treats missing features list as 0 features', () => {
+    expect(projectSummaryLine('簡介。', undefined)).toBe('簡介。（綜合自 0 個功能）');
   });
 });

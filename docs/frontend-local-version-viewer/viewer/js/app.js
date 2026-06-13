@@ -221,6 +221,7 @@ async function loadStaticFallback() {
             source: "L1Output.features",
           })),
           stats: { feature_count: (graphData.nodes || []).length },
+          project_summary: graphData.project_summary ?? null,
         };
       }
     }

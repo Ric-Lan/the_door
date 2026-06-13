@@ -117,6 +117,16 @@ TOOL_SCHEMA = {
                 },
             },
         },
+        "project_summary": {
+            "type": "string",
+            "description": (
+                "Non-technical project summary (2-4 sentences) you synthesize from the "
+                "l1_features descriptions — what this product does, for a non-technical "
+                "reader. Do NOT introduce capabilities beyond what the features describe. "
+                "In inherit mode: omit it to carry the baseline's summary unchanged; "
+                "provide it only when the feature set changed enough to warrant a rewrite."
+            ),
+        },
         "label": {"type": "string", "description": "Human-readable snapshot label (e.g. 'v1.0.0')."},
         "commit_hash": {"type": "string", "description": "Git commit SHA at analysis time (optional)."},
         "git_tags": {
@@ -185,6 +195,7 @@ async def execute(arguments: dict) -> dict:
     analyzed_files = arguments.get("analyzed_files", [])
     inherit_from = arguments.get("inherit_from")
     choice = arguments.get("choice")
+    arg_summary = arguments.get("project_summary")  # 未給＝None；inherit 時退回 baseline
 
     store = SnapshotStore(Path(codebase_path))
 
@@ -268,6 +279,8 @@ async def execute(arguments: dict) -> dict:
         l1_snapshot = merged
         relations = list(baseline_snap.feature_relations_snapshot)
         warnings = []
+        # 未給簡介＝沿用 baseline（組成未由本欄判定變動）；給了＝覆寫。
+        project_summary = arg_summary if arg_summary is not None else baseline_snap.project_summary
     else:
         # Direct mode: existing behaviour.
         raw_features: list[dict] = arguments.get("l1_features", [])
@@ -306,6 +319,7 @@ async def execute(arguments: dict) -> dict:
             for fid, fs in l1_snapshot.items()
             if not fs.source_nodes
         ]
+        project_summary = arg_summary  # direct 模式：未給＝None（誠實缺席）
 
     snapshot = store.create_snapshot(
         l1_snapshot=l1_snapshot,
@@ -315,6 +329,7 @@ async def execute(arguments: dict) -> dict:
         git_tags=git_tags if git_tags else [],
         trigger="manual",
         label=label,
+        project_summary=project_summary,
     )
 
     from the_door.core.registry import ProjectRegistry
