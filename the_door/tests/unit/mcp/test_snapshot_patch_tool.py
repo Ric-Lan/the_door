@@ -71,6 +71,24 @@ class TestSnapshotPatchToolHappyPath:
         }))
         assert "error" not in result
 
+    def test_patch_project_summary_returned_in_response(self, seeded_project):
+        import asyncio
+        result = asyncio.run(snapshot_patch_tool.execute({
+            "codebase_path": str(seeded_project),
+            "version_ref": "v1.0.0",
+            "project_summary": "這個工具提供 CLI 分析。",
+        }))
+        assert result["project_summary"] == "這個工具提供 CLI 分析。"
+
+    def test_patch_project_summary_none_when_not_provided(self, seeded_project):
+        import asyncio
+        result = asyncio.run(snapshot_patch_tool.execute({
+            "codebase_path": str(seeded_project),
+            "version_ref": "v1.0.0",
+            "source_nodes_by_feature": {"feat-cli": ["main"]},
+        }))
+        assert result["project_summary"] is None
+
 
 class TestSnapshotPatchToolErrorPath:
     def test_unknown_version_ref_returns_error_envelope(self, seeded_project):

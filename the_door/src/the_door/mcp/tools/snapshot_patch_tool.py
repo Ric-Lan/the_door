@@ -55,6 +55,13 @@ TOOL_SCHEMA = {
             "items": {"type": "string"},
             "description": "If provided, replaces the snapshot's analyzed_files list.",
         },
+        "project_summary": {
+            "type": "string",
+            "description": (
+                "Optional. 若提供，覆寫此 snapshot 的非技術專案簡介（project_summary）；"
+                "未提供則不動原有值。"
+            ),
+        },
     },
 }
 
@@ -69,6 +76,7 @@ async def execute(arguments: dict) -> dict:
             source_nodes_by_feature=arguments.get("source_nodes_by_feature") or {},
             analyzed_files=arguments.get("analyzed_files"),
             feature_metadata_by_feature=arguments.get("feature_metadata_by_feature"),
+            project_summary=arguments.get("project_summary"),
         )
     except SnapshotNotFoundError as e:
         return make_error_envelope(
@@ -89,5 +97,6 @@ async def execute(arguments: dict) -> dict:
         "label": snap.label,
         "patched_features": patched,
         "skipped_features": skipped,
+        "project_summary": snap.project_summary,
     }
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
