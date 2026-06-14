@@ -37,6 +37,7 @@ def build_structure_dict(
                 "return_type": n.return_type, "docstring": n.docstring,
                 "comments": n.comments,
                 "start_line": n.start_line, "end_line": n.end_line,
+                "body_hash": n.body_hash,
             }
             for n in structure.nodes
         ],
@@ -93,6 +94,7 @@ def parse_structure_dict(data: dict) -> StructureJSON:
             comments=n.get("comments", []),
             start_line=n.get("start_line"),
             end_line=n.get("end_line"),
+            body_hash=n.get("body_hash"),
         )
         for n in data["nodes"]
     ]

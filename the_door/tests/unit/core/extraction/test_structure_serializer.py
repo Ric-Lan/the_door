@@ -13,6 +13,7 @@ import pytest
 from the_door.core.extraction.structure_serializer import (
     build_structure_dict,
     default_structure_path,
+    parse_structure_dict,
     write_structure_json,
 )
 from the_door.models import (
@@ -269,3 +270,60 @@ class TestWriteStructureJson:
         )
         loaded = json.loads(target.read_text(encoding="utf-8"))
         assert loaded["nodes"][0]["docstring"] == "🎯 中文 docstring"
+
+
+# ── body_hash serialization tests ──────────────────────────────────────
+
+
+def test_build_structure_dict_includes_body_hash():
+    node = ASTNode(
+        node_id="src/a.py::foo", type="function", name="foo",
+        file="src/a.py", language="python",
+        start_line=1, end_line=3,
+        body_hash="abc123def456abc123def456abc123de",
+    )
+    structure = StructureJSON(nodes=[node])
+    result = build_structure_dict(structure, scan_result=None)
+    assert result["nodes"][0]["body_hash"] == "abc123def456abc123def456abc123de"
+
+
+def test_build_structure_dict_body_hash_none_is_serialized():
+    node = ASTNode(
+        node_id="src/a.py::foo", type="function", name="foo",
+        file="src/a.py", language="python",
+    )
+    structure = StructureJSON(nodes=[node])
+    result = build_structure_dict(structure, scan_result=None)
+    assert "body_hash" in result["nodes"][0]
+    assert result["nodes"][0]["body_hash"] is None
+
+
+def test_parse_structure_dict_round_trips_body_hash():
+    node = ASTNode(
+        node_id="src/a.py::foo", type="function", name="foo",
+        file="src/a.py", language="python",
+        start_line=1, end_line=3,
+        body_hash="abc123def456abc123def456abc123de",
+    )
+    structure = StructureJSON(
+        nodes=[node],
+        files=[FileInfo(path="src/a.py", language="python")],
+    )
+    data = build_structure_dict(structure, scan_result=None)
+    restored = parse_structure_dict(data)
+    assert restored.nodes[0].body_hash == "abc123def456abc123def456abc123de"
+
+
+def test_parse_structure_dict_missing_body_hash_key_returns_none():
+    # Simulate an old structure.json that has no body_hash key
+    data = {
+        "files": [{"path": "src/a.py", "language": "python"}],
+        "nodes": [{
+            "node_id": "src/a.py::foo", "type": "function", "name": "foo",
+            "file": "src/a.py", "language": "python",
+        }],
+        "edges": [],
+        "topology": [],
+    }
+    restored = parse_structure_dict(data)
+    assert restored.nodes[0].body_hash is None
