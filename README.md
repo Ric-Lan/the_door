@@ -2,123 +2,88 @@ English | [繁體中文](README.zh-TW.md)
 
 # The Door
 
-Translates code structure and changes into functional-language diagrams — so non-technical stakeholders can verify what was actually built.
+> Built for non-technical stakeholders who need to verify what was actually built — without reading code.
 
-> Translation direction: technical language → functional language. Diagrams are not decoration — they are the verification interface.
+The Door translates your codebase into plain functional diagrams: what the system does, what changed between versions, and whether deliverables match commitments.
 
-**This README has two parts:**
+**This tool is designed to be operated by AI, not by you directly.** The Door exposes an MCP server; an AI agent (Claude Code, Kiro, or any MCP-compatible platform) reads your code, produces the functional descriptions, and saves them locally. You open a browser to review the results. No API key required.
 
-- **[Part 1 — For users](#part-1--for-users)** — what The Door is, and the commands a person runs.
-- **[Part 2 — For AI agents](#part-2--for-ai-agents)** — how an MCP-driven agent operates The Door (the one path, the tools, the gate). The authoritative full guide is [`CLAUDE.md`](CLAUDE.md).
+> **How to use this document:** Read this page to understand what The Door does. Then hand it — along with [`CLAUDE.md`](CLAUDE.md) — to your AI agent and ask it to get started.
 
 ---
 
-# Part 1 — For users
+## Contents
 
-## What is this
+1. [Tech Stack](#1-tech-stack)
+2. [Setting Up Files for Analysis](#2-setting-up-files-for-analysis)
+3. [How AI Gets Started](#3-how-ai-gets-started)
+4. [CLI Reference](#4-cli-reference)
+5. [Snapshot References](#5-snapshot-references)
+6. [Architecture](#6-architecture)
+7. [License](#7-license)
+8. [Documentation](#8-documentation)
 
-The Door is a CLI tool + MCP Server + local UI. Driven by an MCP-capable AI platform (Claude Code, Kiro, …), it reads your codebase and translates it into "functional language" — plain descriptions of what the system does, what changed, and whether anything looks wrong.
+---
 
-**The Door bundles no LLM provider and needs no API key.** The AI agent driving it *is* the LLM: The Door extracts code structure deterministically, the agent produces the natural-language layer, and The Door persists it. (Mechanics in [Part 2](#the-one-path--zero-api-key).)
+## 1. Tech Stack
 
-**Who it's for:** PMs, project managers, release managers, QA, clients — anyone who needs to confirm that deliverables match commitments, without reading code.
-
-## Core capabilities
-
-| Capability | Description |
+| Layer | Technology |
 |---|---|
-| Feature translation | Code → functional-language diagram (interactive + Mermaid fallback) + agent-authored narrative |
-| Version diff | What changed between two versions, risks surfaced first |
-| Incremental update | Re-analyze only the features whose source nodes changed — the diff itself is pure AST, no LLM call |
-| Scope verification | PM defines sprint scope → auto-compare → flag out-of-scope items |
-| Vulnerability scan | Known CVEs in dependencies, integrated into the feature diagram |
-| Feature evolution | Multi-version timeline tracking when features appeared and how often they changed |
-| Doubt tracking | Anomaly detected → flagged → assigned → resolved (with escalation on timeout) |
-| Feature detail panel | Per-feature drill-down: trigger description, confidence rationale, and source node list — visible in the viewer's single-version mode |
-| Scope-aware edges | Cross-file relations carry a `resolution` tag (`scope_rule` / `import_alias` / `name_match` / `skipped_dynamic`) so the agent can weight high- vs low-confidence edges instead of treating all name matches equally |
-| Edge noise residue | The `edge_residue` MCP tool filters high-fanout noise and aggregates dynamic-dispatch edges into caller-level hints (deterministic, zero-token); the snapshot and viewer still keep the full facts |
-| Local UI | Browser workbench, interactive diagrams, three-layer navigation (L1 → L2 → L3), display-only |
+| Code extraction | Python ≥ 3.10, tree-sitter (305+ languages) |
+| MCP server | `the-door mcp-serve` — called by your AI agent |
+| Local UI | Vanilla JS (no bundler), served by `the-door ui` |
+| Storage | Local `.the-door/` folder inside your target project |
+| LLM | **Your AI agent** — The Door bundles no provider and needs no API key |
 
-## Install
+> ⚠️ **Operating system: tested on Windows only.** macOS and Linux have not been verified. Use at your own discretion on other platforms.
 
-```bash
-pip install the-door
-```
+### AI Model Recommendation
 
-Requires Python ≥ 3.10. Optional: `osv-scanner` (vulnerability scan).
-
-## Quick start
-
-**When you're cold-starting and unsure what state a project is in, run this first:**
-
-```bash
-the-door status ./my-project
-```
-
-It reports whether the project has been analyzed, whether the source has changed since the last snapshot, and prints a **`Next:`** block — the exact next step for **your** situation. (If that next step is "analyze", an AI agent does it — see [Part 2](#part-2--for-ai-agents).)
-
-**Visualize an analyzed project in the browser:**
-
-```bash
-the-door ui ./my-project
-```
-
-Opens a three-panel workbench at `http://127.0.0.1:8765`: left = feature list / change list (risk-prioritized), center = interactive diagram, right = detail panel. Three-layer navigation: L1 feature overview → L2 module diagram → L3 source node graph. The viewer is display-only — it reads persisted snapshots and never calls an LLM.
-
-## Other human-runnable commands
-
-These are pure, deterministic, and need no AI agent:
-
-**CLI diff against an earlier snapshot** (inspect without changing anything):
-
-```bash
-the-door diff ./my-project --baseline v1.0
-```
-
-**Backfill a snapshot that's missing its persisted structure** — if `analyze_changes` reports that a baseline has no persisted AST (typically because the snapshot predates the structures cache) and you still have the original source on disk:
-
-```bash
-the-door extract --as-version v1.0 ./baseline-source
-```
-
-This re-extracts the AST and saves it under `.the-door/structures/<vid>.json.gz`, after which incremental analysis works normally. No API key needed.
-
-> The two analysis workflows — **first analysis** (establish a baseline) and **incremental update** (after the source changed) — are agent-driven, not CLI commands. There is no `the-door analyze`. See [Part 2](#part-2--for-ai-agents).
-
-## Snapshot references
-
-Any command or tool that takes a baseline argument (`--baseline`, `inherit_from`) accepts five reference forms:
-
-| Form | Example | Notes |
-|---|---|---|
-| Snapshot label | `v1.0.0`, `my-baseline` | Set explicitly at `snapshot_write` time |
-| Git tag | `v1.0.0` | The tag attached to the commit at snapshot time |
-| Date | `2026-05-06` | Resolves to the most recent snapshot on or before |
-| Commit SHA (≥7 chars) | `8de9b18` | |
-| UUID | full `version_id` | Useful when chaining tool calls |
-
-The viewer's version picker prefers `git_tags[0]` → `label` → `version_id`, so URLs you share are usually human-readable.
+| Model | Recommendation |
+|---|---|
+| Claude Sonnet 4.x | ✅ Recommended |
+| Claude Opus 4.8 | ❌ **Extremely not recommended** — tends to deviate from the agent-as-LLM path and introduces assumptions about LLM providers that do not exist in this project |
+| Other MCP-capable models | Use at your own discretion |
 
 ---
 
-# Part 2 — For AI agents
+## 2. Setting Up Files for Analysis
 
-> **You are an MCP-compatible AI agent (Claude Code, Kiro, …) driving The Door. This section is your on-ramp.**
-> The **authoritative, complete operating guide is [`CLAUDE.md`](CLAUDE.md)** — read it before calling any tool. It has the full decision tree, every tool's input/output schema, and the incremental / backfill chains. This part orients you; `CLAUDE.md` is the single source of truth.
-
-## The one path — zero API key
-
-The Door has **no LLM provider** and **no `analyze` / `update` / `config` commands**. Every step that needs natural language is performed by you, the agent, over MCP (agent-as-LLM). There is exactly one path:
+The Door analyzes a directory you point it at. To track multiple versions of the same project, keep each version as a separate directory:
 
 ```
-extract_structure  →  (you identify L1 features)  →  edge_residue  →  snapshot_write
+test-targets/
+  my-app-v1.0/      ← complete source snapshot of version 1.0
+  my-app-v1.1/      ← complete source snapshot of version 1.1
+  my-app-v1.2/      ← ...
 ```
 
-`extract_structure` and `edge_residue` are deterministic and run locally; **you** supply the natural-language layer; `snapshot_write` persists it. The "I need an API key" framing is wrong here — in this project, **you are the LLM**.
+The Door saves its analysis results inside the target directory:
 
-## MCP setup
+```
+my-app-v1.0/
+  .the-door/
+    snapshots/      ← persisted L1 feature snapshots
+    structure-view/ ← cached AST artifacts
+    checklist.json  ← execution gate record
+```
 
-Add this to your AI platform's MCP config:
+**Rules:**
+- Each version directory should be a complete, standalone copy of the source (not a git worktree or symlink)
+- Do not move or rename `.the-door/` — snapshot labels and UUIDs are stored there
+- You can point multiple project directories at the same running `the-door ui` instance
+
+---
+
+## 3. How AI Gets Started
+
+> **If you are an AI agent reading this:** your authoritative operating guide is [`CLAUDE.md`](CLAUDE.md). Read it before calling any tool. What follows is the orientation summary.
+
+The Door has no `analyze` command and no LLM provider. **You, the agent, are the LLM.** All results are persisted locally — The Door makes no LLM network call of its own.
+
+### Step 0 — MCP setup
+
+Add to your AI platform's MCP config:
 
 ```json
 {
@@ -128,66 +93,132 @@ Add this to your AI platform's MCP config:
 }
 ```
 
-(Dev / from-source variant and `python -m the_door` notes are in [`CLAUDE.md`](CLAUDE.md).)
+### Step 1 — Always check status first
 
-## The tools you'll call
+```bash
+the-door status ./my-project
+```
 
-| Tool | Use when |
-|---|---|
-| `system_status` (or `the-door status`) | **Always first.** Reports state + a `Next:` block — the authoritative next step. |
-| `extract_structure` | Get nodes / edges / topology, then **you** group nodes into L1 features. |
-| `edge_residue` | Persist edge-noise residue **and stamp the execution checklist** (zero-token, deterministic). Required before `snapshot_write`. |
-| `snapshot_write` | Persist the L1 features you identified. Use `inherit_from` to chain off a baseline. |
-| `snapshot_patch` | Backfill `source_nodes` into an existing snapshot in-place (same `version_id`). |
-| `analyze_changes` | Incremental: list the features affected by changes against a baseline. |
-
-Then you can simply act on natural-language requests:
-
-> "Analyze `./my-project` and give me the L1 feature diagram."
-> "Compare `./old` and `./new` — what changed?"
-
-The full step-by-step chains (single version, backfill, incremental) and the exact JSON shapes live in [`CLAUDE.md`](CLAUDE.md).
-
-## The execution gate — what will block you, and why
-
-A PreToolUse gate **structurally enforces** the one path. You can't talk your way around it; you satisfy it by running the steps in order.
-
-- **`edge_residue` first.** It stamps `.the-door/checklist.json` (recording the analyzed node set, a contract version, and a per-file `(mtime, size)` fingerprint).
-- **`snapshot_write` / `snapshot_patch` are denied** unless the checklist is **current**, the `source_nodes` you're writing are **covered** by the stamped node set, and **no analyzed file has changed** since the stamp (deletion / in-place modification → staleness deny). If you edited code after `edge_residue`, re-run `edge_residue`.
-- **Native code-exec is blocked.** Ad-hoc inline `python -c` / standalone `.py` scripts that bypass the MCP tools are denied; `python -m` (pytest / pip / the_door), `pytest`, `pip`, `git`, and `the-door` are allowed.
-
-When a call is denied, the gate's stderr tells you the next step and points back to the single authority (`system_status` / `the-door status`). That message is the source of truth for what to do next.
-
-## → Read this next
-
-[`CLAUDE.md`](CLAUDE.md) — the complete agent decision tree, tool schemas, and operating chains. Start there before driving The Door.
+Reports the project state and prints a `Next:` block — the exact next command for your situation.
 
 ---
 
-# Reference
+### Path A — Brand new directory (never analyzed before)
 
-## Architecture (one-line summary)
+**When to use:** `.the-door/` does not exist; this is the first analysis of this version.
+
+```
+extract_structure  →  (you identify L1 features)  →  edge_residue  →  snapshot_write
+```
+
+1. Call `extract_structure` — get the L0 structure index
+2. Read the structure; group nodes by functional purpose to identify L1 features
+3. Call `edge_residue` — stamp the execution checklist (required before writing)
+4. Call `snapshot_write` — persist the L1 features you identified
+
+---
+
+### Path B — Existing snapshot, adding a new version
+
+**When to use:** A previous version is already analyzed; you now have a new version's source in a separate directory and want to record it and compare it against the baseline.
+
+Before proceeding, **ask the user which analysis mode to use:**
+
+> "I see you already have a snapshot for `[old version label]`. To analyze the new version, which approach would you like?
+> - **B1 Full re-analysis:** Identify all features from scratch, ignoring the previous snapshot. Best when the architecture has changed significantly.
+> - **B2 Inherited analysis + diff (recommended):** Only re-derive features that actually changed; stable features carry over their existing descriptions automatically. You can also generate a plain-language summary of what changed in this version."
+
+Wait for the user's confirmation before proceeding.
+
+#### B1 — Full re-analysis
+
+**Why choose this:** Major architectural refactor or feature reorganization where the previous descriptions no longer map to the new structure.
+
+Same flow as Path A. Use a new `label` in `snapshot_write`; do not pass `inherit_from`.
+
+#### B2 — Inherited analysis + diff (recommended)
+
+**Why choose this:** Most version updates change only a subset of features. Inheritance keeps stable feature descriptions consistent across versions and saves analysis time. The optional `version_narrative` step lets non-technical readers see "what changed in this version" in plain language.
+
+```
+analyze_changes  →  (re-derive affected features only)  →  edge_residue  →  snapshot_write (inherit_from)
+                 →  (optional) snapshot_patch to add version_narrative
+```
+
+1. Call `analyze_changes` — get the list of affected features
+2. Re-derive descriptions for affected features only (unchanged features are not rewritten)
+3. Call `edge_residue` — re-stamp the checklist
+4. Call `snapshot_write` with `inherit_from=<old version label>` — unchanged features inherit automatically
+5. (Optional) Call `snapshot_patch` with `version_narratives` — a plain-language sentence describing what this version did
+
+---
+
+### Finally — Open the viewer
+
+```bash
+the-door ui ./my-project
+```
+
+Opens a three-panel workbench at `http://127.0.0.1:8765`. The viewer is display-only — it reads persisted snapshots and never calls an LLM.
+
+Full tool chains, tool schemas, and gate details: [`CLAUDE.md`](CLAUDE.md).
+
+---
+
+## 4. CLI Reference
+
+These commands are deterministic and need no AI agent:
+
+| Command | Purpose |
+|---|---|
+| `the-door status <path>` | Check project state; prints `Next:` block with the recommended next step |
+| `the-door ui <path>` | Start the local viewer at `http://127.0.0.1:8765` |
+| `the-door diff <path> --baseline <ref>` | CLI diff between two snapshots |
+| `the-door extract --as-version <label> <path>` | Backfill persisted AST structure for an existing snapshot |
+| `the-door mcp-serve` | Start the MCP server (called by your AI platform, not manually) |
+
+> The two analysis workflows — first analysis and incremental update — are agent-driven via MCP, not CLI commands.
+
+---
+
+## 5. Snapshot References
+
+Any command or tool that takes a baseline argument (`--baseline`, `inherit_from`) accepts:
+
+| Form | Example |
+|---|---|
+| Snapshot label | `v1.0.0`, `my-baseline` |
+| Git tag | `v1.0.0` |
+| Date | `2026-05-06` (most recent snapshot on or before that date) |
+| Commit SHA (≥7 chars) | `8de9b18` |
+| UUID | full `version_id` |
+
+---
+
+## 6. Architecture
 
 ```
 Code → AST extraction (tree-sitter, 305+ languages)
      → Topology analysis (dependency ordering, fully local)
      → [agent-as-LLM translation OR cached baseline structure]
-     → Output validation + Mermaid diagram + JSON report
+     → Output validation + JSON report
      → Local UI (display-only diagram workbench)
 ```
 
-Two paths from the same front-end: the **agent-as-LLM path** (first analysis or re-analysis, driven by your MCP agent) and the **incremental path** (compare current AST to a persisted baseline, no LLM). Everything is local-first — The Door bundles no provider and makes no LLM network call of its own.
+Everything runs locally. The Door makes no LLM network call of its own.
 
-> **Terminal state — zero API key (丙案 / T5).** The Door once shipped optional LLM providers and `analyze` / `update` key-paths. Those have been fully retired: there is no provider, no API key, and no provider configuration. The single supported path is agent-as-LLM, structurally enforced by a PreToolUse execution-order gate. See the [CHANGELOG](CHANGELOG.md) for the campaign log.
+---
 
-## License
+## 7. License
 
 Dual-licensed:
 
 - **Community Edition** — [AGPL-3.0](LICENSE). Free to use and modify. If you distribute or run a modified version as a network service, you must open-source your modifications under the same terms.
 - **Commercial Edition** — If you need to use The Door in a proprietary product or closed-source service without the AGPL-3.0 copyleft obligation, contact the maintainer via the issue tracker.
 
-## Documentation
+---
+
+## 8. Documentation
 
 - [Agent Guide (`CLAUDE.md`)](CLAUDE.md) — Full decision tree for MCP-compatible AI agents (the authoritative agent entry point)
 - [User Guide](docs/USER-GUIDE.md) — Every command and flag

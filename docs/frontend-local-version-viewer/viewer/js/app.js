@@ -18,8 +18,8 @@ import {
   closeGraphDrawer,
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
-import { fetchGroup } from "./api.js";
-import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown, showToast, toastMessage } from "./project-switcher.js";
+import { fetchGroup, setProject } from "./api.js";
+import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown } from "./project-switcher.js";
 
 export function render() {
   renderTopBar();
@@ -293,7 +293,7 @@ function initProjectSwitcher(group) {
   container.style.display = "";
   const items = buildSwitcherItems(group);
   renderSwitcherDropdown(container, items, (member) => {
-    showToast(toastMessage(member));
+    setProject(member.path).then(() => window.location.reload());
   });
 }
 

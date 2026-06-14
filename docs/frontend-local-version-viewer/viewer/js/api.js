@@ -95,3 +95,12 @@ export async function fetchGroup() {
   const res = await fetch(`${API_BASE}/api/group`, { cache: "no-store" });
   return res.json();
 }
+
+export async function setProject(path) {
+  const res = await fetch(`${API_BASE}/api/set-project`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  return res.json();
+}
