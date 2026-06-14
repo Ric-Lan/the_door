@@ -185,7 +185,9 @@ ProjectRegistry().update_last_opened(str(root))
 ### 4.2 `_pick_project_interactively()` 優先序
 
 ```
-1. 正在分析中：掃描所有已登記 project，找 checklist.json mtime 在 30 分鐘內最新的
+1. 正在分析中：掃描所有已登記 project，找 checklist.json mtime > 該 project 的 last_opened_at 的
+   （表示 UI 上次關閉後有新的分析活動）；若 last_opened_at 為 null，改用 mtime 距今 < 30 分鐘
+   （30 分鐘 = extract_structure 在大型 Python 專案的實測上限 ~20 分鐘，取整）
 2. 最近開啟：get_most_recently_opened()
 3. 互動 picker：顯示群組結構 + 未分群，使用者輸入序號或路徑
 ```
@@ -273,19 +275,14 @@ The Door — 可用專案
 }
 ```
 
-### 5.3 跨群組警告的位置
+### 5.3 跨群組判斷方式
 
 `analyze_changes` 的 `baseline` 參數指向同一個 `codebase_path` 的舊 snapshot（同 path 必然同群組），所以跨群組情況不會在 `analyze_changes` 發生。
 
-跨群組警告的正確位置是 **`project_list` 工具**：回傳的 `projects` 清單附帶每個 project 的 `group_id`，AI 在選擇比較對象前可自行判斷是否跨群組。`project_list` 加一個頂層欄位：
+跨群組判斷的責任在 **AI 操作層**，不在 runtime API：`project_list` 回傳每個 project 的 `group_id`，AI 比較兩個 project 的 `group_id` 即可判斷。操作說明寫進 CLAUDE.md（見「MCP tool reference」段落），而非重複塞進每次 API 回應。
 
-```json
-{
-  "cross_group_note": "比較不同群組的專案時，diff 結果有效但可能出現大量差異。group_id 不同的專案屬於不同群組。"
-}
-```
-
-此欄位永遠出現（不只在有跨群組情況時）—— 作為 AI 的操作提示，而非錯誤訊號。
+> CLAUDE.md 補充文字（在 `project_list` 說明處加）：
+> 「比較 `group_id` 不同的兩個專案時，diff 有效但可能出現大量差異——兩個 codebase 的 L1 feature 命名與範疇不共享。」
 
 ---
 
@@ -373,16 +370,17 @@ Route("GET", "/api/group", gr.get_group, summary="讀取當前專案的群組與
   color-go
 ```
 
-### 7.3 切換行為
+### 7.3 切換行為（第一版）
 
-點擊其他成員 → `window.location.href = <member.path 對應的 server URL>`
+點擊下拉選單中的其他成員 → topbar 下方顯示 inline toast（非 modal、非頁面導向），內容：
 
-URL 組成：以當前 `window.location.origin` 為基底（因為各專案獨立 server，port 不同），
-不由前端自行推算 port；改由 `GET /api/group` 的 `members` 加入 `url` 欄位（server 啟動時
-從 `window.location.origin` 讀取自身 URL，由前端在每次 `/api/group` 呼叫時帶入
-`X-Server-Origin` header，後端填回）。
+```
+請在終端機執行：the-door ui <path>
+```
 
-> **實作注意**：第一版簡化：`members` 不帶 url，前端點擊後顯示「請確認 {name} 的 server 已啟動：`the-door ui {path}`」提示，而非直接導向。url 自動推算留作後續優化。
+Toast 顯示 3 秒後自動消失。不嘗試自動推算對方 server 的 port 或導向任何 URL。
+
+> **未來擴充**（不在本 spec 範圍）：`GET /api/group` 回傳成員 `url` 欄位，前端可直接 `window.location.href` 導向；需另立 spec 確認 port 推算機制。
 
 ### 7.4 未分群時
 
@@ -407,9 +405,8 @@ URL 組成：以當前 `window.location.origin` 為基底（因為各專案獨�
 | `test_registry.py` | `list_projects()` 跳過 `__groups__`；create/add/remove/list_groups；一個專案兩個群組 raise；get_most_recently_opened；向後相容（無 `__groups__` key） |
 | `test_group_cmd.py` | CLI create/add/remove/list 輸出格式；錯誤訊息 |
 | `test_ui_cmd.py` | `_pick_project_interactively` 優先序（mocking checklist mtime / last_opened_at） |
-| `test_project_list_tool.py` | group_id/group_name 欄位；groups 清單；hint 出現條件 |
+| `test_project_list_tool.py` | group_id/group_name 欄位；groups 清單；hint 出現條件；`cross_group_note` 欄位不存在（已移到文件）|
 | `test_snapshot_write_tool.py` | group 欄位；未分群 hint |
-| `test_project_list_tool.py`（補） | `cross_group_note` 永遠出現 |
 | `test_group_handler.py` | `GET /api/group` 有群組 / 無群組回傳格式 |
 | `test_router.py` | `/api/group` route 存在 |
 | 前端（vitest） | `projectSwitcher` render 有群組 / 無群組；點擊行為 |
@@ -424,6 +421,5 @@ URL 組成：以當前 `window.location.origin` 為基底（因為各專案獨�
 4. `cli/ui_cmd.py`：`update_last_opened` + 動態預設邏輯
 5. `mcp/tools/project_list_tool.py`：加 group 欄位
 6. `mcp/tools/snapshot_write_tool.py`：加 group hint
-7. `core/diff/feature_attribution.py`：`analyze_changes` cross-group warning
-8. `core/ui/api/handlers/group.py` + `router.py`：`GET /api/group`
-9. 前端：topbar project-switcher
+7. `core/ui/api/handlers/group.py` + `router.py`：`GET /api/group`
+8. 前端：topbar project-switcher（含 inline toast）
