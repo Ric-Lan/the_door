@@ -466,7 +466,18 @@ git commit -m "feat(extraction): compute body_hash in NodeBuilder; thread codeba
 
 - [ ] **Step 1: 寫 4 個 failing tests**
 
-在 `test_structure_serializer.py` 末尾加（在所有現有 test 之後）：
+**先在 `test_structure_serializer.py` 頂部的 import block 補 `parse_structure_dict`**（現有 import 只有 `build_structure_dict` / `default_structure_path` / `write_structure_json`）：
+
+```python
+from the_door.core.extraction.structure_serializer import (
+    build_structure_dict,
+    default_structure_path,
+    parse_structure_dict,
+    write_structure_json,
+)
+```
+
+然後在 `test_structure_serializer.py` 末尾加（在所有現有 test 之後）：
 
 ```python
 # ── body_hash serialization tests ──────────────────────────────────────
@@ -523,15 +534,6 @@ def test_parse_structure_dict_missing_body_hash_key_returns_none():
     }
     restored = parse_structure_dict(data)
     assert restored.nodes[0].body_hash is None
-```
-
-`parse_structure_dict` 需要從 `structure_serializer` import，確認檔頭已有：
-```python
-from the_door.core.extraction.structure_serializer import (
-    build_structure_dict,
-    parse_structure_dict,   # 若尚未 import 則加上
-    ...
-)
 ```
 
 - [ ] **Step 2: 跑確認 fail**
@@ -744,7 +746,7 @@ Expected: 所有既有 tests pass。
 cd the_door && PYTHONUTF8=1 python -m pytest -v
 ```
 
-Expected: 1537 passed（基準 1527 + 新增 10）, 43 skipped, 1 xfailed。若有差異，比對新舊數量是否符合本計畫新增的 tests 數量（Task 1: 1, Task 2: 3, Task 3: 4, Task 4: 3 = 11 新 tests；實際可能因行號微調略有出入）。
+Expected: 1538 passed（基準 1527 + 新增 11：Task 1: 1, Task 2: 3, Task 3: 4, Task 4: 3）, 43 skipped, 1 xfailed。
 
 - [ ] **Step 7: Commit**
 
