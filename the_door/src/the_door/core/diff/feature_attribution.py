@@ -76,13 +76,27 @@ def compute_affected_features(
     baseline: VersionSnapshot,
 ) -> IncrementalDiff:
     """Attribute node-level structural changes back to baseline L1 features."""
-    baseline_sig = {n.node_id: _signature(n) for n in baseline_structure.nodes}
-    current_sig = {n.node_id: _signature(n) for n in current_structure.nodes}
+    baseline_sig  = {n.node_id: _signature(n) for n in baseline_structure.nodes}
+    current_sig   = {n.node_id: _signature(n) for n in current_structure.nodes}
+    baseline_body = {n.node_id: n.body_hash   for n in baseline_structure.nodes}
+    current_body  = {n.node_id: n.body_hash   for n in current_structure.nodes}
 
-    added = set(current_sig.keys()) - set(baseline_sig.keys())
+    added   = set(current_sig.keys()) - set(baseline_sig.keys())
     removed = set(baseline_sig.keys()) - set(current_sig.keys())
-    common = set(baseline_sig.keys()) & set(current_sig.keys())
-    modified = {k for k in common if baseline_sig[k] != current_sig[k]}
+    common  = set(baseline_sig.keys()) & set(current_sig.keys())
+
+    # Layer 1: structural signature diff (existing behavior, unchanged)
+    modified_structural = {k for k in common if baseline_sig[k] != current_sig[k]}
+
+    # Layer 2: body-content diff (only when BOTH sides have a non-None body_hash)
+    body_changed = {
+        k for k in common
+        if (bl := baseline_body.get(k)) is not None
+        and (cu := current_body.get(k)) is not None
+        and bl != cu
+    }
+
+    modified = modified_structural | body_changed
 
     inherited: list[FeatureSummary] = []
     affected: list[AffectedFeature] = []

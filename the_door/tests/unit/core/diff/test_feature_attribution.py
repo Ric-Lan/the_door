@@ -168,3 +168,69 @@ def test_unmapped_node_does_not_flag_feature():
     diff = compute_affected_features(base_struct, cur_struct, baseline)
     assert diff.affected_features == ()
     assert "file.py::orphan" in diff.unmapped_nodes.added
+
+
+# ── body_hash Layer 2 tests ─────────────────────────────────────────────
+
+
+def _structure_with_body_hash(specs):
+    """Build StructureJSON with body_hash. Each spec = (node_id, body_hash_or_none)."""
+    nodes = []
+    for node_id, body_hash in specs:
+        name = node_id.split("::", 1)[-1] if "::" in node_id else node_id
+        file_ = node_id.split("::", 1)[0] if "::" in node_id else "anon.py"
+        nodes.append(ASTNode(
+            node_id=node_id, type="function", name=name,
+            file=file_, language="python",
+            body_hash=body_hash,
+        ))
+    return StructureJSON(nodes=nodes)
+
+
+def test_pure_body_change_marks_feature_affected():
+    """Signature unchanged, body_hash differs → feature listed in affected (Layer 2)."""
+    from the_door.core.diff.feature_attribution import compute_affected_features
+
+    baseline_structure = _structure_with_body_hash([
+        ("file.py::foo", "aaaa1111aaaa1111aaaa1111aaaa1111"),
+    ])
+    current_structure = _structure_with_body_hash([
+        ("file.py::foo", "bbbb2222bbbb2222bbbb2222bbbb2222"),
+    ])
+    baseline = _baseline_with_feature("feat-x", source_nodes=("file.py::foo",))
+    result = compute_affected_features(baseline_structure, current_structure, baseline)
+
+    assert len(result.affected_features) == 1
+    assert result.affected_features[0].feature_id == "feat-x"
+    assert result.inherited_features == ()
+
+
+def test_same_body_hash_feature_stays_inherited():
+    """Signature unchanged, body_hash identical → feature inherited (not affected)."""
+    from the_door.core.diff.feature_attribution import compute_affected_features
+
+    both = _structure_with_body_hash([
+        ("file.py::foo", "cccc3333cccc3333cccc3333cccc3333"),
+    ])
+    baseline = _baseline_with_feature("feat-y", source_nodes=("file.py::foo",))
+    result = compute_affected_features(both, both, baseline)
+
+    assert result.affected_features == ()
+    assert len(result.inherited_features) == 1
+
+
+def test_old_baseline_none_body_hash_no_false_positive():
+    """Baseline body_hash=None (old snapshot) → Layer 2 skipped, zero false positives."""
+    from the_door.core.diff.feature_attribution import compute_affected_features
+
+    baseline_structure = _structure_with_body_hash([
+        ("file.py::foo", None),   # old snapshot: body_hash not computed
+    ])
+    current_structure = _structure_with_body_hash([
+        ("file.py::foo", "dddd4444dddd4444dddd4444dddd4444"),
+    ])
+    baseline = _baseline_with_feature("feat-z", source_nodes=("file.py::foo",))
+    result = compute_affected_features(baseline_structure, current_structure, baseline)
+
+    assert result.affected_features == ()
+    assert len(result.inherited_features) == 1
