@@ -5,6 +5,7 @@ from pathlib import Path
 
 from the_door.core.checklist import STAGE_SNAPSHOT_WRITE, read_ledger, stamp_stage
 from the_door.core.diff.snapshot_store import SnapshotStore
+from the_door.core.registry import ProjectRegistry, UNGROUPED_HINT
 from the_door.core.flow_guard import CheckpointOption, FlowGuard
 from the_door.core.guidance.actions import NextAction
 from the_door.core.guidance.remediation import Remediation, make_error_envelope
@@ -345,7 +346,6 @@ async def execute(arguments: dict) -> dict:
         version_narratives=arg_narratives,
     )
 
-    from the_door.core.registry import ProjectRegistry
     ProjectRegistry().register(codebase_path)
 
     payload = {
@@ -382,4 +382,12 @@ async def execute(arguments: dict) -> dict:
     except OSError:
         pass
     payload["execution_ledger"] = _ledger_with_snapshot_write(codebase_path, sw_details)
+    _reg = ProjectRegistry()
+    _proj = _reg.get_by_path(codebase_path)
+    _grp = _reg.get_group_for_project(_proj["id"]) if _proj else None
+    if _grp:
+        payload["group"] = _grp
+    else:
+        payload["group"] = None
+        payload["hint"] = UNGROUPED_HINT
     return wrap(payload, project_path=Path(codebase_path), context="mcp")

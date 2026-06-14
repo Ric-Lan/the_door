@@ -101,3 +101,33 @@ def test_c6_8_full_chain_ledger(tmp_path):
     assert [e["stage"] for e in ledger] == [STAGE_EDGE_RESIDUE, STAGE_SNAPSHOT_WRITE]
     assert all("covered_nodes" not in e for e in ledger)  # 投影剝除
     assert ledger[0]["node_count"] > 0
+
+
+# ── group fields in snapshot_write response ──────────────────────────────────
+
+def test_snapshot_write_includes_group_when_project_in_group(tmp_path, monkeypatch):
+    """snapshot_write response contains group field when project is grouped."""
+    from the_door.core.registry import ProjectRegistry
+    reg = ProjectRegistry(registry_path=tmp_path / "reg.json")
+    reg.create_group("my-group")
+    reg.add_to_group("my-group", str(tmp_path))
+    monkeypatch.setattr("the_door.mcp.tools.snapshot_write_tool.ProjectRegistry", lambda: reg)
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    result = _run({"codebase_path": str(tmp_path), "l1_features": [_feature()], "label": "v1"})
+    assert result.get("group") is not None
+    assert result["group"]["name"] == "my-group"
+
+
+def test_snapshot_write_group_null_with_hint_when_ungrouped(tmp_path, monkeypatch):
+    """snapshot_write response has group=null and hint when project is ungrouped."""
+    from the_door.core.registry import ProjectRegistry
+    reg = ProjectRegistry(registry_path=tmp_path / "reg.json")
+    reg.register(str(tmp_path))
+    monkeypatch.setattr("the_door.mcp.tools.snapshot_write_tool.ProjectRegistry", lambda: reg)
+    stamp_stage(tmp_path, STAGE_EDGE_RESIDUE, covered_nodes=["a"],
+                contract_version=SNAPSHOT_CONTRACT_VERSION)
+    result = _run({"codebase_path": str(tmp_path), "l1_features": [_feature()], "label": "v1"})
+    assert result.get("group") is None
+    assert "hint" in result
+    assert "the-door group add" in result["hint"]
