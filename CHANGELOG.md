@@ -10,6 +10,34 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.6 — 2026-06-14
+
+`ASTNode` 行號支援（`start_line`/`end_line`）＋ body_hash 變動偵測。
+純加法，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **`ASTNode.start_line` / `end_line`**（`int | None`，預設 None）：tree-sitter 行號填入，
+  Python 函式/方法/類別含 decorator 行；序列化進 `structure.json`（缺鍵→None＝舊檔向下相容）；
+  region L2 view（`node_view.py`）附帶輸出。
+- **`ASTNode.body_hash`**（`str | None`，預設 None）：MD5 hex digest of source lines
+  `[start_line-1 : end_line]`，由 `NodeBuilder._compute_body_hash()` 於 extraction
+  時計算（file-level cache，避免同檔多節點重複讀取）；序列化進 `structure.json`
+  （缺鍵→None＝舊快照向下相容）。
+- **Layer 2 body 變動偵測**（`feature_attribution.compute_affected_features`）：
+  既有 Layer 1（`_signature` structural diff）OR-union Layer 2（body_hash diff）；
+  Layer 2 僅在兩側都有非 None body_hash 時啟動（walrus 短路）→ 舊 snapshot 零假陽性。
+  純 body 改動（bugfix、邏輯重構、輸出行為改變）現在正確列入 `affected_features`。
+- `NodeBuilder.build_nodes()` 加 `codebase_root: Path` 參數，8 個 ASTNode 建構點
+  一致帶入 `body_hash=`。
+
+### Notes
+- 純加法、`_signature` 完全不動、snapshot schema 欄位語義無變更 → 契約版號不 bump。
+- 後端 1538 passed / 43 skipped / 1 xfailed。
+- spec＝`docs/superpowers/specs/2026-06-14-body-hash-change-detection-design.md`；
+  plan＝`docs/superpowers/plans/2026-06-14-body-hash-change-detection.md`。
+
+---
+
 ## v1.7.5 — 2026-06-13
 
 diff 層 `version_narrative`：agent 讀 diff 資料自己寫白話敘述，持久化進 current snapshot。
