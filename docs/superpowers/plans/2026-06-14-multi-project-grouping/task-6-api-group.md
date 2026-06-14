@@ -118,7 +118,7 @@ Expected: `ModuleNotFoundError: No module named 'the_door.core.ui.api.handlers.g
 """GroupHandlers — GET /api/group."""
 from __future__ import annotations
 
-from the_door.core.registry import ProjectRegistry
+from the_door.core.registry import ProjectRegistry, UNGROUPED_HINT
 from the_door.core.ui.api.context import APIContext
 
 
@@ -136,7 +136,7 @@ class GroupHandlers:
             return 200, {
                 "current_project": {"name": self._ctx.project_root.name, "path": project_root},
                 "group": None,
-                "hint": "此專案尚未加入群組。執行 `the-door group add <name> <path>` 建立比較群組。",
+                "hint": UNGROUPED_HINT,
             }
 
         group_info = reg.get_group_for_project(project["id"])
@@ -151,7 +151,7 @@ class GroupHandlers:
             return 200, {
                 "current_project": current_project,
                 "group": None,
-                "hint": "此專案尚未加入群組。執行 `the-door group add <name> <path>` 建立比較群組。",
+                "hint": UNGROUPED_HINT,
             }
 
         groups = reg.list_groups()
@@ -214,7 +214,53 @@ routes = build_routes(
 
 - [ ] **Step 7: 更新 `_gen_docs.py`**
 
-在 `the_door/src/the_door/core/ui/api/_gen_docs.py` 做同樣的 import + 第六個參數更新（與 Step 6 相同模式）。
+在 `the_door/src/the_door/core/ui/api/_gen_docs.py` 找到：
+
+```python
+from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
+from the_door.core.ui.api.handlers.catalog import CatalogHandlers
+from the_door.core.ui.api.handlers.diff import DiffHandlers
+from the_door.core.ui.api.handlers.graph import GraphHandlers
+from the_door.core.ui.api.handlers.project import ProjectHandlers
+from the_door.core.ui.api.router import build_routes
+```
+
+替換為：
+
+```python
+from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
+from the_door.core.ui.api.handlers.catalog import CatalogHandlers
+from the_door.core.ui.api.handlers.diff import DiffHandlers
+from the_door.core.ui.api.handlers.graph import GraphHandlers
+from the_door.core.ui.api.handlers.group import GroupHandlers
+from the_door.core.ui.api.handlers.project import ProjectHandlers
+from the_door.core.ui.api.router import build_routes
+```
+
+找到：
+
+```python
+    routes = build_routes(
+        ProjectHandlers(ctx),
+        CatalogHandlers(ctx),
+        GraphHandlers(ctx),
+        DiffHandlers(ctx),
+        AnnotationHandlers(ctx),
+    )
+```
+
+替換為：
+
+```python
+    routes = build_routes(
+        ProjectHandlers(ctx),
+        CatalogHandlers(ctx),
+        GraphHandlers(ctx),
+        DiffHandlers(ctx),
+        AnnotationHandlers(ctx),
+        GroupHandlers(ctx),
+    )
+```
 
 - [ ] **Step 8: 確認測試通過 + 回歸**
 

@@ -435,6 +435,9 @@ class ProjectRegistry:
         self._path.write_text(
             json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+
+
+UNGROUPED_HINT = "此專案尚未加入群組。執行 `the-door group add <name> <path>` 建立比較群組。"
 ```
 
 - [ ] **Step 4: 確認測試通過**

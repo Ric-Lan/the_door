@@ -71,11 +71,11 @@ Expected: `AssertionError: assert None is not None`（`result.get("group")` 回 
         payload["group"] = _grp
     else:
         payload["group"] = None
-        payload["hint"] = "此專案尚未加入群組。執行 `the-door group add <name> <path>` 建立比較群組。"
+        payload["hint"] = UNGROUPED_HINT
     return wrap(payload, project_path=Path(codebase_path), context="mcp")
 ```
 
-> `ProjectRegistry` 在 execute() 內 line 348 已有局部 import（`from the_door.core.registry import ProjectRegistry`），無需在檔案頂部再加 import。
+> `ProjectRegistry` 在 execute() 內 line 348 已有局部 import（`from the_door.core.registry import ProjectRegistry`）；同一行改為 `from the_door.core.registry import ProjectRegistry, UNGROUPED_HINT`，無需在檔案頂部再加 import。
 
 - [ ] **Step 4: 確認測試通過**
 
