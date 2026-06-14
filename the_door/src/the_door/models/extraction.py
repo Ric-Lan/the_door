@@ -23,6 +23,7 @@ class ASTNode:
     language: str
     start_line: int | None = None   # 1-indexed, inclusive; None = not available
     end_line: int | None = None     # 1-indexed, inclusive; None = not available
+    body_hash: str | None = None    # MD5 hex of body lines; None = not computed or unavailable
     decorators: list[str] = field(default_factory=list)
     parameters: list[str] = field(default_factory=list)
     return_type: str | None = None

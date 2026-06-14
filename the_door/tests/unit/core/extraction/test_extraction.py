@@ -268,6 +268,13 @@ class TestNodeBuilder:
         assert baz.start_line == 4
         assert baz.end_line == 5
 
+    def test_astnode_body_hash_defaults_to_none(self):
+        node = ASTNode(
+            node_id="foo.py::bar", type="function", name="bar",
+            file="foo.py", language="python",
+        )
+        assert node.body_hash is None
+
 
 # === EdgeBuilder tests (Task 9.3) ===
 
