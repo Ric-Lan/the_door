@@ -57,28 +57,83 @@ MD5，與 `_signature` 現有用法一致。body_hash 用途是**變動偵測**�
 
 計算時機：`ASTNode` 建構時，從 `file_info` 讀對應行範圍。
 
+#### 3.3.1 `codebase_root` 傳遞機制（重要，現有代碼尚無）
+
+`file_info.path` 在 NodeBuilder 裡是 codebase-relative 路徑（例如 `the_door/src/foo.py`）；
+`_compute_body_hash` 需要**絕對路徑**才能讀檔。
+
+**現況**（`ast_extractor.py:183`）：
 ```python
-def _compute_body_hash(file_path: str, start_line: int | None, end_line: int | None) -> str | None:
+nodes = self._node_builder.build_nodes(tree, file_info)  # root 沒有傳入
+```
+
+**修改方式**：在 `build_nodes()` 加 `codebase_root: Path` 參數，在方法入口存為 `self._codebase_root`，
+讓所有 8 個建構點可透過 `self._codebase_root / file_info.path` 取得絕對路徑。
+
+`NodeBuilder.build_nodes()` 新簽名：
+```python
+def build_nodes(self, tree, file_info: FileInfo, codebase_root: Path) -> list[ASTNode]:
+    self._codebase_root = codebase_root
+    nodes: list[ASTNode] = []
+    self._walk(tree.root_node, file_info, nodes, parent_class=None)
+    return nodes
+```
+
+對應修改 `ASTExtractor.extract()` 的呼叫處（`ast_extractor.py:183`）：
+```python
+nodes = self._node_builder.build_nodes(tree, file_info, root)
+```
+
+`root` 已在 `ast_extractor.py:131` 存在（`root = Path(codebase_path)`），零額外計算。
+
+#### 3.3.2 `_compute_body_hash` 實作
+
+```python
+def _compute_body_hash(self, file_path: str, start_line: int | None, end_line: int | None) -> str | None:
     """Read file lines [start_line-1 : end_line] and return MD5 hex digest.
     Returns None if start_line is None, end_line is None, or file is unreadable.
     """
     if start_line is None or end_line is None:
         return None
-    try:
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-        body = "".join(lines[start_line - 1 : end_line])
-        return hashlib.md5(body.encode("utf-8")).hexdigest()
-    except OSError:
+    # File-level cache: avoid re-reading the same file for every node it contains.
+    if file_path not in self._body_file_cache:
+        try:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
+                self._body_file_cache[file_path] = f.readlines()
+        except OSError:
+            self._body_file_cache[file_path] = []
+    lines = self._body_file_cache[file_path]
+    if not lines:
         return None
+    body = "".join(lines[start_line - 1 : end_line])
+    return hashlib.md5(body.encode("utf-8")).hexdigest()
 ```
+
+`_body_file_cache: dict[str, list[str]]` 在 `build_nodes()` 入口清空，確保跨檔案不殘留：
+```python
+def build_nodes(self, tree, file_info: FileInfo, codebase_root: Path) -> list[ASTNode]:
+    self._codebase_root = codebase_root
+    self._body_file_cache: dict[str, list[str]] = {}   # reset per file set
+    nodes: list[ASTNode] = []
+    self._walk(tree.root_node, file_info, nodes, parent_class=None)
+    return nodes
+```
+
+> **注意**：`build_nodes()` 每次呼叫只處理一個檔案，cache 在單檔內有效（同檔多 node 複用）。
+> 跨檔 cache 不需要，因為 ASTExtractor 逐檔呼叫 `build_nodes()`。
+
+#### 3.3.3 建構點呼叫
 
 **所有 8 個 `ASTNode(...)` 建構點**（Python、TypeScript、config-driven、fallback）均加入：
 ```python
-body_hash=_compute_body_hash(file_info.path, start_line, end_line),
+body_hash=self._compute_body_hash(
+    str(self._codebase_root / file_info.path),
+    start_line,
+    end_line,
+),
 ```
 
-`file_info.path` 在 `node_builder` 裡是 codebase-relative 路徑；實際呼叫時需傳入絕對路徑。node_builder 持有 `codebase_root`（來自 `ASTExtractor.extract(str(path))` 的入參），應傳 `str(codebase_root / file_info.path)`。
+`start_line` / `end_line` 在各建構點的 local variable（已由 tree-sitter 行號計算完畢），直接傳入即可。
 
 ### 3.4 序列化：`structure_serializer.py`
 
@@ -148,18 +203,21 @@ body_hash              →  知道那幾行有沒有改
 affected_features      →  LLM 知道要重寫哪些 feature
 ```
 
-三層合一，`analyze_changes` 對 LLM 提供的翻譯範圍從此完整正確。
+三層合一，`analyze_changes` 對 LLM 提供的翻譯範圍**對 Python 節點從此完整正確**。
+TypeScript / config-driven 語言的 body 偵測仍為 best-effort（受 `start_line` 填入品質限制，見 §6）；
+body 改動在這些語言中仍不可見，此為已知缺口而非 regression。
 
 ---
 
 ## 5. 異動檔案清單
 
-**生產檔（4 個）**：
+**生產檔（5 個）**：
 
 | 檔案 | 改動 |
 |---|---|
 | `the_door/src/the_door/models/extraction.py` | `ASTNode` 加 `body_hash: str \| None = None` |
-| `the_door/src/the_door/core/extraction/node_builder.py` | 新增 `_compute_body_hash()`；8 個建構點帶入 `body_hash=` |
+| `the_door/src/the_door/core/extraction/node_builder.py` | `build_nodes()` 加 `codebase_root: Path` 參數；新增 `_compute_body_hash()` instance method（含 file cache）；8 個建構點帶入 `body_hash=` |
+| `the_door/src/the_door/core/extraction/ast_extractor.py` | `build_nodes(tree, file_info, root)` 呼叫處補 `root`（line 183） |
 | `the_door/src/the_door/core/extraction/structure_serializer.py` | `build_structure_dict` 加 `"body_hash"`；`parse_structure_dict` 用 `.get("body_hash")` |
 | `the_door/src/the_door/core/diff/feature_attribution.py` | `compute_affected_features` 加 body 比對 Layer 2 |
 
