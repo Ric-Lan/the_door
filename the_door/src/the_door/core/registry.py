@@ -34,7 +34,7 @@ class ProjectRegistry:
             if info["path"] == resolved:
                 return pid
 
-        next_id = f"{max((int(k) for k in data if not k.startswith('__')), default=0) + 1:03d}"
+        next_id = f"{max((int(k) for k in data if not k.startswith('__') and k.isdigit()), default=0) + 1:03d}"
         data[next_id] = {
             "name": Path(resolved).name,
             "path": resolved,
@@ -88,14 +88,17 @@ class ProjectRegistry:
         """Return the project with the latest last_opened_at, or None if all are null."""
         data = self._load()
         best: dict | None = None
-        best_ts: str | None = None
+        best_ts: datetime | None = None
         for pid, info in data.items():
             if pid.startswith("__"):
                 continue
             ts = info.get("last_opened_at")
-            if ts is not None and (best_ts is None or ts > best_ts):
+            if ts is None:
+                continue
+            ts_dt = datetime.fromisoformat(ts)
+            if best_ts is None or ts_dt > best_ts:
                 best = {"id": pid, **info}
-                best_ts = ts
+                best_ts = ts_dt
         return best
 
     def find_active_project(self, stale_threshold_seconds: int = 1800) -> dict | None:
@@ -144,7 +147,7 @@ class ProjectRegistry:
         for ginfo in groups.values():
             if ginfo.get("name") == name:
                 raise ValueError(f"群組名稱已存在：{name!r}")
-        next_id = f"g{max((int(gid[1:]) for gid in groups), default=0) + 1:03d}"
+        next_id = f"g{max((int(gid[1:]) for gid in groups if gid.startswith('g') and gid[1:].isdigit()), default=0) + 1:03d}"
         groups[next_id] = {
             "name": name,
             "member_ids": [],
