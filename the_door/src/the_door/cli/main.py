@@ -20,6 +20,7 @@ from the_door.cli.doubt_cmd import doubt_group
 from the_door.cli.timeline_cmd import timeline_cmd
 from the_door.cli.ui_cmd import ui_cmd
 from the_door.cli.projects_cmd import projects_cmd
+from the_door.cli.group_cmd import group_group
 from the_door.cli.status_cmd import status_cmd
 from the_door.cli.verify_datamodel_cmd import verify_datamodel_cmd
 
@@ -83,5 +84,6 @@ main.add_command(doubt_group)
 main.add_command(timeline_cmd)
 main.add_command(ui_cmd)
 main.add_command(projects_cmd)
+main.add_command(group_group)
 main.add_command(status_cmd)
 main.add_command(verify_datamodel_cmd)

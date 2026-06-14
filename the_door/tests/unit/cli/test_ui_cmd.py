@@ -117,3 +117,67 @@ def test_ui_cmd_dot_dir_missing_still_starts(tmp_path):
         result = runner.invoke(ui_cmd, [str(tmp_path), "--no-browser"])
     # Should not exit with error due to missing .the-door/
     assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for _pick_project_interactively — dynamic default logic
+# ---------------------------------------------------------------------------
+
+
+def test_pick_returns_active_project_path_without_prompting(tmp_path, monkeypatch):
+    """_pick_project_interactively returns active project path directly, no prompt."""
+    proj = tmp_path / "active-proj"
+    proj.mkdir()
+
+    fake_reg = MagicMock()
+    fake_reg.list_projects.return_value = [
+        {"id": "001", "name": "active-proj", "path": str(proj)}
+    ]
+    fake_reg.find_active_project.return_value = {
+        "id": "001", "name": "active-proj", "path": str(proj)
+    }
+    monkeypatch.setattr("the_door.cli.ui_cmd.ProjectRegistry", lambda: fake_reg)
+
+    from the_door.cli.ui_cmd import _pick_project_interactively
+    result = _pick_project_interactively()
+
+    assert result == str(proj)
+    fake_reg.find_active_project.assert_called_once()
+
+
+def test_pick_uses_most_recently_opened_as_default(tmp_path, monkeypatch):
+    """When no active project, most recently opened becomes the default choice."""
+    proj_a = tmp_path / "old"
+    proj_b = tmp_path / "recent"
+    proj_a.mkdir()
+    proj_b.mkdir()
+
+    fake_reg = MagicMock()
+    fake_reg.list_projects.return_value = [
+        {"id": "001", "name": "old",    "path": str(proj_a)},
+        {"id": "002", "name": "recent", "path": str(proj_b)},
+    ]
+    fake_reg.find_active_project.return_value = None
+    fake_reg.get_most_recently_opened.return_value = {
+        "id": "002", "name": "recent", "path": str(proj_b)
+    }
+    fake_reg.list_groups.return_value = []
+    monkeypatch.setattr("the_door.cli.ui_cmd.ProjectRegistry", lambda: fake_reg)
+    # patch click.prompt to simulate user pressing Enter (accepting default)
+    monkeypatch.setattr("click.prompt", lambda *a, **kw: kw.get("default", ""))
+
+    from the_door.cli.ui_cmd import _pick_project_interactively
+    result = _pick_project_interactively()
+
+    assert result == str(proj_b)
+
+
+def test_pick_returns_none_when_no_projects(monkeypatch):
+    """When no projects registered, _pick_project_interactively returns None."""
+    fake_reg = MagicMock()
+    fake_reg.list_projects.return_value = []
+    monkeypatch.setattr("the_door.cli.ui_cmd.ProjectRegistry", lambda: fake_reg)
+
+    from the_door.cli.ui_cmd import _pick_project_interactively
+    result = _pick_project_interactively()
+    assert result is None
