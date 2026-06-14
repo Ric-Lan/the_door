@@ -1,6 +1,9 @@
 """Node builder module — walks tree-sitter AST to extract function, class, and method nodes."""
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from tree_sitter import Node as TSNode
 
 from the_door.models import ASTNode, FileInfo
@@ -10,24 +13,37 @@ from the_door.core.extraction.language_configs import LANGUAGE_CONFIGS
 class NodeBuilder:
     """Walk a tree-sitter AST and extract function, class, and method nodes."""
 
-    def build_nodes(self, tree, file_info: FileInfo) -> list[ASTNode]:
-        """Extract function/class/method nodes from a parsed tree-sitter tree.
-
-        Parameters
-        ----------
-        tree : tree_sitter.Tree
-            The parsed tree-sitter tree.
-        file_info : FileInfo
-            Metadata about the source file (path, language).
-
-        Returns
-        -------
-        list[ASTNode]
-            Extracted nodes with all required attributes.
-        """
+    def build_nodes(self, tree, file_info: FileInfo, codebase_root: Path) -> list[ASTNode]:
+        """Extract function/class/method nodes from a parsed tree-sitter tree."""
+        self._codebase_root = codebase_root
+        self._body_file_cache: dict[str, list[str]] = {}
         nodes: list[ASTNode] = []
         self._walk(tree.root_node, file_info, nodes, parent_class=None)
         return nodes
+
+    def _abs_path(self, rel_path: str) -> str | None:
+        """Return absolute path for rel_path, or None if codebase_root is not set."""
+        root = getattr(self, "_codebase_root", None)
+        if root is None:
+            return None
+        return str(root / rel_path)
+
+    def _compute_body_hash(self, file_path: str | None, start_line: int | None, end_line: int | None) -> str | None:
+        if file_path is None or start_line is None or end_line is None:
+            return None
+        cache = getattr(self, "_body_file_cache", {})
+        if file_path not in cache:
+            try:
+                with open(file_path, encoding="utf-8", errors="replace") as f:
+                    cache[file_path] = f.readlines()
+            except OSError:
+                cache[file_path] = []
+            self._body_file_cache = cache
+        lines = cache[file_path]
+        if not lines:
+            return None
+        body = "".join(lines[start_line - 1 : end_line])
+        return hashlib.md5(body.encode("utf-8")).hexdigest()
 
     def _walk(
         self,
@@ -121,6 +137,8 @@ class NodeBuilder:
         docstring = self._extract_python_docstring(node)
         comments = self._collect_nearby_comments(node)
 
+        _start = outer_start_line if outer_start_line is not None else node.start_point[0] + 1
+        _end = node.end_point[0] + 1
         results.append(
             ASTNode(
                 node_id=f"{file_info.path}::{name}",
@@ -128,8 +146,11 @@ class NodeBuilder:
                 name=name,
                 file=file_info.path,
                 language=file_info.language,
-                start_line=outer_start_line if outer_start_line is not None else node.start_point[0] + 1,
-                end_line=node.end_point[0] + 1,
+                start_line=_start,
+                end_line=_end,
+                body_hash=self._compute_body_hash(
+                    self._abs_path(file_info.path), _start, _end
+                ),
                 decorators=decorators,
                 parameters=[],
                 return_type=None,
@@ -160,14 +181,19 @@ class NodeBuilder:
         comments = self._collect_nearby_comments(node)
         node_type = "method" if parent_class else "function"
 
+        _start = outer_start_line if outer_start_line is not None else node.start_point[0] + 1
+        _end = node.end_point[0] + 1
         return ASTNode(
             node_id=f"{file_info.path}::{name}",
             type=node_type,
             name=name,
             file=file_info.path,
             language=file_info.language,
-            start_line=outer_start_line if outer_start_line is not None else node.start_point[0] + 1,
-            end_line=node.end_point[0] + 1,
+            start_line=_start,
+            end_line=_end,
+            body_hash=self._compute_body_hash(
+                self._abs_path(file_info.path), _start, _end
+            ),
             decorators=decorators,
             parameters=params,
             return_type=return_type,
@@ -321,6 +347,11 @@ class NodeBuilder:
                 language=file_info.language,
                 start_line=node.start_point[0] + 1,
                 end_line=node.end_point[0] + 1,
+                body_hash=self._compute_body_hash(
+                    self._abs_path(file_info.path),
+                    node.start_point[0] + 1,
+                    node.end_point[0] + 1,
+                ),
                 decorators=[],
                 parameters=[],
                 return_type=None,
@@ -346,6 +377,11 @@ class NodeBuilder:
             language=file_info.language,
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
+            body_hash=self._compute_body_hash(
+                self._abs_path(file_info.path),
+                node.start_point[0] + 1,
+                node.end_point[0] + 1,
+            ),
             decorators=[],
             parameters=[],
             return_type=None,
@@ -365,6 +401,11 @@ class NodeBuilder:
             language=file_info.language,
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
+            body_hash=self._compute_body_hash(
+                self._abs_path(file_info.path),
+                node.start_point[0] + 1,
+                node.end_point[0] + 1,
+            ),
             decorators=[],
             parameters=[],
             return_type=None,
@@ -409,6 +450,11 @@ class NodeBuilder:
                         language=file_info.language,
                         start_line=node.start_point[0] + 1,
                         end_line=node.end_point[0] + 1,
+                        body_hash=self._compute_body_hash(
+                            self._abs_path(file_info.path),
+                            node.start_point[0] + 1,
+                            node.end_point[0] + 1,
+                        ),
                     ))
                 return
             if "class_definition" in node.type or "class_declaration" in node.type:
@@ -422,6 +468,11 @@ class NodeBuilder:
                         language=file_info.language,
                         start_line=node.start_point[0] + 1,
                         end_line=node.end_point[0] + 1,
+                        body_hash=self._compute_body_hash(
+                            self._abs_path(file_info.path),
+                            node.start_point[0] + 1,
+                            node.end_point[0] + 1,
+                        ),
                     ))
                 return
             for child in node.children:
@@ -518,6 +569,11 @@ class NodeBuilder:
             language=file_info.language,
             start_line=node.start_point[0] + 1,
             end_line=node.end_point[0] + 1,
+            body_hash=self._compute_body_hash(
+                self._abs_path(file_info.path),
+                node.start_point[0] + 1,
+                node.end_point[0] + 1,
+            ),
             parameters=self._extract_parameters(node, cfg.parameters_field),
             return_type=self._extract_return_type(node, cfg.return_type_field),
             decorators=self._extract_decorators(node, cfg.decorator_types),

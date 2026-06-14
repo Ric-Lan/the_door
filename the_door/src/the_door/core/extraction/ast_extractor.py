@@ -180,7 +180,7 @@ class ASTExtractor:
             trees[file_info.path] = (tree, source_bytes)
 
             try:
-                nodes = self._node_builder.build_nodes(tree, file_info)
+                nodes = self._node_builder.build_nodes(tree, file_info, root)
                 result.nodes.extend(nodes)
             except Exception as exc:
                 result.errors.append(

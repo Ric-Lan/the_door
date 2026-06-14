@@ -275,6 +275,31 @@ class TestNodeBuilder:
         )
         assert node.body_hash is None
 
+    def test_function_node_body_hash_is_populated(self, tmp_path):
+        source = "def hello():\n    return 42\n"
+        (tmp_path / "test.py").write_text(source, encoding="utf-8")
+        result = ASTExtractor().extract(str(tmp_path))
+        node = next(n for n in result.nodes if n.name == "hello")
+        assert node.body_hash is not None
+        assert isinstance(node.body_hash, str)
+        assert len(node.body_hash) == 32  # MD5 hex digest
+
+    def test_function_body_hash_changes_when_body_changes(self, tmp_path):
+        src_v1 = "def hello():\n    return 42\n"
+        src_v2 = "def hello():\n    return 99\n"
+        (tmp_path / "test.py").write_text(src_v1, encoding="utf-8")
+        n1 = next(n for n in ASTExtractor().extract(str(tmp_path)).nodes if n.name == "hello")
+        (tmp_path / "test.py").write_text(src_v2, encoding="utf-8")
+        n2 = next(n for n in ASTExtractor().extract(str(tmp_path)).nodes if n.name == "hello")
+        assert n1.body_hash != n2.body_hash
+
+    def test_function_body_hash_stable_when_source_unchanged(self, tmp_path):
+        src = "def hello():\n    return 42\n"
+        (tmp_path / "test.py").write_text(src, encoding="utf-8")
+        n1 = next(n for n in ASTExtractor().extract(str(tmp_path)).nodes if n.name == "hello")
+        n2 = next(n for n in ASTExtractor().extract(str(tmp_path)).nodes if n.name == "hello")
+        assert n1.body_hash == n2.body_hash
+
 
 # === EdgeBuilder tests (Task 9.3) ===
 
