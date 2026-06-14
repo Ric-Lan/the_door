@@ -90,3 +90,8 @@ export async function fetchStaticL1ViewModel() {
   const res = await fetch("./data/l1-view-model.json", { cache: "no-store" });
   return res.json();
 }
+
+export async function fetchGroup() {
+  const res = await fetch(`${API_BASE}/api/group`, { cache: "no-store" });
+  return res.json();
+}

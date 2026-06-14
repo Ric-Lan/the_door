@@ -18,6 +18,8 @@ import {
   closeGraphDrawer,
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
+import { fetchGroup } from "./api.js";
+import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown, showToast, toastMessage } from "./project-switcher.js";
 
 export function render() {
   renderTopBar();
@@ -281,6 +283,20 @@ function populateVersionSelectors() {
   };
 }
 
+function initProjectSwitcher(group) {
+  const container = document.getElementById("project-switcher");
+  if (!container) return;
+  if (!shouldShowSwitcher(group)) {
+    container.style.display = "none";
+    return;
+  }
+  container.style.display = "";
+  const items = buildSwitcherItems(group);
+  renderSwitcherDropdown(container, items, (member) => {
+    showToast(toastMessage(member));
+  });
+}
+
 export function init() {
   initDetailTabs();
   els.btnDiff.addEventListener("click", () => setMode("diff"));
@@ -307,4 +323,9 @@ export function init() {
   }
   loadProjectStatus();
   loadOnboardingIfEmpty();
+  fetchGroup()
+    .then((groupData) => initProjectSwitcher(groupData?.group ?? null))
+    .catch(() => {
+      // group API unavailable — switcher stays hidden
+    });
 }
