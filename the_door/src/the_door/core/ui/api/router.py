@@ -131,8 +131,8 @@ class Router:
 # Route table assembly
 # ---------------------------------------------------------------------------
 
-def build_routes(p, c, g, d, n) -> list[Route]:
-    """p/c/g/d/n = Project/Catalog/Graph/Diff/Annotation handler instances.
+def build_routes(p, c, g, d, n, gr) -> list[Route]:
+    """p/c/g/d/n/gr = Project/Catalog/Graph/Diff/Annotation/Group handler instances.
 
     (T5-A: Analysis handler removed — analyze/update are key-bound and retired;
     the viewer is display-only over already-analyzed snapshots.)"""
@@ -152,4 +152,5 @@ def build_routes(p, c, g, d, n) -> list[Route]:
         Route("GET",  "/api/doubts",                               n.doubts,     summary="列出作用域分析產生的疑慮項"),
         Route("GET",  "/api/notes",                                n.get_notes,  summary="讀取使用者註記"),
         Route("POST", "/api/notes",                                n.post_notes, summary="新增使用者註記"),
+        Route("GET",  "/api/group",                                gr.get_group, summary="讀取當前專案的群組與成員資訊"),
     ]
