@@ -121,8 +121,8 @@ cython_debug/
 Thumbs.db
 .DS_Store
 
-# Kiro local settings (keep specs and steering)
-.kiro/settings/
+# Kiro working dir — not tracked (live design docs are promoted into docs/)
+.kiro/
 
 # The Door runtime data (snapshots, fingerprints, analysis cache)
 .the-door/

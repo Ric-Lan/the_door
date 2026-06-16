@@ -160,7 +160,7 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `system_status` MCP | Same as `the-door status` but callable from agents. |
 
 For the input/output schemas of each MCP tool see
-[`.kiro/specs/incremental-analysis/design.md`](.kiro/specs/incremental-analysis/design.md).
+[`docs/incremental-analysis-design.md`](docs/incremental-analysis-design.md).
 
 ### Agent-as-LLM chain (single version)
 
