@@ -250,6 +250,49 @@ h1 {
 }
 
 /* ============================================================
+   Integration health band (full-width, above the workspace)
+   ============================================================ */
+
+.integration-band:empty { display: none; }
+
+.integration-band {
+  padding: 8px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.integration-band .integration-summary {
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.integration-band .empty-state {
+  margin: 0;
+  color: var(--text-muted, #888);
+}
+
+.integration-band .integration-row {
+  display: inline-block;
+  margin: 6px 6px 0 0;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.integration-band .integration-row.integration-gap { border-color: #c0392b; }
+.integration-band .integration-row.integration-undetermined { border-color: #e67e22; }
+.integration-band .integration-row:hover { background: var(--line); }
+
+/* per-card integration badge */
+.integration-badge { margin-left: 6px; font-size: 12px; line-height: 1; }
+
+/* ============================================================
    Two-column workspace
    ============================================================ */
 
