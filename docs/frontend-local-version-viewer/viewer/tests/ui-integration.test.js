@@ -61,4 +61,14 @@ describe('renderIntegrationPanel', () => {
     renderIntegrationPanel(root, { structure_missing: true, rollup: {}, relations: [] }, {});
     expect(root.textContent).toContain('未評估');
   });
+  it('shows 未評估 (not "all connected") when everything is not_assessed', () => {
+    const root = document.createElement('div');
+    const allUntyped = {
+      rollup: { backed: 0, gap: 0, undetermined: 0, conceptual: 0, not_assessed: 24 },
+      relations: [{ from_feature: 'a', to_feature: 'b', verdict: 'not_assessed' }],
+    };
+    renderIntegrationPanel(root, allUntyped, {});
+    expect(root.textContent).toContain('未評估');
+    expect(root.textContent).not.toContain('都接上了');
+  });
 });

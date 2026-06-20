@@ -44,6 +44,19 @@ export function renderIntegrationPanel(container, integration, callbacks = {}) {
   header.textContent = `整合健檢：${claimed} 條宣稱、${r.gap || 0} 條沒接上、${r.undetermined || 0} 條無法判定`;
   container.appendChild(header);
 
+  // claimed=0：沒有任何 static/inferred 判定可言。誠實區分「未評估」與「真的沒依賴」，
+  // 不可在此說「都接上了」（那會把未評估洗成全綠、違反誠實原則）。
+  if (claimed === 0) {
+    const none = document.createElement('div');
+    none.className = 'empty-state';
+    const na = r.not_assessed || 0;
+    none.textContent = na > 0
+      ? `未評估：${na} 條依賴關係尚未標記 static/inferred，無法判斷是否接上。`
+      : '尚無功能依賴關係可檢查。';
+    container.appendChild(none);
+    return;
+  }
+
   const issues = (integration.relations || []).filter(
     x => x.verdict === 'gap' || x.verdict === 'undetermined');
   if (issues.length === 0) {
