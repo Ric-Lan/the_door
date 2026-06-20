@@ -157,6 +157,7 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `snapshot_write` MCP | Agent-as-LLM: persist L1 features you identified. Use `inherit_from` to chain off a baseline. |
 | `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 |
 | `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. Also stamps the `analyze_changes` checklist stage (unchanged-feature fingerprints) for the C7 inherited-description gate. |
+| `integration_check` MCP | 驗證每條功能宣稱依賴（標 `static` 者）是否有結構連線支撐 → 逐條回 backed/gap/undetermined + rollup。讀持久化 typed relations + structure-view edges、現算、`max_hops` 預設 2。 |
 | `system_status` MCP | Same as `the-door status` but callable from agents. |
 
 For the input/output schemas of each MCP tool see
@@ -205,6 +206,11 @@ For the input/output schemas of each MCP tool see
    一段話。鐵則：**只能綜合 features 已含的資訊**，不得引入 L1 之外的能力宣稱；低信心
    feature 的能力用保守措辭。viewer 會自動附「綜合自 N 個功能、x 個低信心」誠實尾註
    （你不用自己寫統計）。
+
+   `relations` 每筆可選帶 `relation_type`（`static`|`inferred`）：
+   - `static`＝你**期待**這條依賴在程式碼裡有實連（之後 `integration_check` 會去驗證它有沒有真的接上）。**期待來自功能語意/意圖，不是「你看到有邊才標」**——落差正是「期待 static 但結構沒有」時才有意義。
+   - `inferred`＝概念/流程關係（未必有直接呼叫邊），須附 `inferred_reason` 一句話；`integration_check` 不對它查邊、不喊狼。
+   - 不標＝`integration_check` 標 `not_assessed`。
 
 3. `edge_residue(codebase_path="./my-project")`
    → Persists `.the-door/edge-residue.json` (edge-noise residue) **and stamps
