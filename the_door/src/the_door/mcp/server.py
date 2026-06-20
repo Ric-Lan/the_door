@@ -28,6 +28,7 @@ from the_door.mcp.tools import analyze_changes_tool
 from the_door.mcp.tools import snapshot_patch_tool
 from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 from the_door.mcp.tools import edge_residue_tool
+from the_door.mcp.tools import integration_check_tool
 
 
 def _build_tools() -> list[Tool]:
@@ -183,6 +184,11 @@ def _build_tools() -> list[Tool]:
             description="Persist the membrane noise residue (off-grid + low-confidence edges) as a viewable artifact. Zero token, zero key. Run after extract_structure, before snapshot_write.",
             inputSchema=edge_residue_tool.TOOL_SCHEMA,
         ),
+        Tool(
+            name="integration_check",
+            description="Verify each feature's claimed 'static' dependency against the actual structure graph; returns backed/gap/undetermined per relation + rollup.",
+            inputSchema=integration_check_tool.TOOL_SCHEMA,
+        ),
     ]
 
 
@@ -247,6 +253,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(verify_contract_tool, arguments)
             elif name == "edge_residue":
                 return await self._dispatch_tool(edge_residue_tool, arguments)
+            elif name == "integration_check":
+                return await self._dispatch_tool(integration_check_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 

@@ -120,3 +120,8 @@ async def test_execute_errors_without_structure():
     out = await ic.execute({"codebase_path": str(cp), "version_ref": "v1"})
     assert "error" in out
     assert "structure" in out["error"].lower()
+
+
+def test_integration_check_registered():
+    from the_door.mcp.server import REGISTERED_TOOL_NAMES
+    assert "integration_check" in REGISTERED_TOOL_NAMES
