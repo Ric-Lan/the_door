@@ -517,13 +517,12 @@ async def execute(arguments: dict) -> dict:
         return {"error": "version_ref is required"}
 
     store = SnapshotStore(codebase_path)
+    # resolve_baseline 解析所有 ref 形式（label/git tag/date/SHA/version_id）、查不到時 raise；
+    # 不用 get_snapshot fallback——它只吃 UUID 且查不到回 None（會漏接成 snap=None）。
     try:
         snap = store.resolve_baseline(version_ref)
-    except Exception:
-        try:
-            snap = store.get_snapshot(version_ref)
-        except Exception as e:
-            return {"error": f"snapshot {version_ref!r} not found: {e}"}
+    except Exception as e:
+        return {"error": f"snapshot {version_ref!r} not found: {e}"}
 
     loaded = _load_structure(codebase_path)
     if loaded is None:
@@ -586,11 +585,10 @@ Expected: FAIL（未註冊）。
 
 - [ ] **Step 3: import 工具模組**
 
-`the_door/src/the_door/mcp/server.py`，在既有 `from the_door.mcp.tools import (...)` 群組（與 `edge_residue_tool` 同處）加入 `integration_check_tool`。若 import 是逐行式，新增一行：
+`the_door/src/the_door/mcp/server.py` 的 tool import 區（行 19-28 一連串 `from the_door.mcp.tools import ...`，其中 line 24 `from the_door.mcp.tools import snapshot_write_tool` 即單模組一行的既有風格）。仿該風格，在這群 import 最後新增一行：
 ```python
 from the_door.mcp.tools import integration_check_tool
 ```
-（放在其他 `*_tool` import 旁，維持風格。）
 
 - [ ] **Step 4: 在 _build_tools() 註冊 Tool**
 
@@ -682,6 +680,7 @@ git commit -m "docs(claude): document integration_check tool + relation_type usa
 - `classify_relation(rel, l1, graph_nodes, adjacency, max_hops)` 與 `_path_within_hops(from_nodes, to_nodes, adjacency, max_hops)` — Task 3 定義與測試呼叫一致。✓
 - verdict 字串 `backed/gap/undetermined/conceptual/not_assessed` — Task 3 實作、測試、rollup 五者一致。✓
 - 工具模組契約 `TOOL_SCHEMA` + `async def execute(arguments)->dict`，server 用 `_dispatch_tool` — 對齊 `edge_residue_tool` 既有模式。✓
-- `SnapshotStore(cp).resolve_baseline(ref)` / `.get_snapshot(ref)` / `.create_snapshot(...)` — 對齊 `analyze_changes_tool` 與 `snapshot_store` 既有 API。✓
+- `SnapshotStore(cp).resolve_baseline(ref)`＝萬用 ref 解析（label/tag/date/SHA/uuid、查不到 raise）→ 工具用它；`.get_snapshot(version_id)`＝只吃 UUID、查不到回 None → 測試裡用 `snap.version_id` 取回；`.create_snapshot(*, l1_snapshot, feature_relations, analyzed_files, ...)`＝**keyword-only**、測試全用具名參數。三者均對齊 `snapshot_store.py` 既有簽名。✓
+- `_feature_dict_to_summary` 必填鍵＝`feature_id`/`label`/`description`/`confidence`(∈high/medium/low)；Task 2 測試 l1_features dict 全給。✓
 
 > **誠實邊界**：C2/C3 gate 是外部 PreToolUse hook、攔 MCP 工具呼叫，**不在** `execute()` 內（已查證），故所有單元測試直接呼叫 `execute()` 不受 gate 影響。實機（透過 MCP）跑 `snapshot_write` 時仍需先 `edge_residue` 蓋章——這是既有行為、與本計畫無關。
