@@ -73,7 +73,7 @@ TOOL_SCHEMA = {
         },
         "relations": {
             "type": "array",
-            "description": "Feature-level dependency relations. Each item: from_feature, to_feature, relation (str).",
+            "description": "Feature-level dependency relations. Each item: from_feature, to_feature, relation (str), 選填 relation_type ('static'|'inferred') 與 inferred_reason。relation_type='static'＝期待此依賴在程式碼有實連（integration_check 會驗證）；'inferred'＝概念/流程關係、附 inferred_reason、不查邊。",
             "items": {
                 "type": "object",
                 "required": ["from_feature", "to_feature", "relation"],
@@ -81,6 +81,8 @@ TOOL_SCHEMA = {
                     "from_feature": {"type": "string"},
                     "to_feature": {"type": "string"},
                     "relation": {"type": "string"},
+                    "relation_type": {"type": "string", "enum": ["static", "inferred"]},
+                    "inferred_reason": {"type": "string"},
                 },
             },
         },
@@ -323,6 +325,8 @@ async def execute(arguments: dict) -> dict:
                 from_feature=r["from_feature"],
                 to_feature=r["to_feature"],
                 relation=r["relation"],
+                relation_type=r.get("relation_type"),
+                inferred_reason=r.get("inferred_reason"),
             )
             for r in raw_relations
         ]
