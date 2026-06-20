@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Brainstorming visual-companion scratch (mockups, not source)
+.superpowers/
+
 # C extensions
 *.so
 
