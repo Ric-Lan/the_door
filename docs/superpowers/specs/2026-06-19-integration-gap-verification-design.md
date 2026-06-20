@@ -109,6 +109,7 @@
 > 若 (2)(3)(4) 任一證偽 → 比照互動問答**判定不做**，本文件轉為「已評估、不落地」紀錄。
 
 ## 7. 初步建議（非承諾）
+> ⓘ 歷史段落：spike 已完成、決議見 §9（D3 由「現算不動 schema」放寬為「加法持久化」）。本節僅留探查當時的推理軌跡。
 
 - **先解中心命題（§3.3 宣稱來源）**：未確定一個不循環的宣稱來源前，下面的工具/UI 選型都是空談。
 - 走 **D3 選項 B（獨立 `integration_check` MCP 工具，現算不動 schema）** + **D2 分型** + **D4 帶證據的直接/有限跳數** + **D1 push 優先、pull 疊上**。
@@ -116,11 +117,50 @@
 - **下一步不是寫 code**，而是：先用真資料（含一個「故意斷開」的 target）做一次手動 demo，坐實 §6 的 (2)(3)(4)。通過才進 writing-plans。
 
 ## 8. 待辦/開放問題清單
-- [ ] **【中心命題】§3.3 不循環的宣稱來源**：定下「宣稱」從描述語意或使用者輸入產出的具體做法
-- [ ] §6(2)(3)(4) 真資料 demo（含故意斷開 target + N 條對照組）
-- [ ] D1 push/pull 拍板
-- [ ] D2 嚴格全查 vs 分型 拍板
-- [ ] D3 工具落點 拍板
-- [ ] D4 有撐定義鬆緊 拍板
-- [ ] §5.5 非技術呈現形式 拍板
+> §5 的未決項已於 §9 決議；本清單僅留歷史軌跡。
+- [x] **【中心命題】§3.3 不循環的宣稱來源** → §9：relation_type 表「期待」（語意/意圖），工具去驗證，非事後讀邊
+- [x] §6(2)(3)(4) 真資料 demo → spike 完成、判定 **GO**（spike-report）
+- [x] D1 push/pull → 工具層回完整報告（push-data）；push/pull **UX 留前端步驟**
+- [x] D2 嚴格全查 vs 分型 → **分型（static/inferred）**
+- [x] D3 工具落點 → **獨立 `integration_check` 工具 + 加法持久化 relation_type**（B 放寬為「加法動 schema」）
+- [x] D4 有撐定義鬆緊 → **帶證據 + `max_hops` 參數（預設 2 跳）**
+- [ ] §5.5 非技術呈現形式 → **下一步驟**（前端 UX 置入，本輪不做）
 - [ ] 確認 §2.1 的「DB 非程式碼節點」邊界在目標客群實務中多常見（影響本支線價值密度）
+
+## 9. 決議與工具化設計（核可 2026-06-20）
+
+spike 判定 GO 後，使用者拍板 D2/D3/D4，並以「之後要做跨版本 diff、不持久化不實際」為由，把 D3 從「完全不動 schema」**放寬為「加法式動 schema」**。以下為核可的實作設計。
+
+### 9.1 持久化（加法、不 bump contract）
+- `snapshot_write` 的 `relations` 入參新增**選填** `relation_type`（`static`|`inferred`）+ `inferred_reason`（`inferred` 時必填一句理由）。
+- `RelationSummary`（`models/snapshot.py`）／snapshot JSON／`l1-output.schema.json` 一併帶這兩欄。
+- **純加法** → 舊 snapshot 仍合法、**不 bump `SNAPSHOT_CONTRACT_VERSION`**（依 contract §6：純加法不 bump）。
+- **舊資料（relations 無 relation_type）** → `integration_check` 標 `not_assessed`，**絕不**誤判成 ❌。
+
+### 9.2 新工具 `integration_check(codebase_path, version_ref, max_hops=2)`
+讀**持久化的 typed relations** + structure-view edges，逐條判定並回傳結構化結論：
+
+| relation_type | 判定 | 證據 |
+|---|---|---|
+| `static`，有 ≤`max_hops` 跳的 edge path | `backed`（✅） | 撐起的實際 edge 路徑 |
+| `static`，無路徑 | `gap`（❌） | 「找不到 ≤max_hops 跳路徑」 |
+| `static`，被依賴方節點不在圖中 | `undetermined`（⚠） | 「目標非程式碼節點」 |
+| `inferred` | `conceptual` | 回報 `inferred_reason`，不查邊 |
+| 無 relation_type（舊） | `not_assessed` | — |
+
+- `max_hops`：參數化、預設 **2**（給間隔、日後好調）；`1`＝只認直接邊。路徑搜尋沿用/比照 `RelationCheck._has_path` 的 BFS，**加跳數上限**。
+- 回傳含 per-relation 判定 + project-level rollup（N static / M gap / K undetermined）。
+
+### 9.3 非循環性守則（guide 級，C7 無法 gate）
+- `relation_type=static` 代表**期待**「這裡該是真的程式連線」（來自功能語意/意圖），**不是**「我看到有邊才標」。`integration_check` 是去**驗證**此期待——落差正是「期待 static 但結構沒有」時才有意義。
+- agent-as-LLM guide 明寫此條（種子 §5 固有缺口：純行為/意圖無法以 hook 強制，靠 guide + 執行帳本）。
+
+### 9.4 註冊與文件
+- `mcp/server.py` 註冊 `integration_check`；CLAUDE.md 工具參考表 + agent-as-LLM 鏈補上；`relations` 寫法說明補 `relation_type`/`inferred_reason`。
+
+### 9.5 測試
+- 沿用 spike 的故意斷開 fixture 當基底，補 `static`/`inferred`/`untyped`/非程式碼節點四類 + `max_hops` 邊界（1 vs 2 跳）的單元測試。
+- snapshot_write 加欄的回歸：舊 payload（無 relation_type）仍通過、persist 後讀回一致。
+
+### 9.6 範圍邊界（本輪不做）
+- §5.5 非技術前端呈現（功能卡徽章 / 健檢面板）＝**下一獨立步驟**，依 UX 原則設計後另開 spec/plan。
