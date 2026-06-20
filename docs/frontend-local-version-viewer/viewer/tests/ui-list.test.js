@@ -362,3 +362,18 @@ describe('H1 confidence honesty in list', () => {
     expect(order).toEqual(['unk', 'high']);
   });
 });
+
+describe('featureCard integration badge', () => {
+  it('appends ❌ badge when feature verdict is gap', () => {
+    state.integration = { features: { 'feat-1': 'gap' } };
+    const card = featureCard({ id: 'feat-1', label: 'F1', confidence: 'high' }, false, {});
+    expect(card.querySelector('.integration-badge.integration-gap')).not.toBeNull();
+    state.integration = null;
+  });
+  it('no integration badge when verdict is none/missing', () => {
+    state.integration = { features: { 'feat-1': 'none' } };
+    const card = featureCard({ id: 'feat-1', label: 'F1', confidence: 'high' }, false, {});
+    expect(card.querySelector('.integration-badge')).toBeNull();
+    state.integration = null;
+  });
+});

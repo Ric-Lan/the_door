@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { els } from './dom.js';
+import { featureVerdict, integrationBadge } from './ui-integration.js';
 
 export const CONF_PRIORITY = { unknown: -1, low: 0, medium: 1, high: 2 };  // 未評估＝最低資訊、不與 high 混同
 const TYPE_PRIORITY = { removed: 0, attribute_changed: 1, dependency_changed: 1, added: 2, null: 9 };
@@ -79,6 +80,9 @@ export function changeListButton(item, isActive, callbacks) {
   badge.textContent = changeSymbol(item.change_type) + ' ' + item.change_type;
   metaEl.appendChild(badge);
 
+  const integBadge = integrationBadge(featureVerdict(state.integration, item.id));
+  if (integBadge) metaEl.appendChild(integBadge);
+
   card.append(labelEl, descEl, metaEl);
   card.addEventListener('click', () => callbacks?.onSelectChange?.(item.id));
   return card;
@@ -107,6 +111,9 @@ export function featureCard(feature, isActive, callbacks) {
     badge.textContent = feature.confidence;
     metaEl.appendChild(badge);
   }
+
+  const integBadge = integrationBadge(featureVerdict(state.integration, feature.id));
+  if (integBadge) metaEl.appendChild(integBadge);
 
   card.append(labelEl, descEl, metaEl);
   card.addEventListener('click', () => callbacks?.onSelectFeature?.(feature));
