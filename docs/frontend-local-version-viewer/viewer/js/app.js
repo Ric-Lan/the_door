@@ -18,7 +18,8 @@ import {
   closeGraphDrawer,
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
-import { fetchGroup, setProject } from "./api.js";
+import { fetchGroup, setProject, fetchIntegration } from "./api.js";
+import { renderIntegrationPanel } from "./ui-integration.js";
 import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown } from "./project-switcher.js";
 
 export function render() {
@@ -52,6 +53,19 @@ function onSelectFeature(feature) {
   state.selectedId = feature.id;
   state.selectedFeatureId = feature.id;
   render();
+}
+
+// Select a feature by id (used by integration panel gap→card linking).
+function selectFeatureById(featureId) {
+  const feature = (state.l1GraphViewModel?.nodes || []).find(n => n.id === featureId);
+  if (feature) {
+    onSelectFeature(feature);
+  } else {
+    // feature not found in graph view model — still set selectedId and render
+    state.selectedId = featureId;
+    state.selectedFeatureId = featureId;
+    render();
+  }
 }
 
 function firstSelectableId() {
@@ -152,7 +166,18 @@ async function loadFromApi() {
   render();
 
   if (ad.has_snapshots) {
-    await loadL1Graph(hasVersionCompare ? state.versionB : null);
+    const versionId = hasVersionCompare ? state.versionB : null;
+    await loadL1Graph(versionId);
+    try {
+      state.integration = await fetchIntegration(versionId);
+    } catch (e) {
+      state.integration = null; // 失敗不阻斷主畫面；面板顯示未評估
+    }
+    if (els.integrationPanel) {
+      renderIntegrationPanel(els.integrationPanel, state.integration, {
+        onSelectFeature: (featureId) => selectFeatureById(featureId),
+      });
+    }
     render();
   }
 }

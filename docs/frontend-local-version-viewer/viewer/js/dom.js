@@ -19,4 +19,5 @@ export const els = {
   btnDrawerClose:   document.getElementById("btn-drawer-close"),
   btnBackL1:        document.getElementById("btn-back-l1"),
   btnMindmap:       document.getElementById("btn-mindmap"),
+  integrationPanel: document.getElementById("integration-panel"),
 };
