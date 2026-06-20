@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { featureVerdict, integrationBadge } from '../js/ui-integration.js';
+import { featureVerdict, integrationBadge, renderIntegrationPanel } from '../js/ui-integration.js';
 
 describe('featureVerdict', () => {
   const integ = { features: { a: 'gap', b: 'backed', c: 'undetermined', d: 'none' } };
@@ -31,5 +31,34 @@ describe('integrationBadge', () => {
   it('returns null for null/none', () => {
     expect(integrationBadge(null)).toBe(null);
     expect(integrationBadge('none')).toBe(null);
+  });
+});
+
+describe('renderIntegrationPanel', () => {
+  const integ = {
+    rollup: { backed: 2, gap: 1, undetermined: 1, conceptual: 0, not_assessed: 0 },
+    relations: [
+      { from_feature: 'feat-user', to_feature: 'feat-db', verdict: 'gap' },
+      { from_feature: 'feat-cache', to_feature: 'feat-redis', verdict: 'undetermined' },
+      { from_feature: 'feat-order', to_feature: 'feat-db', verdict: 'backed' },
+    ],
+  };
+  it('shows rollup summary and one row per gap/undetermined', () => {
+    const root = document.createElement('div');
+    renderIntegrationPanel(root, integ, {});
+    expect(root.textContent).toContain('1');           // gap 數
+    expect(root.querySelectorAll('.integration-row').length).toBe(2);  // gap + undetermined（backed 不列）
+  });
+  it('clicking a gap row calls onSelectFeature with from_feature', () => {
+    const root = document.createElement('div');
+    const picked = [];
+    renderIntegrationPanel(root, integ, { onSelectFeature: id => picked.push(id) });
+    root.querySelector('.integration-row').click();
+    expect(picked).toContain('feat-user');
+  });
+  it('shows 未評估 empty state when structure missing', () => {
+    const root = document.createElement('div');
+    renderIntegrationPanel(root, { structure_missing: true, rollup: {}, relations: [] }, {});
+    expect(root.textContent).toContain('未評估');
   });
 });
