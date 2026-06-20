@@ -375,6 +375,8 @@ class SnapshotStore:
                 "from_feature": r.from_feature,
                 "to_feature": r.to_feature,
                 "relation": r.relation,
+                "relation_type": r.relation_type,
+                "inferred_reason": r.inferred_reason,
             }
             for r in snapshot.feature_relations_snapshot
         ]
@@ -457,6 +459,8 @@ class SnapshotStore:
                 from_feature=r["from_feature"],
                 to_feature=r["to_feature"],
                 relation=r["relation"],
+                relation_type=r.get("relation_type"),
+                inferred_reason=r.get("inferred_reason"),
             )
             for r in data.get("feature_relations_snapshot", [])
         ]

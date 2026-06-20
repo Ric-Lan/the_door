@@ -57,6 +57,8 @@ class RelationSummary:
     from_feature: str
     to_feature: str
     relation: str
+    relation_type: str | None = None  # "static" | "inferred" | None(舊資料/未分型)
+    inferred_reason: str | None = None  # inferred 時的一句理由
 
 
 @dataclass(frozen=True)

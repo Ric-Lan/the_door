@@ -70,7 +70,9 @@
         "properties": {
           "from_feature": { "type": "string" },
           "to_feature": { "type": "string" },
-          "relation": { "type": "string" }
+          "relation": { "type": "string" },
+          "relation_type": { "type": ["string", "null"] },
+          "inferred_reason": { "type": ["string", "null"] }
         }
       }
     },
