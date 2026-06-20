@@ -8,6 +8,8 @@
 ## 2. 核心原則（使用者明示）
 **單一真相**：判定只算一次、存一處；徽章與面板都讀同一份；資料不在前端各自重算。
 
+**與 headless viewer 約束相容**：`GET /api/integration` 是**純結構計算、零 agent/LLM**（只讀 snapshot typed relations + structure 圖、跑 BFS）。這不違反「viewer 不在 click 時 host agent-as-LLM」的退場決定（T5-V）——那退的是 L2/diff 的 LLM **生成** POST 端點；本端點與 `get_l1` 同類、display-time 純讀算。
+
 ## 3. 架構
 
 ### 3.1 後端：判定邏輯抽到 core（共用）
@@ -31,7 +33,7 @@
 - `js/api.js`：加 `fetchIntegration(versionId)` → `/api/integration?version_id=...`（比照既有 `fetchL1Graph`）。
 - `js/state.js`：加 `integration: null` slice（單一真相）。
 - 載入時機：與 L1 同步取（選版時一起 fetch、寫入 `state.integration`）。
-- **徽章**：`js/ui-list.js`（清單項）與 `js/ui-detail.js`（詳情）讀 `state.integration.features[feature_id]` 渲染 ✅/❌/⚠（`none` 不顯示）。
+- **徽章**：`js/ui-list.js`（清單項）與 `js/ui-detail.js`（詳情）讀 `state.integration.features[feature_id]` 渲染 ✅/❌/⚠（`none` 不顯示）。**join key ＝ `feature_id`**：viewer 的 feature 物件須帶 `feature_id` 與端點 `features{}` 的 key 對齊（plan 須先驗證 L1 view model 的 feature 確帶 `feature_id`；若清單目前只用 label，plan 補上 feature_id 的傳遞）。
 - **面板**：新「整合健檢」section（新檔 `js/ui-integration.js`），讀 `state.integration.rollup` + `relations[]` 的 gap/undetermined 清單。
 
 ### 3.4 連動（共用 state slice ⇒ 天然一致）
