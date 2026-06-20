@@ -131,8 +131,8 @@ class Router:
 # Route table assembly
 # ---------------------------------------------------------------------------
 
-def build_routes(p, c, g, d, n, gr) -> list[Route]:
-    """p/c/g/d/n/gr = Project/Catalog/Graph/Diff/Annotation/Group handler instances.
+def build_routes(p, c, g, d, n, gr, ig) -> list[Route]:
+    """p/c/g/d/n/gr/ig = Project/Catalog/Graph/Diff/Annotation/Group/Integration handler instances.
 
     (T5-A: Analysis handler removed — analyze/update are key-bound and retired;
     the viewer is display-only over already-analyzed snapshots.)"""
@@ -144,6 +144,7 @@ def build_routes(p, c, g, d, n, gr) -> list[Route]:
         Route("GET",  "/api/timeline",                             c.timeline,   summary="回傳跨版本時間軸"),
         Route("GET",  "/api/report/latest",                        c.report_latest, summary="讀取最近一次分析報告"),
         Route("GET",  "/api/l1",                                   g.get_l1,     summary="讀取指定版本的 L1 功能圖（節點+關聯）"),
+        Route("GET",  "/api/integration",                          ig.get_integration, summary="當前版本的整合健檢（宣稱依賴 vs 結構連線）"),
         Route("GET",  "/api/l2/{feature_id}",                      g.get_l2,     summary="讀取指定功能的 L2 模組分解（若已生成）"),
         Route("GET",  "/api/structure",                            g.get_structure, summary="讀取原始抽取結構 structure.json"),
         Route("GET",  "/api/layer-explanation/{feature_id}/{layer}", g.get_layer_explanation, summary="讀取指定功能在指定層的說明"),

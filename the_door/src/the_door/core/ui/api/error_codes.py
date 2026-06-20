@@ -193,6 +193,13 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/annotation.py",
         desc="Invalid mode requested.",
     ),
+
+    # --- integration domain -------------------------------------------------
+    "no_integration_data": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/integration.py",
+        desc="No integration check data is available for this project yet.",
+    ),
 }
 
 
