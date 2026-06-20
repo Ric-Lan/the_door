@@ -22,4 +22,5 @@ export const state = {
   filterConf: null,
   filterType: null,
   _filteredFeatures: null,
+  integration: null,
 };

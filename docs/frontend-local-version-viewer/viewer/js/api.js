@@ -96,6 +96,14 @@ export async function fetchGroup() {
   return res.json();
 }
 
+export async function fetchIntegration(versionId = null) {
+  const url = versionId
+    ? `${API_BASE}/api/integration?version_id=${encodeURIComponent(versionId)}`
+    : `${API_BASE}/api/integration`;
+  const res = await fetch(url, { cache: "no-store" });
+  return res.json();
+}
+
 export async function setProject(path) {
   const res = await fetch(`${API_BASE}/api/set-project`, {
     method: "POST",
