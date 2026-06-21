@@ -23,6 +23,79 @@ export function integrationBadge(verdict) {
   return el;
 }
 
+export function initIntegrationLegend() {
+  const btn   = document.getElementById('btn-integ-legend');
+  const popup = document.getElementById('integ-legend-popup');
+  if (!btn || !popup) return;
+
+  popup.innerHTML = `
+    <div class="integ-legend-header">
+      整合健檢標示說明
+      <button class="integ-legend-close" type="button" aria-label="關閉">✕</button>
+    </div>
+    <div class="integ-legend-rows">
+      <div class="integ-legend-row">
+        <span class="lbl">✅ 有接上（backed）</span>
+        <div class="desc">宣稱的 static 依賴在程式碼結構上有連線支撐。</div>
+      </div>
+      <div class="integ-legend-row">
+        <span class="lbl">❌ 沒接上（gap）</span>
+        <div class="desc">宣稱有 static 依賴，但 AST 找不到對應呼叫路徑，建議確認。</div>
+      </div>
+      <div class="integ-legend-row">
+        <span class="lbl">⚠ 無法判定（undetermined）</span>
+        <div class="desc">依賴目標不是程式碼節點（如 HTTP 或跨語言呼叫），無法從結構驗證。</div>
+      </div>
+      <div class="integ-legend-row">
+        <span class="lbl">（無標示）未評估</span>
+        <div class="desc">此功能沒有宣稱 static 依賴，不在整合健檢範圍內。</div>
+      </div>
+    </div>
+    <hr class="integ-legend-divider">
+    <div class="integ-legend-terms">
+      <div class="integ-legend-term-title">static</div>
+      <div class="integ-legend-term-desc">
+        Agent 在標記功能依賴時使用的類型，表示「期待這條依賴在程式碼裡有直接的呼叫路徑」
+        （同語言的直接 import / call）。The Door 會用 AST 驗證它是否真的接上。
+      </div>
+      <div class="integ-legend-term-title">AST（Abstract Syntax Tree，抽象語法樹）</div>
+      <div class="integ-legend-term-desc">
+        程式碼的結構化表示，記錄函式、類別與彼此的呼叫關係。The Door 以 AST 為基礎判斷
+        功能之間是否存在實際連線，而非只看功能描述。
+      </div>
+    </div>
+  `;
+
+  function positionPopup() {
+    const r = btn.getBoundingClientRect();
+    popup.style.top  = (r.bottom + 6) + 'px';
+    // 靠右對齊按鈕右緣，若超出左邊界則夾在 8px
+    const left = Math.max(8, r.right - 340);
+    popup.style.left = left + 'px';
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!popup.hidden) { popup.hidden = true; return; }
+    positionPopup();
+    popup.hidden = false;
+  });
+
+  popup.querySelector('.integ-legend-close').addEventListener('click', () => {
+    popup.hidden = true;
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!popup.hidden && !popup.contains(e.target) && e.target !== btn) {
+      popup.hidden = true;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') popup.hidden = true;
+  });
+}
+
 const VERDICT_LABEL = {
   gap: '❌ 沒接上', undetermined: '⚠ 無法判定',
 };

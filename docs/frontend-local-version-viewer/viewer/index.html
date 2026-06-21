@@ -90,7 +90,11 @@
         <section class="cards-panel" aria-label="feature cards">
           <div class="panel-header">
             <h2 id="list-title">功能總覽</h2>
-            <p id="list-source"></p>
+            <div class="panel-header-sub">
+              <p id="list-source"></p>
+              <button id="btn-integ-legend" class="integ-legend-btn" type="button"
+                      title="整合健檢標示說明">ⓘ 整合標示</button>
+            </div>
           </div>
           <div class="cards-filter-bar" id="cards-filter-bar">
             <select id="filter-conf" class="filter-select" title="信心篩選">
@@ -157,6 +161,10 @@
 
     <!-- Drawer backdrop -->
     <div id="graph-backdrop" class="graph-backdrop" hidden></div>
+
+    <!-- Integration legend popup -->
+    <div id="integ-legend-popup" class="integ-legend-popup" hidden
+         role="dialog" aria-label="整合健檢標示說明" aria-modal="true"></div>
 
     <!-- Floating graph toggle button -->
     <button id="btn-graph-toggle" class="graph-toggle-btn" type="button" title="開啟關聯圖">

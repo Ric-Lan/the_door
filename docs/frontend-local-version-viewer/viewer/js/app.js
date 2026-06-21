@@ -19,7 +19,7 @@ import {
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
 import { fetchGroup, setProject, fetchIntegration } from "./api.js";
-import { renderIntegrationPanel } from "./ui-integration.js";
+import { renderIntegrationPanel, initIntegrationLegend } from "./ui-integration.js";
 import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown } from "./project-switcher.js";
 
 export function render() {
@@ -324,6 +324,7 @@ function initProjectSwitcher(group) {
 
 export function init() {
   initDetailTabs();
+  initIntegrationLegend();
   els.btnDiff.addEventListener("click", () => setMode("diff"));
   els.btnBaseline.addEventListener("click", () => setMode("baseline"));
   els.btnCurrent.addEventListener("click", () => setMode("current"));
