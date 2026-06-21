@@ -292,7 +292,22 @@ async def execute(arguments: dict) -> dict:
                 merged[fs.feature_id] = fs
 
         l1_snapshot = merged
-        relations = list(baseline_snap.feature_relations_snapshot)
+        raw_relations_inherit: list[dict] = arguments.get("relations", [])
+        if raw_relations_inherit:
+            known_ids = set(l1_snapshot.keys())
+            relations = [
+                RelationSummary(
+                    from_feature=r["from_feature"],
+                    to_feature=r["to_feature"],
+                    relation=r["relation"],
+                    relation_type=r.get("relation_type"),
+                    inferred_reason=r.get("inferred_reason"),
+                )
+                for r in raw_relations_inherit
+                if r.get("from_feature") in known_ids and r.get("to_feature") in known_ids
+            ]
+        else:
+            relations = list(baseline_snap.feature_relations_snapshot)
         warnings = []
         # 未給簡介＝沿用 baseline（組成未由本欄判定變動）；給了＝覆寫。
         project_summary = arg_summary if arg_summary is not None else baseline_snap.project_summary

@@ -45,6 +45,15 @@
             "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/c4_block_native_exec.py\"; if command -v python >/dev/null 2>&1 && [ -f \"$f\" ]; then python \"$f\"; else exit 0; fi"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/c5_tool_selection.py\"; if command -v python >/dev/null 2>&1 && [ -f \"$f\" ]; then python \"$f\"; else exit 0; fi"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
