@@ -40,7 +40,8 @@ def _maximal_snapshot() -> VersionSnapshot:
         analyzed_files=["a.py"], commit_hash="abc1234", git_tags=["v1.0.0"],
         label="manual-label",
         l1_5_snapshot={"blk-1": BlockSummary(
-            block_id="blk-1", label="BL", responsibility="R", confidence="medium")},
+            block_id="blk-1", label="BL", responsibility="R", confidence="medium",
+            related_features=("feat-x",), parent_block_id="blk-0", is_new_this_version=True)},
         feature_relations_snapshot=[RelationSummary(
             from_feature="feat-x", to_feature="feat-y", relation="depends_on")],
         vulnerabilities_snapshot=[VulnerabilityEntry(
@@ -65,6 +66,20 @@ def _minimal_snapshot() -> VersionSnapshot:
         vulnerabilities_snapshot=[], vulnerability_db_freshness=None,
         codebase_path=None,
     )
+
+
+def test_block_with_classification_fields_conforms(tmp_path):
+    store = _store(tmp_path)
+    store.create_snapshot(
+        l1_snapshot={}, feature_relations=[], analyzed_files=[],
+        trigger="manual", label="blk",
+        l1_5_snapshot={"blk-core": BlockSummary(
+            block_id="blk-core", label="核心分析引擎群組", responsibility="抽取與分析",
+            related_features=("feat-a",), parent_block_id=None, is_new_this_version=True,
+        )},
+    )
+    report = store.audit_conformance()
+    assert report == [], f"expected conforming, got {report}"
 
 
 @pytest.mark.parametrize("builder", [_maximal_snapshot, _minimal_snapshot])
