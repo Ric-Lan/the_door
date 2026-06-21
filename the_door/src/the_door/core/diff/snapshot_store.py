@@ -364,11 +364,18 @@ class SnapshotStore:
 
         l1_5_data = {}
         for bid, bs in snapshot.l1_5_snapshot.items():
-            l1_5_data[bid] = {
+            entry = {
                 "label": bs.label,
                 "responsibility": bs.responsibility,
                 "confidence": bs.confidence,
             }
+            if bs.related_features:
+                entry["related_features"] = list(bs.related_features)
+            if bs.parent_block_id is not None:
+                entry["parent_block_id"] = bs.parent_block_id
+            if bs.is_new_this_version:
+                entry["is_new_this_version"] = True
+            l1_5_data[bid] = entry
 
         relations_data = [
             {
@@ -452,6 +459,9 @@ class SnapshotStore:
                 label=bdata["label"],
                 responsibility=bdata["responsibility"],
                 confidence=bdata.get("confidence"),
+                related_features=tuple(bdata.get("related_features", ()) or ()),
+                parent_block_id=bdata.get("parent_block_id"),
+                is_new_this_version=bdata.get("is_new_this_version", False),
             )
 
         relations = [

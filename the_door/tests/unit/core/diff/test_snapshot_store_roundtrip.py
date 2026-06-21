@@ -394,3 +394,51 @@ class TestBlockSummaryDefaults:
         assert b.related_features == ("feat-a", "feat-b")
         assert b.parent_block_id == "blk-parent"
         assert b.is_new_this_version is True
+
+
+class TestBlockSummaryOnDisk:
+    def _block_snap(self, store, blocks):
+        snap = store.create_snapshot(
+            l1_snapshot={}, feature_relations=[], analyzed_files=[],
+            trigger="manual", label="blk", l1_5_snapshot=blocks,
+        )
+        return snap.version_id
+
+    def test_block_round_trips(self, store):
+        blocks = {
+            "blk-core": BlockSummary(
+                block_id="blk-core", label="核心分析引擎群組", responsibility="抽取與分析",
+                related_features=("feat-a",), is_new_this_version=True,
+            ),
+        }
+        vid = self._block_snap(store, blocks)
+        loaded = store.get_snapshot(vid)
+        b = loaded.l1_5_snapshot["blk-core"]
+        assert b.related_features == ("feat-a",)
+        assert b.is_new_this_version is True
+        assert b.parent_block_id is None
+
+    def test_empty_block_fields_omitted(self, store, tmp_path):
+        blocks = {
+            "blk-core": BlockSummary(
+                block_id="blk-core", label="核心分析引擎群組", responsibility="抽取與分析",
+            ),
+        }
+        vid = self._block_snap(store, blocks)
+        raw = json.loads((tmp_path / ".the-door" / "snapshots" / f"{vid}.json").read_text(encoding="utf-8"))
+        entry = raw["l1_5_snapshot"]["blk-core"]
+        assert "related_features" not in entry
+        assert "parent_block_id" not in entry
+        assert "is_new_this_version" not in entry
+
+    def test_legacy_block_deserializes_with_defaults(self, store, tmp_path):
+        vid = self._block_snap(store, {})
+        path = tmp_path / ".the-door" / "snapshots" / f"{vid}.json"
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw["l1_5_snapshot"] = {"blk-old": {"label": "舊區塊群組說明", "responsibility": "舊職責"}}
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        loaded = store.get_snapshot(vid)
+        b = loaded.l1_5_snapshot["blk-old"]
+        assert b.related_features == ()
+        assert b.parent_block_id is None
+        assert b.is_new_this_version is False

@@ -57,7 +57,10 @@
             { "const": "medium", "description": "抽取信心中" },
             { "const": "low", "description": "抽取信心低" },
             { "type": "null", "description": "未評估（來源未給信心）" }
-          ] }
+          ] },
+          "related_features": { "type": "array", "items": { "type": "string" } },
+          "parent_block_id": { "type": ["string", "null"] },
+          "is_new_this_version": { "type": "boolean" }
         }
       }
     },
