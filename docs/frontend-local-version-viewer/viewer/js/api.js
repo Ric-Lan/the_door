@@ -104,6 +104,14 @@ export async function fetchIntegration(versionId = null) {
   return res.json();
 }
 
+export async function fetchBlocks(versionId = null) {
+  const url = versionId
+    ? `${API_BASE}/api/blocks?version_id=${encodeURIComponent(versionId)}`
+    : `${API_BASE}/api/blocks`;
+  const res = await fetch(url, { cache: "no-store" });
+  return res.json();
+}
+
 export async function setProject(path) {
   const res = await fetch(`${API_BASE}/api/set-project`, {
     method: "POST",

@@ -23,4 +23,5 @@ export const state = {
   filterType: null,
   _filteredFeatures: null,
   integration: null,
+  blocks: null,
 };

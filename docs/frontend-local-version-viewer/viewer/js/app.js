@@ -4,6 +4,7 @@ import { API_BASE } from "./api.js";
 import { buildViewModelFromReport, snapshotLabel } from "./viewmodel.js";
 import { renderTopBar, updateLogoMark } from "./ui-topbar.js";
 import { renderChangeList, applyCardFilters } from "./ui-list.js";
+import { renderBlockList } from "./ui-blocks.js";
 import { renderDetailPanel, renderError, initDetailTabs } from "./ui-detail.js";
 import {
   loadL1Graph,
@@ -18,7 +19,7 @@ import {
   closeGraphDrawer,
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
-import { fetchGroup, setProject, fetchIntegration } from "./api.js";
+import { fetchGroup, setProject, fetchIntegration, fetchBlocks } from "./api.js";
 import { renderIntegrationPanel, initIntegrationLegend } from "./ui-integration.js";
 import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown } from "./project-switcher.js";
 
@@ -28,10 +29,13 @@ export function render() {
     state.l1Model?.features ?? [],
     { conf: state.filterConf, type: state.filterType }
   );
-  renderChangeList({
-    onSelectFeature,
-    onSelectChange,
-  });
+  const useBlocks = state.mode !== "diff"
+    && (state.blocks?.blocks?.length ?? 0) > 0;
+  if (useBlocks) {
+    renderBlockList({ onSelectFeature, onSelectChange });
+  } else {
+    renderChangeList({ onSelectFeature, onSelectChange });
+  }
   renderDetailPanel({ onEnterL2: switchToL2 });
   updateLogoMark();
   document
@@ -172,6 +176,11 @@ async function loadFromApi() {
       state.integration = await fetchIntegration(versionId);
     } catch (e) {
       state.integration = null; // 失敗不阻斷主畫面；面板顯示未評估
+    }
+    try {
+      state.blocks = await fetchBlocks(versionId);
+    } catch (e) {
+      state.blocks = null; // 失敗不阻斷；render 會 fallback 平鋪
     }
     if (els.integrationPanel) {
       renderIntegrationPanel(els.integrationPanel, state.integration, {
