@@ -1,75 +1,52 @@
-# L1.5 Constraint Prompt — The Door Phase 1-full
+# L1.5 Constraint Prompt — 功能分類（區塊）
 
-## Purpose
+## 目的
 
-You are producing an L1.5 structural overview that groups L1 features into higher-level architectural blocks. This provides a mid-level view between individual features (L1) and module interactions (L2).
+把已翻譯的 L1 功能歸類成「最多兩層」的區塊（block），介於單一功能（L1）與模組互動（L2）
+之間。分類由你（agent-as-LLM）親自做；工具只在寫入時驗結構。
 
-## Output Format (⑧ L1.5 Output JSON Schema)
-
-Your output MUST be valid JSON conforming to this structure:
+## 輸出（傳給 snapshot_patch 的 blocks）
 
 ```json
 {
-  "l1_5": {
-    "blocks": [
-      {
-        "block_id": "unique-block-id",
-        "label": "Module name + functional description (technical term allowed IF accompanied by functional context)",
-        "responsibility": "What this block is responsible for in the system",
-        "trigger_mechanism": "Human-readable description of what activates this block",
-        "related_features": ["feat-id-1", "feat-id-2"]
-      }
-    ],
-    "block_relations": [
-      {
-        "from": "block_id",
-        "to": "block_id",
-        "relation": "Functional description of how these blocks interact",
-        "relation_type": "static | inferred",
-        "inferred_reason": "Required when relation_type is inferred"
-      }
-    ],
-    "infrastructure_block": {
-      "label": "System Infrastructure",
-      "components": ["node_id_1", "node_id_2"]
-    }
+  "blk-core-engine": {
+    "label": "模組名＋功能描述（禁裸術語，需功能語境）",
+    "responsibility": "這個區塊在系統中負責什麼",
+    "related_features": ["feat-id-1", "feat-id-2"],
+    "parent_block_id": null,
+    "is_new_this_version": false
+  },
+  "blk-quality": {
+    "label": "品質與安全功能群組",
+    "responsibility": "把關輸出品質與依賴安全",
+    "related_features": [],
+    "parent_block_id": null
+  },
+  "blk-validation": {
+    "label": "輸出與範圍驗證子群組",
+    "responsibility": "驗證 agent 產出與分析範圍",
+    "related_features": ["feat-output-validation", "feat-scope-doubt"],
+    "parent_block_id": "blk-quality"
   }
 }
 ```
 
-## Required Fields Per Block
+## 硬性規則（snapshot_patch 寫入時驗、不過則整批拒）
 
-Every block MUST include ALL of these fields:
-- `block_id`: unique identifier (e.g., "blk-auth", "blk-payments")
-- `label`: module name + functional description (see Language Rules below)
-- `responsibility`: what this block handles in the system
-- `trigger_mechanism`: human-readable trigger description
-- `related_features`: list of L1 feature_ids that belong to this block
+- **最多兩層**：`parent_block_id` 指向的區塊本身必須是頂層（其 `parent_block_id` 為 null）。
+- **單一歸屬**：每個 `feature_id` 只能出現在一個區塊的 `related_features`。
+- **功能只掛葉區塊**：有子區塊的區塊，`related_features` 必須為空（功能掛在最底層）。
+- **窮盡**：每個 L1 功能都要有歸屬；沒分到的放兜底區塊 `blk-unclassified`。
+- **交叉引用**：`related_features` 的 id 都要存在於 L1；`parent_block_id` 指向的區塊要存在。
 
-## Block Relations
+## 軟性規則（靠自律）
 
-- `relation_type: "static"`: The relationship is directly visible in AST edges between the blocks' source nodes. Requires an AST edge path to exist.
-- `relation_type: "inferred"`: The relationship is reasoned from context. MUST include a non-empty `inferred_reason` field explaining the reasoning.
+- 依**功能語意**歸類，不是依檔案路徑。
+- `label` 用白話短語、禁裸技術術語（如單獨的 "Controller"）；需帶功能語境。
+- **沿用既有**：後續版本先讀 baseline 的區塊，新功能優先塞既有區塊；真的塞不進才開新類、
+  標 `is_new_this_version: true`，不每版重洗。
 
-## Infrastructure Block
+## 深度自適應
 
-- Exactly ONE `infrastructure_block` in the output
-- Its `components` array must contain every node_id from L1's `infrastructure_nodes`
-- Label should be "System Infrastructure" or similar functional description
-- Do NOT create separate blocks for infrastructure — consolidate into one
-
-## Language Rules (Relaxed for L1.5)
-
-L1.5 labels follow a **relaxed** language rule compared to L1:
-- A bare technical term alone (e.g., "Controller", "Service") is **PROHIBITED**
-- A technical term WITH functional description (e.g., "Authentication Controller handling user identity verification") is **ALLOWED**
-- The label must contain at least 4 words to qualify as having functional context
-- Descriptions and responsibilities follow the same rule
-
-## Validation
-
-Your L1.5 output will be validated:
-1. Schema conformance (all required fields, correct types)
-2. Cross-reference integrity (all block_ids in relations exist in blocks, all feature_ids in related_features exist in L1 output)
-3. Language check (relaxed rules as described above)
-4. Relation check (static requires edge path, inferred requires reason)
+不設區塊數量上限。小專案可能全是頂層區塊（單層）；大專案才把過大的頂層區塊展開出子區塊
+（第二層）。是否展開第二層由功能多寡與可讀性決定，不固定。
