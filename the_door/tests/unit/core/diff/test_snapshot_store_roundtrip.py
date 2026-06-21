@@ -372,3 +372,25 @@ class TestSourceNodesNotInDiff:
         assert node_diff.diff_state == "unchanged", (
             f"source_nodes change leaked into diff state: {node_diff.diff_state}"
         )
+
+
+from the_door.models import BlockSummary
+
+
+class TestBlockSummaryDefaults:
+    def test_classification_fields_default_empty(self):
+        b = BlockSummary(block_id="blk-x", label="X 功能群組說明", responsibility="處理 X 類工作")
+        assert b.related_features == ()
+        assert b.parent_block_id is None
+        assert b.is_new_this_version is False
+
+    def test_classification_fields_settable(self):
+        b = BlockSummary(
+            block_id="blk-x", label="X 功能群組說明", responsibility="處理 X",
+            related_features=("feat-a", "feat-b"),
+            parent_block_id="blk-parent",
+            is_new_this_version=True,
+        )
+        assert b.related_features == ("feat-a", "feat-b")
+        assert b.parent_block_id == "blk-parent"
+        assert b.is_new_this_version is True

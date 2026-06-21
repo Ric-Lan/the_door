@@ -48,6 +48,9 @@ class BlockSummary:
     label: str
     responsibility: str
     confidence: str | None = None
+    related_features: tuple[str, ...] = ()      # 成員 feature_id（tuple 維持 frozen 可雜湊）
+    parent_block_id: str | None = None          # None=頂層；有值=子區塊
+    is_new_this_version: bool = False            # 跨版本自動開新類的標記
 
 
 @dataclass(frozen=True)
