@@ -15,6 +15,7 @@ from the_door.core.ui.api.context import APIContext
 from the_door.core.ui.api.docgen import render_api_index, render_error_codes
 from the_door.core.ui.api.error_codes import ERROR_CODES
 from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
+from the_door.core.ui.api.handlers.blocks import BlockHandlers
 from the_door.core.ui.api.handlers.catalog import CatalogHandlers
 from the_door.core.ui.api.handlers.diff import DiffHandlers
 from the_door.core.ui.api.handlers.graph import GraphHandlers
@@ -34,6 +35,7 @@ def main() -> None:
         AnnotationHandlers(ctx),
         GroupHandlers(ctx),
         IntegrationHandlers(ctx),
+        BlockHandlers(ctx),
     )
     out_dir = Path("../docs/api")
     out_dir.mkdir(parents=True, exist_ok=True)

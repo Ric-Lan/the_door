@@ -200,6 +200,13 @@ ERROR_CODES: dict[str, ErrCode] = {
         file="core/ui/api/handlers/integration.py",
         desc="No integration check data is available for this project yet.",
     ),
+
+    # --- blocks domain ------------------------------------------------------
+    "no_block_data": ErrCode(
+        http=404,
+        file="core/ui/api/handlers/blocks.py",
+        desc="No block classification data is available for this snapshot.",
+    ),
 }
 
 

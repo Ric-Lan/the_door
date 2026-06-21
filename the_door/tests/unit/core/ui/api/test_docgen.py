@@ -4,6 +4,7 @@ from the_door.core.ui.api.router import build_routes
 from the_door.core.ui.api.context import APIContext
 from the_door.core.ui.api.error_codes import ERROR_CODES
 from the_door.core.ui.api.handlers.annotation import AnnotationHandlers
+from the_door.core.ui.api.handlers.blocks import BlockHandlers
 from the_door.core.ui.api.handlers.catalog import CatalogHandlers
 from the_door.core.ui.api.handlers.diff import DiffHandlers
 from the_door.core.ui.api.handlers.graph import GraphHandlers
@@ -15,7 +16,7 @@ def _routes():
     ctx = APIContext(lambda: Path("."), lambda p, f: {})
     return build_routes(ProjectHandlers(ctx), CatalogHandlers(ctx),
                         GraphHandlers(ctx), DiffHandlers(ctx), AnnotationHandlers(ctx),
-                        GroupHandlers(ctx), IntegrationHandlers(ctx))
+                        GroupHandlers(ctx), IntegrationHandlers(ctx), BlockHandlers(ctx))
 
 def test_api_index_covers_every_route():
     routes = _routes()

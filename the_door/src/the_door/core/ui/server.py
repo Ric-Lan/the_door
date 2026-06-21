@@ -23,6 +23,7 @@ from the_door.core.ui.api.handlers.catalog import CatalogHandlers
 from the_door.core.ui.api.handlers.diff import DiffHandlers
 from the_door.core.ui.api.handlers.graph import GraphHandlers
 from the_door.core.ui.api.handlers.group import GroupHandlers
+from the_door.core.ui.api.handlers.blocks import BlockHandlers
 from the_door.core.ui.api.handlers.integration import IntegrationHandlers
 from the_door.core.ui.api.handlers.project import ProjectHandlers
 from the_door.core.ui.static_handler import StaticHandler
@@ -60,6 +61,7 @@ class UIServer:
             AnnotationHandlers(ctx),
             GroupHandlers(ctx),
             IntegrationHandlers(ctx),
+            BlockHandlers(ctx),
         )
         self._router = Router(ctx, routes)
         self._static_handler = StaticHandler(viewer_dir=viewer_dir)
