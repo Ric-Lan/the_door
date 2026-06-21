@@ -123,6 +123,7 @@ export function featureCard(feature, isActive, callbacks) {
 export function renderChangeList(callbacks) {
   const list = els.featureList;
   list.textContent = '';
+  list.classList.remove('blocks-mode');  // 還原卡片 grid（平鋪/變更清單模式）
 
   if (state.mode === 'diff') {
     if (!state.updateModel?.diff_available && state.versionDiff) {

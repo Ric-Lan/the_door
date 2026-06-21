@@ -1574,6 +1574,7 @@ h1 {
 }
 
 /* ── Block-collapse view (L1.5 classification) ── */
+#feature-list.blocks-mode { display: block; }  /* 取消平鋪 grid，區塊垂直堆疊 */
 .block-group { margin-bottom: 10px; }
 .block-header {
   display: flex;

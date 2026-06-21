@@ -111,6 +111,7 @@ function renderTopBlock(top, children, featById, callbacks) {
 export function renderBlockList(callbacks) {
   const list = els.featureList;
   list.textContent = '';
+  list.classList.add('blocks-mode');  // 取消外層卡片 grid，讓區塊垂直堆疊
   els.listTitle.textContent = state.mode === 'baseline' ? '舊版功能' : '新版功能';
   els.listSource.textContent = '依區塊分類';
 
