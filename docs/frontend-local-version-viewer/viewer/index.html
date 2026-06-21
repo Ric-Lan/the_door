@@ -65,10 +65,13 @@
         <span id="summary-text">載入中…</span>
       </div>
 
-      <div class="cards-filter-active" id="cards-filter-active" hidden>
-        <span class="risk-active-pill">⚠ 僅顯示需注意項目</span>
-        <span id="risk-active-counter" class="risk-active-counter"></span>
-        <button type="button" id="clear-risk-filter" class="risk-clear-btn">清除全部過濾</button>
+      <div class="meta-row">
+        <div id="breadcrumb"></div>
+        <div class="cards-filter-active" id="cards-filter-active" hidden>
+          <span class="risk-active-pill">⚠ 僅顯示需注意項目</span>
+          <span id="risk-active-counter" class="risk-active-counter"></span>
+          <button type="button" id="clear-risk-filter" class="risk-clear-btn">清除全部過濾</button>
+        </div>
       </div>
 
       <div id="diff-mode-banner" class="diff-mode-banner" hidden>
@@ -77,8 +80,6 @@
       </div>
 
       <div id="version-narrative-band" hidden class="narrative-band"></div>
-
-      <div id="breadcrumb"></div>
 
       <!-- Integration health band (full-width, above the 2-column workspace) -->
       <section id="integration-panel" class="integration-band" aria-label="integration health check"></section>

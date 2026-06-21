@@ -633,17 +633,18 @@ h1 {
 
 .integ-legend-btn {
   flex-shrink: 0;
-  padding: 2px 7px;
-  font-size: 11px;
-  border: 1px solid var(--line);
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--accent);
   border-radius: 4px;
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--accent-soft);
+  color: var(--accent);
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.6;
+  font-weight: 500;
 }
-.integ-legend-btn:hover { background: var(--line); color: var(--text); }
+.integ-legend-btn:hover { background: var(--accent); color: #fff; }
 
 /* Integration legend popup */
 .integ-legend-popup {
@@ -971,15 +972,23 @@ h1 {
   overflow: hidden;
 }
 
+/* meta-row: breadcrumb + filter-active share one row */
+.meta-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
 /* Task 10.2 — .breadcrumb */
 .breadcrumb {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1;
   gap: 2px;
   padding: 8px 20px;
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
 
@@ -1441,14 +1450,14 @@ h1 {
   background: var(--warn, #b45309);
   color: #fff;
 }
-/* Active filter strip */
+/* Active filter strip — inline in meta-row (right side) */
 .cards-filter-active {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
   background: var(--warn-bg, #fef3c7);
-  border-bottom: 1px solid var(--warn, #b45309);
+  border-left: 1px solid var(--warn, #b45309);
   font-size: 12px;
 }
 .risk-active-pill {
