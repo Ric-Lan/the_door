@@ -331,6 +331,31 @@ Use when a snapshot already exists but its `source_node_count` is 0 / `source_no
 
 3. 驗證（optional）：`GET /api/diff?baseline=vX&current=vY`，確認 `"version_narrative"` 欄非 null。
 
+### Agent-as-LLM chain (feature classification / L1.5 blocks)
+
+把已翻譯的 L1 功能歸類成「最多兩層」的區塊（block），存進快照、給 viewer 折疊。
+**不需新工具**——你自己讀功能、自己分類、用 `snapshot_patch` 寫回（同 version_narrative 形態）。
+
+1. 讀 current snapshot 的 `l1_snapshot`（功能）。
+   - 冷啟動第一版：自己把功能分區塊。
+   - 後續版本：先 `analyze_changes(baseline=...)` 取 `inherited_features`/`affected_features`，
+     讀 baseline 的 `l1_5_snapshot` 當沿用基礎——inherited 維持原歸屬、affected/新功能歸入
+     既有區塊、真的塞不進才自動開新區塊並標 `is_new_this_version=true`。
+2. **硬性原則**（`snapshot_patch` 寫入時驗證，不過則整批拒）：
+   - 最多兩層（`parent_block_id` 指向的區塊本身須是頂層）
+   - 單一歸屬（每個功能恰好歸一個區塊）
+   - 功能只掛葉區塊（有子區塊者 `related_features` 必為空）
+   - 窮盡（每個功能都要有歸屬；沒分到的放兜底區塊 `blk-unclassified`）
+   - 交叉引用（`related_features` / `parent_block_id` 都要存在）
+3. **軟性原則**（靠你自律、非 gate）：歸類照功能語意；區塊 label 用白話短語、禁裸技術術語；
+   沿用既有區塊名、不每版重洗。
+4. **冷啟動互動確認**：第一版分類**先把區塊樹呈現給使用者、得到同意才寫**
+   （同 version_narrative「先聲明再執行」）。使用者可先提供偏好區塊表當種子。
+   後續版本自動開新類不打擾、靠 `is_new_this_version` 留痕。
+5. `snapshot_patch(codebase_path, version_ref, blocks={block_id: {label, responsibility,
+   related_features, parent_block_id?, is_new_this_version?}})`。`blocks` 為**整批取代**——
+   re-patch 要帶齊所有區塊（含繼承的）。
+
 ---
 
 ## Snapshot reference formats
