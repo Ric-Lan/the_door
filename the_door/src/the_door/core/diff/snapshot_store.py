@@ -208,6 +208,7 @@ class SnapshotStore:
         feature_metadata_by_feature: dict[str, dict] | None = None,
         project_summary: str | None = None,
         version_narratives: dict[str, str] | None = None,
+        blocks: dict[str, dict] | None = None,
     ) -> tuple["VersionSnapshot", list[str]]:
         """Patch an existing snapshot in-place.
 
@@ -259,6 +260,23 @@ class SnapshotStore:
         if version_narratives:
             merged_narratives = {**snap.version_narratives, **version_narratives}
             snap_kwargs["version_narratives"] = merged_narratives
+        if blocks is not None:
+            from the_door.core.classification.block_validator import validate_blocks
+            from the_door.models import BlockSummary
+            block_objs = {
+                bid: BlockSummary(
+                    block_id=bid,
+                    label=bd["label"],
+                    responsibility=bd.get("responsibility", ""),
+                    confidence=bd.get("confidence"),
+                    related_features=tuple(bd.get("related_features", ()) or ()),
+                    parent_block_id=bd.get("parent_block_id"),
+                    is_new_this_version=bd.get("is_new_this_version", False),
+                )
+                for bid, bd in blocks.items()
+            }
+            validate_blocks(block_objs, set(new_l1.keys()))
+            snap_kwargs["l1_5_snapshot"] = block_objs
         snap = dataclasses.replace(snap, **snap_kwargs)
 
         self._write_snapshot(snap)

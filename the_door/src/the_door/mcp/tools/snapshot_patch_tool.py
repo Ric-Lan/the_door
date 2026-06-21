@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from the_door.core.classification.block_validator import BlockValidationError
 from the_door.core.diff.snapshot_store import SnapshotStore
 from the_door.core.guidance.remediation import make_error_envelope
 from the_door.mcp.tools._response_envelope import wrap
@@ -72,6 +73,25 @@ TOOL_SCHEMA = {
             ),
             "additionalProperties": {"type": "string"},
         },
+        "blocks": {
+            "type": "object",
+            "description": (
+                "Optional. 整批取代 l1_5 區塊。block_id → "
+                "{label, responsibility, related_features[], parent_block_id?, "
+                "is_new_this_version?}。寫入前做結構驗證（兩層上限/單一歸屬/窮盡/"
+                "功能只掛葉/交叉引用），不過則整批拒絕。"
+            ),
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "responsibility": {"type": "string"},
+                    "related_features": {"type": "array", "items": {"type": "string"}},
+                    "parent_block_id": {"type": ["string", "null"]},
+                    "is_new_this_version": {"type": "boolean"},
+                },
+            },
+        },
     },
 }
 
@@ -89,11 +109,19 @@ async def execute(arguments: dict) -> dict:
             feature_metadata_by_feature=arguments.get("feature_metadata_by_feature"),
             project_summary=arguments.get("project_summary"),
             version_narratives=version_narratives,
+            blocks=arguments.get("blocks"),
         )
     except SnapshotNotFoundError as e:
         return make_error_envelope(
             code="snapshot_not_found",
             message=str(e),
+            remediation=None,
+            source="snapshot_patch_tool.execute",
+        )
+    except BlockValidationError as e:
+        return make_error_envelope(
+            code=e.code,
+            message=e.message,
             remediation=None,
             source="snapshot_patch_tool.execute",
         )
@@ -111,5 +139,6 @@ async def execute(arguments: dict) -> dict:
         "skipped_features": skipped,
         "project_summary": snap.project_summary,
         "version_narratives": dict(snap.version_narratives),
+        "blocks_written": sorted((arguments.get("blocks") or {}).keys()),
     }
     return wrap(payload, project_path=Path(codebase_path), context="mcp")

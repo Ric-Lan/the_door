@@ -442,3 +442,40 @@ class TestBlockSummaryOnDisk:
         assert b.related_features == ()
         assert b.parent_block_id is None
         assert b.is_new_this_version is False
+
+
+class TestPatchBlocks:
+    def _seed(self, store):
+        from the_door.models import FeatureSummary
+        snap = store.create_snapshot(
+            l1_snapshot={
+                "feat-a": FeatureSummary("feat-a", "A", "...", 1, "high"),
+                "feat-b": FeatureSummary("feat-b", "B", "...", 1, "high"),
+            },
+            feature_relations=[], analyzed_files=[], trigger="manual", label="seed",
+        )
+        return snap
+
+    def test_patch_writes_blocks(self, store):
+        snap = self._seed(store)
+        store.patch_snapshot(
+            version_ref=snap.version_id,
+            blocks={"blk-1": {
+                "label": "全部功能群組說明", "responsibility": "處理全部",
+                "related_features": ["feat-a", "feat-b"],
+            }},
+        )
+        loaded = store.get_snapshot(snap.version_id)
+        assert set(loaded.l1_5_snapshot["blk-1"].related_features) == {"feat-a", "feat-b"}
+
+    def test_patch_rejects_unclassified(self, store):
+        from the_door.core.classification.block_validator import BlockValidationError
+        snap = self._seed(store)
+        with pytest.raises(BlockValidationError):
+            store.patch_snapshot(
+                version_ref=snap.version_id,
+                blocks={"blk-1": {
+                    "label": "只有 A 的群組說明", "responsibility": "處理 A",
+                    "related_features": ["feat-a"],
+                }},
+            )
