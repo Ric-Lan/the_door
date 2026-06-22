@@ -31,3 +31,20 @@ def _collect_features(chunks: list) -> list:
             seen[fid] = cid
             features.append(f)
     return features
+
+
+def _node_to_feature(features: list) -> tuple[dict, list]:
+    """{node_id: feature_id}。一節點被多 feature 認領 → 取 feature_id 字典序首者
+    （決定性）並記 warning。回 (mapping, sorted_warnings)。"""
+    mapping: dict = {}
+    warnings: set = set()
+    # 按 feature_id 升冪迭代 → 先到先得＝字典序首者得標
+    for f in sorted(features, key=lambda x: x["feature_id"]):
+        fid = f["feature_id"]
+        for nid in f.get("source_nodes", []) or []:
+            if nid in mapping:
+                if mapping[nid] != fid:
+                    warnings.add(nid)
+                continue
+            mapping[nid] = fid
+    return mapping, sorted(warnings)
