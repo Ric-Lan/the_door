@@ -43,3 +43,24 @@ def test_connected_components_deterministic():
     adj = cp.build_adjacency(views)
     assert cp.connected_components(adj, views.keys()) == \
            cp.connected_components(adj, views.keys())
+
+
+def test_connected_components_dense_component_ordering_fixed():
+    # 稠密分量（多邊）→ 考驗 set 迭代序是否影響輸出；comp 排序應吸收之
+    views = {
+        "p::a": _v("p::a", out=("p::b", "p::c")),
+        "p::b": _v("p::b", out=("p::c",)),
+        "p::c": _v("p::c", out=("p::a",)),          # 三角 + 回邊
+        "q::x": _v("q::x"),                          # 獨立節點
+    }
+    adj = cp.build_adjacency(views)
+    comps = cp.connected_components(adj, views.keys())
+    # 整個三角為一分量、排序固定；q::x 獨立
+    assert comps == [["p::a", "p::b", "p::c"], ["q::x"]]
+
+
+def test_build_adjacency_skips_self_loop():
+    # 守住 tid != nid guard：自環不應出現在鄰接
+    views = {"s::f": _v("s::f", out=("s::f",))}
+    adj = cp.build_adjacency(views)
+    assert adj["s::f"] == set()
