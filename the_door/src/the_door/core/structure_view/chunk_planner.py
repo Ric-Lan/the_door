@@ -68,3 +68,27 @@ def connected_components(adjacency: dict, node_ids) -> list:
         comps.append(sorted(comp))
     comps.sort(key=lambda c: c[0])
     return comps
+
+
+def _slice_by_order(ordered: list, est: dict, target: int) -> list:
+    """沿給定序貪婪填滿 target 就斷（Tier 3 原語，總定義域）。
+    單節點 est > target → 自成 chunk 並標 oversized。"""
+    chunks: list = []
+    cur: list = []
+    cur_est = 0
+    for nid in ordered:
+        e = est[nid]
+        if e > target:
+            if cur:
+                chunks.append({"node_ids": cur, "est_tokens": cur_est, "oversized": False})
+                cur, cur_est = [], 0
+            chunks.append({"node_ids": [nid], "est_tokens": e, "oversized": True})
+            continue
+        if cur and cur_est + e > target:
+            chunks.append({"node_ids": cur, "est_tokens": cur_est, "oversized": False})
+            cur, cur_est = [], 0
+        cur.append(nid)
+        cur_est += e
+    if cur:
+        chunks.append({"node_ids": cur, "est_tokens": cur_est, "oversized": False})
+    return chunks
