@@ -96,3 +96,37 @@ def node_detail(views: dict[str, dict], node_id: str) -> dict:
         "end_line": view.get("end_line"), "language": view.get("language"),
         "topology": view.get("topology"), "callers": callers, "callees": callees,
     }
+
+
+def compute_freshness(codebase_path: str | Path) -> dict:
+    checklist = read_checklist(codebase_path)
+    source_files = None
+    if isinstance(checklist, dict):
+        stages = checklist.get("stages")
+        if isinstance(stages, dict):
+            entry = stages.get("edge_residue")
+            if isinstance(entry, dict):
+                source_files = entry.get("source_files")
+    if not isinstance(source_files, dict):
+        return {"status": "unknown", "reason": "no edge_residue fingerprint"}
+
+    root = Path(codebase_path)
+    changed: list[str] = []
+    for relpath, fingerprint in source_files.items():
+        try:
+            st = (root / relpath).stat()
+        except OSError:
+            changed.append(relpath)
+            continue
+        try:
+            mtime_ns, size = fingerprint
+        except (ValueError, TypeError):
+            continue  # 壞 fingerprint → 略過（fail-soft）
+        if st.st_mtime_ns != mtime_ns or st.st_size != size:
+            changed.append(relpath)
+    changed.sort()
+    return {
+        "status": "stale" if changed else "fresh",
+        "changed_files": changed[:FRESHNESS_CHANGED_CAP],
+        "changed_count": len(changed),
+    }
