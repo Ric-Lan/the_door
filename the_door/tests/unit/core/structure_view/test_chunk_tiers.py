@@ -21,3 +21,20 @@ def test_slice_by_order_oversized_node_own_chunk():
 
 def test_slice_by_order_empty():
     assert cp._slice_by_order([], {}, target=100) == []
+
+
+def test_bfs_order_starts_at_highest_indegree_and_covers_component():
+    # 鏈 a-b-c-d；indeg 設成 c 最高 → 從 c 起 BFS
+    adj = {"a": {"b"}, "b": {"a", "c"}, "c": {"b", "d"}, "d": {"c"}}
+    indeg = {"a": 0, "b": 1, "c": 9, "d": 0}
+    order = cp._bfs_order(["a", "b", "c", "d"], adj, indeg)
+    assert order[0] == "c"                 # 從最高 in_degree 起
+    assert sorted(order) == ["a", "b", "c", "d"]   # 涵蓋整個分量
+    assert len(order) == 4                 # 不重複
+
+
+def test_bfs_order_deterministic():
+    adj = {"a": {"b", "c"}, "b": {"a"}, "c": {"a"}}
+    indeg = {"a": 5, "b": 0, "c": 0}
+    assert cp._bfs_order(["a", "b", "c"], adj, indeg) == \
+           cp._bfs_order(["a", "b", "c"], adj, indeg)

@@ -6,6 +6,7 @@ spec: docs/superpowers/specs/2026-06-22-chunk-split-principle-design.md
 from __future__ import annotations
 
 import json
+from collections import deque
 
 # CJK 範圍（通用近似，非窮舉）：中日韓表意 + 假名 + 諺文 + 全形。
 _CJK_RANGES = (
@@ -92,3 +93,20 @@ def _slice_by_order(ordered: list, est: dict, target: int) -> list:
     if cur:
         chunks.append({"node_ids": cur, "est_tokens": cur_est, "oversized": False})
     return chunks
+
+
+def _bfs_order(component: list, adjacency: dict, indeg: dict) -> list:
+    """從分量內最高 in_degree 節點起 BFS（鄰居按 (-in_degree, node_id) 序入列）。
+    圖鄰近者在序列中相鄰 → 之後依序切時切口落在較稀疏處。決定性。"""
+    start = sorted(component, key=lambda n: (-indeg.get(n, 0), n))[0]
+    seen = {start}
+    queue = deque([start])
+    order: list = []
+    while queue:
+        n = queue.popleft()
+        order.append(n)
+        for nb in sorted(adjacency.get(n, ()), key=lambda x: (-indeg.get(x, 0), x)):
+            if nb not in seen:
+                seen.add(nb)
+                queue.append(nb)
+    return order
