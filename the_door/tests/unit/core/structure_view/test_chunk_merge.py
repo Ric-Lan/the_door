@@ -125,3 +125,34 @@ def test_merge_missing_structure_view_raises(tmp_path):
     chunks = [{"chunk_id": "c001", "features": [_feat("feat-a", ["x::a"])]}]
     with pytest.raises(LocateError):
         cm.merge(tmp_path, chunks)
+
+
+# --- Phase 2 review 補強：reviewer 點名的未測分支 ---
+
+def test_node_to_feature_same_feature_duplicate_node_no_warning():
+    # 同一 feature 的 source_nodes 列同 node 兩次 → 不應誤報 warning
+    feats = [_feat("feat-a", ["x.py::n", "x.py::n"])]
+    mapping, warns = cm._node_to_feature(feats)
+    assert mapping == {"x.py::n": "feat-a"}
+    assert warns == []
+
+
+def test_derive_relations_distinct_edge_types_two_rows():
+    # 同一 feature 對之間有 calls 與 imports 兩種邊 → 聚合鍵含 relation → 兩條
+    views = {
+        "x.py::a": _view("x.py::a", out=[("y.py::c", "calls"), ("y.py::c", "imports")]),
+        "y.py::c": _view("y.py::c"),
+    }
+    n2f = {"x.py::a": "feat-a", "y.py::c": "feat-b"}
+    rels, _ = cm._derive_relations(views, n2f)
+    assert sorted(r["relation"] for r in rels) == ["calls", "imports"]
+
+
+def test_merge_propagates_double_assigned_warning(simple):
+    # 同一 node 被兩 feature 認領 → merge rollup 應帶 double_assigned_warnings
+    chunks = [
+        {"chunk_id": "c001", "features": [_feat("feat-a", ["app.py::login"])]},
+        {"chunk_id": "c002", "features": [_feat("feat-z", ["app.py::login"])]},
+    ]
+    out = cm.merge(simple, chunks)
+    assert "app.py::login" in out["rollup"]["double_assigned_warnings"]
