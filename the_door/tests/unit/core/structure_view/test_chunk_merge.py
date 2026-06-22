@@ -44,3 +44,52 @@ def test_node_to_feature_double_claim_lexicographic_first_plus_warning():
     mapping, warns = cm._node_to_feature(feats)
     assert mapping["x.py::n"] == "feat-a"
     assert warns == ["x.py::n"]
+
+
+def _view(node_id, out=()):
+    return {"node_id": node_id, "name": node_id.split("::")[-1],
+            "out_edges": [{"to_node_id": t, "type": ty} for (t, ty) in out],
+            "in_edges": []}
+
+
+def test_derive_relations_crosses_feature_boundary():
+    views = {
+        "x.py::a": _view("x.py::a", out=[("y.py::c", "calls")]),
+        "y.py::c": _view("y.py::c"),
+    }
+    n2f = {"x.py::a": "feat-a", "y.py::c": "feat-b"}
+    rels, skipped = cm._derive_relations(views, n2f)
+    assert rels == [{"from_feature": "feat-a", "to_feature": "feat-b",
+                     "relation": "calls", "relation_type": "static"}]
+    assert skipped == 0
+
+
+def test_derive_relations_aggregates_duplicate_pairs():
+    views = {
+        "x.py::a": _view("x.py::a", out=[("y.py::c", "calls")]),
+        "x.py::b": _view("x.py::b", out=[("y.py::d", "calls")]),
+        "y.py::c": _view("y.py::c"), "y.py::d": _view("y.py::d"),
+    }
+    n2f = {"x.py::a": "feat-a", "x.py::b": "feat-a", "y.py::c": "feat-b", "y.py::d": "feat-b"}
+    rels, _ = cm._derive_relations(views, n2f)
+    assert rels == [{"from_feature": "feat-a", "to_feature": "feat-b",
+                     "relation": "calls", "relation_type": "static"}]  # 聚合成一條
+
+
+def test_derive_relations_skips_intrafeature_and_no_feature():
+    views = {
+        "x.py::a": _view("x.py::a", out=[("x.py::b", "calls"),   # 同 feature → 不產
+                                          ("ext::z", "calls")]),  # 端點無 feature → skip+計數
+        "x.py::b": _view("x.py::b"),
+    }
+    n2f = {"x.py::a": "feat-a", "x.py::b": "feat-a"}
+    rels, skipped = cm._derive_relations(views, n2f)
+    assert rels == []
+    assert skipped == 1   # ext::z 那條
+
+
+def test_derive_relations_keeps_edge_type():
+    views = {"x.py::a": _view("x.py::a", out=[("y.py::c", "imports")]), "y.py::c": _view("y.py::c")}
+    n2f = {"x.py::a": "feat-a", "y.py::c": "feat-b"}
+    rels, _ = cm._derive_relations(views, n2f)
+    assert rels[0]["relation"] == "imports"

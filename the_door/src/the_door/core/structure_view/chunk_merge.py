@@ -48,3 +48,31 @@ def _node_to_feature(features: list) -> tuple[dict, list]:
                 continue
             mapping[nid] = fid
     return mapping, sorted(warnings)
+
+
+def _derive_relations(views: dict, node_to_feature: dict) -> tuple[list, int]:
+    """從結構邊推導 feature 層 static relations。
+    對每條 out_edge u→v：兩端皆有 feature 且不同 → relation(邊型別, static)。
+    按 (from,to,relation) 聚合去重。端點缺 feature 的邊 → skip + 計數。
+    回 (sorted_relations, skipped_count)。"""
+    seen: set = set()
+    relations: list = []
+    skipped = 0
+    for nid, view in views.items():
+        ffrom = node_to_feature.get(nid)
+        for e in view.get("out_edges", []) or []:
+            fto = node_to_feature.get(e.get("to_node_id"))
+            if ffrom is None or fto is None:
+                skipped += 1
+                continue
+            if ffrom == fto:
+                continue  # intra-feature，非 feature relation
+            rel = e.get("type", "calls")
+            key = (ffrom, fto, rel)
+            if key in seen:
+                continue
+            seen.add(key)
+            relations.append({"from_feature": ffrom, "to_feature": fto,
+                              "relation": rel, "relation_type": "static"})
+    relations.sort(key=lambda r: (r["from_feature"], r["to_feature"], r["relation"]))
+    return relations, skipped
