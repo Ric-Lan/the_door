@@ -19,6 +19,19 @@ _CJK_RANGES = (
 )
 
 
+DEFAULT_TARGET_TOKENS = 100_000
+DEFAULT_LARGE_RATIO = 8
+
+
+def triage(total_est: int, target: int, large_ratio: int) -> tuple:
+    """粗分 regime：small(≤target,不切) / medium(≤ratio×target) / large(>)。"""
+    if total_est <= target:
+        return "small", False
+    if total_est <= large_ratio * target:
+        return "medium", True
+    return "large", True
+
+
 def _is_cjk(ch: str) -> bool:
     o = ord(ch)
     return any(lo <= o <= hi for lo, hi in _CJK_RANGES)
