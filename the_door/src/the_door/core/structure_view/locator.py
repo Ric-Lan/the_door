@@ -73,3 +73,26 @@ def search_views(views: dict[str, dict], query: str,
     ]
     return {"query": q, "total_matched": total,
             "returned": len(results), "results": results}
+
+
+def node_detail(views: dict[str, dict], node_id: str) -> dict:
+    view = views.get(node_id)
+    if view is None:
+        raise LocateError(f"node_id not found: {node_id}")
+
+    def _ref(other_id: str, edge_type) -> dict:
+        ref = {"node_id": other_id, "type": edge_type}
+        ov = views.get(other_id)
+        if ov is not None:
+            ref["file"] = ov.get("file")
+            ref["start_line"] = ov.get("start_line")
+        return ref
+
+    callers = [_ref(e["from_node_id"], e.get("type")) for e in view.get("in_edges", [])]
+    callees = [_ref(e["to_node_id"], e.get("type")) for e in view.get("out_edges", [])]
+    return {
+        "node_id": node_id, "name": view.get("name"), "type": view.get("type"),
+        "file": view.get("file"), "start_line": view.get("start_line"),
+        "end_line": view.get("end_line"), "language": view.get("language"),
+        "topology": view.get("topology"), "callers": callers, "callees": callees,
+    }
