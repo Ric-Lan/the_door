@@ -37,3 +37,39 @@ def load_views(codebase_path: str | Path) -> dict[str, dict]:
     if not views:
         raise LocateError(_NO_ARTIFACTS_MSG)
     return views
+
+
+def _in_degree(view: dict) -> int:
+    topo = view.get("topology")
+    return topo.get("in_degree", 0) if isinstance(topo, dict) else 0
+
+
+_KIND_RANK = {"name": 0, "path": 1}
+
+
+def search_views(views: dict[str, dict], query: str,
+                 limit: int = SEARCH_DEFAULT_LIMIT) -> dict:
+    q = query.strip()
+    if not q:
+        raise LocateError("query is required")
+    ql = q.lower()
+    matched: list[tuple[str, dict, str]] = []
+    for node_id, view in views.items():
+        in_name = ql in (view.get("name") or "").lower()
+        in_path = ql in node_id.lower()
+        if not (in_name or in_path):
+            continue
+        matched.append(("name" if in_name else "path", view, node_id))
+    matched.sort(key=lambda t: (_KIND_RANK[t[0]], -_in_degree(t[1]), t[2]))
+    total = len(matched)
+    results = [
+        {
+            "node_id": nid, "name": v.get("name"), "type": v.get("type"),
+            "file": v.get("file"), "start_line": v.get("start_line"),
+            "end_line": v.get("end_line"), "in_degree": _in_degree(v),
+            "match_kind": mk,
+        }
+        for (mk, v, nid) in matched[:limit]
+    ]
+    return {"query": q, "total_matched": total,
+            "returned": len(results), "results": results}
