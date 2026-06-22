@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 from collections import deque
 
+from the_door.core.structure_view.locator import load_views
+
 # CJK 範圍（通用近似，非窮舉）：中日韓表意 + 假名 + 諺文 + 全形。
 _CJK_RANGES = (
     (0x3040, 0x30FF),   # Hiragana + Katakana
@@ -184,3 +186,48 @@ def _assemble(target: int, regime: str, needs_split: bool, total: int,
             "oversized_node_warnings": sorted(set(warnings)),
         },
     }
+
+
+def plan(codebase_path, target_tokens: int = DEFAULT_TARGET_TOKENS,
+         large_ratio: int = DEFAULT_LARGE_RATIO) -> dict:
+    """讀既有 structure-view，triage 後切成 ≤ target_tokens 的 chunk 計畫。
+    structure-view 缺失 → load_views 拋 LocateError（自然向上拋）。"""
+    return _plan_from_views(load_views(codebase_path), target_tokens, large_ratio)
+
+
+def _plan_from_views(views: dict, target_tokens: int = DEFAULT_TARGET_TOKENS,
+                     large_ratio: int = DEFAULT_LARGE_RATIO) -> dict:
+    """純核心：吃 {node_id: view}，回 chunk 計畫。無 IO，便於合成測試。"""
+    est = {nid: estimate_tokens(v) for nid, v in views.items()}
+    total = sum(est.values())
+    regime, needs_split = triage(total, target_tokens, large_ratio)
+
+    if not needs_split:
+        whole = {"node_ids": sorted(views), "est_tokens": total, "tier": "whole"}
+        return _assemble(target_tokens, regime, needs_split, total, [whole], 0, [])
+
+    adj = build_adjacency(views)
+    indeg = {nid: _in_degree(views[nid]) for nid in views}
+    fitting: list = []
+    sliced: list = []
+    warnings: list = []
+    for comp in connected_components(adj, views.keys()):
+        comp_est = sum(est[n] for n in comp)
+        if comp_est <= target_tokens:
+            fitting.append((comp, comp_est))            # Tier 1 候選
+        else:
+            for sub in _slice_by_order(_bfs_order(comp, adj, indeg), est, target_tokens):
+                sub["tier"] = "oversized" if sub["oversized"] else "bisect"  # Tier 2/退化
+                sliced.append(sub)
+                if sub["oversized"]:
+                    warnings.append(sub["node_ids"][0])
+    packed = _pack(fitting, target_tokens)              # Tier 1
+    for b in packed:
+        b["tier"] = "cohesion"
+
+    all_chunks = packed + sliced
+    for c in all_chunks:                                # 統一輸出：塊內 node_ids 排序
+        c["node_ids"] = sorted(c["node_ids"])           # （packed 已排序、sliced 原為 BFS 序）
+    all_chunks.sort(key=lambda c: c["node_ids"][0])     # 決定性順序（按塊內最小 node_id）
+    cross = _cross_chunk_edges(adj, all_chunks)
+    return _assemble(target_tokens, regime, needs_split, total, all_chunks, cross, warnings)
