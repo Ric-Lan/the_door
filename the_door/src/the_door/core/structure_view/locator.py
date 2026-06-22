@@ -130,3 +130,16 @@ def compute_freshness(codebase_path: str | Path) -> dict:
         "changed_files": changed[:FRESHNESS_CHANGED_CAP],
         "changed_count": len(changed),
     }
+
+
+def search(codebase_path: str | Path, query: str,
+           limit: int = SEARCH_DEFAULT_LIMIT) -> dict:
+    result = search_views(load_views(codebase_path), query, limit)
+    result["freshness"] = compute_freshness(codebase_path)
+    return result
+
+
+def node(codebase_path: str | Path, node_id: str) -> dict:
+    result = node_detail(load_views(codebase_path), node_id)
+    result["freshness"] = compute_freshness(codebase_path)
+    return result
