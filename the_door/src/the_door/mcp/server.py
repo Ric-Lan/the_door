@@ -30,6 +30,7 @@ from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 from the_door.mcp.tools import edge_residue_tool
 from the_door.mcp.tools import integration_check_tool
 from the_door.mcp.tools import locate_tool
+from the_door.mcp.tools import chunk_merge_tool
 
 
 def _build_tools() -> list[Tool]:
@@ -195,6 +196,11 @@ def _build_tools() -> list[Tool]:
             description="(Secondary) Symbol locate point-queries over existing structure-view: action=search finds symbols by name/path; action=node returns one node's location + callers/callees. Data is not live (re-run extract_structure after edits); freshness signal included.",
             inputSchema=locate_tool.TOOL_SCHEMA,
         ),
+        Tool(
+            name="chunk_merge",
+            description="(大專案分塊翻譯) Merge per-chunk subagent feature outputs into one snapshot_write payload; derives feature-level static relations deterministically from structural edges. Read-only (does not write a snapshot).",
+            inputSchema=chunk_merge_tool.TOOL_SCHEMA,
+        ),
     ]
 
 
@@ -263,6 +269,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(integration_check_tool, arguments)
             elif name == "locate":
                 return await self._dispatch_tool(locate_tool, arguments)
+            elif name == "chunk_merge":
+                return await self._dispatch_tool(chunk_merge_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
