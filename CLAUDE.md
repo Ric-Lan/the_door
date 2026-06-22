@@ -177,11 +177,51 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `snapshot_patch` MCP | 對既有 snapshot 補 source_nodes（原地更新，不改 version_id）。 |
 | `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. Also stamps the `analyze_changes` checklist stage (unchanged-feature fingerprints) for the C7 inherited-description gate. |
 | `integration_check` MCP | 驗證每條功能宣稱依賴（標 `static` 者）是否有結構連線支撐 → 逐條回 backed/gap/undetermined + rollup。讀持久化 typed relations + structure-view edges、現算、`max_hops` 預設 2。 |
+| `chunk_merge` MCP | （大專案分塊翻譯）收齊各 chunk subagent 的 features，從結構邊決定性推導 feature 層 static relations，回傳可寫入 `snapshot_write` 的 payload。唯讀、不寫 snapshot。詳分塊翻譯協定。 |
 | `system_status` MCP | Same as `the-door status` but callable from agents. |
 | `locate` MCP / `the-door locate` CLI | （Secondary，非主打）對既有 structure-view 做 symbol 定位點查：`action=search` 用名稱/路徑找 symbol、`action=node` 看單節點 callers/callees。資料非即時（改碼後重跑 extract_structure）、名稱比對非語意搜尋。詳 [`docs/locate-query.md`](docs/locate-query.md)。 |
 
 For the input/output schemas of each MCP tool see
 [`docs/incremental-analysis-design.md`](docs/incremental-analysis-design.md).
+
+### Agent-as-LLM chain (大專案分塊翻譯：dispatch + merge)
+
+當專案大到單一 agent 讀不完整份 structure-view 時，改走分塊：每塊派一個 fresh
+Task subagent 翻譯、再決定性合併。**The Door 不 spawn subagent——派發是你（執行
+agent）的事**；工具只提供切分計畫與決定性合併。
+
+**第 0 步（必做）**：`chunk_planner.plan(codebase_path)` 讀 `feasible` / `needs_split`：
+- `feasible == false`（`regime: "too_large"`）→ **不派發**，回饋使用者：
+  「⚠ 專案過大（估計 ~{total_est_tokens} tokens，超過上限 {max_total_tokens}），
+  無法使用 LLM 翻譯功能。可縮小分析範圍、或明確調高 max_total_tokens 重試（風險自負）。」
+- `needs_split == false` → 走單版 chain（前述既有路徑）。
+- `feasible == true` 且 `needs_split == true` → 分塊翻譯：
+  - **派發成本軟提醒**：若 `rollup.chunk_count` 偏高（>30），先告知不擋：「將派發 N 個
+    subagent（耗時/成本較高），可調高 target_tokens 減少塊數」。
+
+**分塊翻譯流程**：
+1. 對 `plan()` 回的每個 chunk，派一個 Task subagent，給它**該塊 node_ids 的 views**
+   （從 `.the-door/structure-view/regions/*.json.gz` 取；因塊為預算大小，必塞得下）
+   ＋ `chunk_id`。subagent 任務：就這些節點產 L1 features，每筆
+   `{feature_id, label, description, confidence, source_nodes}`，**`feature_id` 以
+   `chunk_id` 前綴命名空間**（如 `feat-c003-auth`）、**不產 relations、不產 project_summary**。
+   回傳**只含 features**。
+2. `chunk_merge(codebase_path, chunks=[{chunk_id, features:[…]}, …])`
+   → 回 `{l1_features, relations(static、由結構邊推導), rollup}`。
+3. `edge_residue(codebase_path)`（C3 前置，蓋 checklist）。
+4. 你**自己**從 `l1_features` 綜合 `project_summary`（白話、不引入 features 外的能力）。
+5. `snapshot_write(codebase_path, l1_features=…, relations=…, project_summary=…, label=…)`
+   → 一次 gated 寫入（source_nodes 為全節點子集、⊆ edge_residue covered → 過 C3）。
+
+**前置鏈順序**：`extract_structure`（仍必跑——產 structure-view，供 plan / 各 subagent /
+chunk_merge 讀）→ `plan` → 分塊 dispatch → `chunk_merge` → `edge_residue` → `snapshot_write`。
+（分塊模式跳過的是單-agent「全量讀 L0 index 再逐區 drill」那段，直接以 `plan` 切塊派發；
+但 `extract_structure` 本身不可省。）`edge_residue` 須在最終 `snapshot_write` 前完成、且其後
+source 未變動（否則 C3 staleness 擋）。
+
+**誠實限制**（寫給使用者看的話也照此）：分塊模式產出的 feature 較細、可能碎裂（稠密
+專案無法乾淨切分）；只產 `static` 結構 relation（無概念/inferred）；天花板被推高但仍有限
+（`too_large` 時明確回饋）。
 
 ### Agent-as-LLM chain (single version)
 
