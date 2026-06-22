@@ -178,6 +178,7 @@ No command or tool takes an API key — The Door has no LLM provider.
 | `analyze_changes` MCP | Agent-as-LLM incremental: list features affected by changes against a baseline. Also stamps the `analyze_changes` checklist stage (unchanged-feature fingerprints) for the C7 inherited-description gate. |
 | `integration_check` MCP | 驗證每條功能宣稱依賴（標 `static` 者）是否有結構連線支撐 → 逐條回 backed/gap/undetermined + rollup。讀持久化 typed relations + structure-view edges、現算、`max_hops` 預設 2。 |
 | `system_status` MCP | Same as `the-door status` but callable from agents. |
+| `locate` MCP / `the-door locate` CLI | （Secondary，非主打）對既有 structure-view 做 symbol 定位點查：`action=search` 用名稱/路徑找 symbol、`action=node` 看單節點 callers/callees。資料非即時（改碼後重跑 extract_structure）、名稱比對非語意搜尋。詳 [`docs/locate-query.md`](docs/locate-query.md)。 |
 
 For the input/output schemas of each MCP tool see
 [`docs/incremental-analysis-design.md`](docs/incremental-analysis-design.md).
