@@ -23,6 +23,7 @@ from the_door.cli.projects_cmd import projects_cmd
 from the_door.cli.group_cmd import group_group
 from the_door.cli.status_cmd import status_cmd
 from the_door.cli.verify_datamodel_cmd import verify_datamodel_cmd
+from the_door.cli.locate_cmd import locate_group
 
 
 class CliRemediableError(click.ClickException):
@@ -87,3 +88,4 @@ main.add_command(projects_cmd)
 main.add_command(group_group)
 main.add_command(status_cmd)
 main.add_command(verify_datamodel_cmd)
+main.add_command(locate_group)
