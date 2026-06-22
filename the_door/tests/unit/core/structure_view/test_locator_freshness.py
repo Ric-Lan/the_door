@@ -41,3 +41,13 @@ def test_freshness_stale_when_file_deleted(tmp_path):
     out = locator.compute_freshness(tmp_path)
     assert out["status"] == "stale"
     assert "gone.py" in out["changed_files"]
+
+
+def test_freshness_skips_malformed_fingerprint(tmp_path):
+    # fingerprint 結構壞掉（非 [mtime_ns, size]）→ fail-soft 跳過，不計為變動
+    src = tmp_path / "a.py"
+    src.write_text("print(1)\n", encoding="utf-8")
+    _write_checklist(tmp_path, {"a.py": [1]})
+    out = locator.compute_freshness(tmp_path)
+    assert out["changed_count"] == 0
+    assert out["status"] == "fresh"
