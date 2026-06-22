@@ -162,3 +162,29 @@ def test_plan_missing_structure_view_raises(tmp_path):
     from the_door.core.structure_view.locator import LocateError
     with pytest.raises(LocateError):
         cp.plan(tmp_path)
+
+
+def test_plan_from_views_feasible_true_on_normal():
+    views = {f"f.py::n{i}": _node(f"f.py::n{i}") for i in range(3)}
+    out = cp._plan_from_views(views)          # 預設 max_total_tokens=2M、small
+    assert out["feasible"] is True
+    assert out["regime"] == "small"
+
+
+def test_plan_from_views_too_large_short_circuits():
+    views = {"a.py::f": _node("a.py::f")}      # 單節點估值 > 10
+    out = cp._plan_from_views(views, target_tokens=100, max_total_tokens=10)
+    assert out["regime"] == "too_large"
+    assert out["feasible"] is False
+    assert out["needs_split"] is False
+    assert out["chunks"] == []
+    assert out["total_est_tokens"] > 10
+    assert "reason" in out
+
+
+def test_plan_from_views_split_path_feasible_true():
+    # 強制切分（小 target）仍 feasible（total 未超預設 2M）
+    views = {f"f.py::n{i}": _node(f"f.py::n{i}") for i in range(6)}
+    out = cp._plan_from_views(views, target_tokens=60)
+    assert out["feasible"] is True
+    assert out["needs_split"] is True

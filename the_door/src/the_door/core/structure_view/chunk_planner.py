@@ -23,6 +23,7 @@ _CJK_RANGES = (
 
 DEFAULT_TARGET_TOKENS = 100_000
 DEFAULT_LARGE_RATIO = 8
+DEFAULT_MAX_TOTAL_TOKENS = 2_000_000  # feasibility 上限：超過則 too_large、回饋無法翻譯
 
 
 def triage(total_est: int, target: int, large_ratio: int) -> tuple:
@@ -178,6 +179,7 @@ def _assemble(target: int, regime: str, needs_split: bool, total: int,
         "target_tokens": target,
         "regime": regime,
         "needs_split": needs_split,
+        "feasible": True,
         "total_est_tokens": total,
         "chunks": out_chunks,
         "rollup": {
@@ -189,17 +191,34 @@ def _assemble(target: int, regime: str, needs_split: bool, total: int,
 
 
 def plan(codebase_path, target_tokens: int = DEFAULT_TARGET_TOKENS,
-         large_ratio: int = DEFAULT_LARGE_RATIO) -> dict:
+         large_ratio: int = DEFAULT_LARGE_RATIO,
+         max_total_tokens: int = DEFAULT_MAX_TOTAL_TOKENS) -> dict:
     """讀既有 structure-view，triage 後切成 ≤ target_tokens 的 chunk 計畫。
     structure-view 缺失 → load_views 拋 LocateError（自然向上拋）。"""
-    return _plan_from_views(load_views(codebase_path), target_tokens, large_ratio)
+    return _plan_from_views(load_views(codebase_path), target_tokens, large_ratio, max_total_tokens)
 
 
 def _plan_from_views(views: dict, target_tokens: int = DEFAULT_TARGET_TOKENS,
-                     large_ratio: int = DEFAULT_LARGE_RATIO) -> dict:
+                     large_ratio: int = DEFAULT_LARGE_RATIO,
+                     max_total_tokens: int = DEFAULT_MAX_TOTAL_TOKENS) -> dict:
     """純核心：吃 {node_id: view}，回 chunk 計畫。無 IO，便於合成測試。"""
     est = {nid: estimate_tokens(v) for nid, v in views.items()}
     total = sum(est.values())
+
+    if total > max_total_tokens:
+        return {
+            "target_tokens": target_tokens,
+            "regime": "too_large",
+            "needs_split": False,
+            "feasible": False,
+            "total_est_tokens": total,
+            "reason": (f"total_est_tokens {total} exceeds max_total_tokens "
+                       f"{max_total_tokens}; project too large for chunked LLM translation"),
+            "chunks": [],
+            "rollup": {"chunk_count": 0, "cross_chunk_edges": 0,
+                       "oversized_node_warnings": []},
+        }
+
     regime, needs_split = triage(total, target_tokens, large_ratio)
 
     if not needs_split:
