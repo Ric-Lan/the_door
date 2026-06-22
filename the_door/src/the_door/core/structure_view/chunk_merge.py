@@ -76,3 +76,24 @@ def _derive_relations(views: dict, node_to_feature: dict) -> tuple[list, int]:
                               "relation": rel, "relation_type": "static"})
     relations.sort(key=lambda r: (r["from_feature"], r["to_feature"], r["relation"]))
     return relations, skipped
+
+
+def merge(codebase_path, chunks: list) -> dict:
+    """收齊 features → node→feature 映射 → 從 structure-view 邊推導 relations → 組裝。
+    structure-view 缺失 → load_views 拋 LocateError（自然向上拋）。"""
+    if not chunks:
+        raise ChunkMergeError("chunks must not be empty")
+    features = _collect_features(chunks)               # 驗 id 唯一
+    node_to_feature, double_warn = _node_to_feature(features)
+    views = load_views(codebase_path)
+    relations, skipped = _derive_relations(views, node_to_feature)
+    return {
+        "l1_features": features,
+        "relations": relations,
+        "rollup": {
+            "feature_count": len(features),
+            "relation_count": len(relations),
+            "skipped_edges_no_feature": skipped,
+            "double_assigned_warnings": double_warn,
+        },
+    }

@@ -93,3 +93,35 @@ def test_derive_relations_keeps_edge_type():
     n2f = {"x.py::a": "feat-a", "y.py::c": "feat-b"}
     rels, _ = cm._derive_relations(views, n2f)
     assert rels[0]["relation"] == "imports"
+
+
+@pytest.fixture()
+def simple(fixtures_dir):
+    return fixtures_dir / "sample_codebases" / "python_simple"
+
+
+def test_merge_real_fixture_derives_cross_feature_calls(simple):
+    chunks = [
+        {"chunk_id": "c001", "features": [_feat("feat-c001-login", ["app.py::login"])]},
+        {"chunk_id": "c002", "features": [
+            _feat("feat-c002-auth", ["auth.py::authenticate_user", "auth.py::generate_token"])]},
+    ]
+    out = cm.merge(simple, chunks)
+    assert out["rollup"]["feature_count"] == 2
+    # login → authenticate_user 是跨 feature calls → 推出 c001→c002 static relation
+    assert {"from_feature": "feat-c001-login", "to_feature": "feat-c002-auth",
+            "relation": "calls", "relation_type": "static"} in out["relations"]
+    # authenticate_user → generate_token 同 feature(c002) → 不產
+    assert all(not (r["from_feature"] == r["to_feature"]) for r in out["relations"])
+
+
+def test_merge_empty_chunks_raises(simple):
+    with pytest.raises(cm.ChunkMergeError, match="must not be empty"):
+        cm.merge(simple, [])
+
+
+def test_merge_missing_structure_view_raises(tmp_path):
+    from the_door.core.structure_view.locator import LocateError
+    chunks = [{"chunk_id": "c001", "features": [_feat("feat-a", ["x::a"])]}]
+    with pytest.raises(LocateError):
+        cm.merge(tmp_path, chunks)
