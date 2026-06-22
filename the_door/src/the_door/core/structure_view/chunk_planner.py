@@ -148,3 +148,39 @@ def _pack(fitting: list, target: int) -> list:
         b["node_ids"] = sorted(b["node_ids"])
         b["oversized"] = False
     return bins
+
+
+def _cross_chunk_edges(adjacency: dict, chunks: list) -> int:
+    """原圖中兩端點落在不同 chunk 的邊數（無向、每邊算一次）。"""
+    loc: dict = {}
+    for i, c in enumerate(chunks):
+        for nid in c["node_ids"]:
+            loc[nid] = i
+    count = 0
+    for u, nbrs in adjacency.items():
+        for v in nbrs:
+            if u < v and loc.get(u) != loc.get(v):
+                count += 1
+    return count
+
+
+def _assemble(target: int, regime: str, needs_split: bool, total: int,
+              chunks: list, cross: int, warnings: list) -> dict:
+    """組裝最終輸出：指派 chunk_id、剝除內部 oversized 旗標、附 rollup。"""
+    out_chunks = [
+        {"chunk_id": f"chunk-{i:03d}", "node_ids": c["node_ids"],
+         "est_tokens": c["est_tokens"], "tier": c.get("tier", "whole")}
+        for i, c in enumerate(chunks, 1)
+    ]
+    return {
+        "target_tokens": target,
+        "regime": regime,
+        "needs_split": needs_split,
+        "total_est_tokens": total,
+        "chunks": out_chunks,
+        "rollup": {
+            "chunk_count": len(out_chunks),
+            "cross_chunk_edges": cross,
+            "oversized_node_warnings": sorted(set(warnings)),
+        },
+    }
