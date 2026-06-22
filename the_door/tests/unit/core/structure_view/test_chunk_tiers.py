@@ -38,3 +38,20 @@ def test_bfs_order_deterministic():
     indeg = {"a": 5, "b": 0, "c": 0}
     assert cp._bfs_order(["a", "b", "c"], adj, indeg) == \
            cp._bfs_order(["a", "b", "c"], adj, indeg)
+
+
+def test_pack_combines_components_under_budget():
+    # 三個分量 60/30/30，target=100：first-fit-decreasing → [60+30], [30]
+    fitting = [(["a"], 60), (["b"], 30), (["c"], 30)]
+    bins = cp._pack(fitting, target=100)
+    assert len(bins) == 2
+    assert bins[0]["est_tokens"] == 90 and sorted(bins[0]["node_ids"]) == ["a", "b"]
+    assert bins[1]["est_tokens"] == 30 and bins[1]["node_ids"] == ["c"]
+    assert all(b["oversized"] is False for b in bins)
+
+
+def test_pack_node_ids_sorted_and_deterministic():
+    fitting = [(["z::2", "a::1"], 50), (["m::3"], 50)]
+    bins = cp._pack(fitting, target=100)
+    assert bins[0]["node_ids"] == ["a::1", "m::3", "z::2"]   # 合併後排序
+    assert cp._pack(fitting, 100) == cp._pack(fitting, 100)

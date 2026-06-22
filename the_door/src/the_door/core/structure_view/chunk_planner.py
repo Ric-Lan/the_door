@@ -110,3 +110,24 @@ def _bfs_order(component: list, adjacency: dict, indeg: dict) -> list:
                 seen.add(nb)
                 queue.append(nb)
     return order
+
+
+def _pack(fitting: list, target: int) -> list:
+    """把「各自 ≤ target 的連通分量」first-fit-decreasing 打包進 chunk（Tier 1）。
+    fitting: list of (component_node_ids, comp_est)。決定性。"""
+    items = sorted(fitting, key=lambda ce: (-ce[1], ce[0][0]))
+    bins: list = []
+    for comp, comp_est in items:
+        placed = False
+        for b in bins:
+            if b["est_tokens"] + comp_est <= target:
+                b["node_ids"].extend(comp)
+                b["est_tokens"] += comp_est
+                placed = True
+                break
+        if not placed:
+            bins.append({"node_ids": list(comp), "est_tokens": comp_est})
+    for b in bins:
+        b["node_ids"] = sorted(b["node_ids"])
+        b["oversized"] = False
+    return bins
