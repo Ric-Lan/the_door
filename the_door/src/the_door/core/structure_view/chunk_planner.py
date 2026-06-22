@@ -29,3 +29,20 @@ def estimate_tokens(view: dict) -> int:
     cjk = sum(1 for ch in s if _is_cjk(ch))
     other = len(s) - cjk
     return cjk + (other + 3) // 4
+
+
+def _in_degree(view: dict) -> int:
+    topo = view.get("topology")
+    return topo.get("in_degree", 0) if isinstance(topo, dict) else 0
+
+
+def build_adjacency(views: dict) -> dict:
+    """無向鄰接表。只遍歷 out_edges（涵蓋所有邊一次）；外部 to_node_id 略過。"""
+    adj: dict = {nid: set() for nid in views}
+    for nid, view in views.items():
+        for e in view.get("out_edges", []):
+            tid = e.get("to_node_id")
+            if tid in adj and tid != nid:
+                adj[nid].add(tid)
+                adj[tid].add(nid)
+    return adj
