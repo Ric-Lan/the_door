@@ -33,11 +33,20 @@ def test_bfs_order_starts_at_highest_indegree_and_covers_component():
     assert len(order) == 4                 # 不重複
 
 
-def test_bfs_order_deterministic():
+def test_bfs_order_exact_expected_order():
+    # 斷言精確順序（非僅雙呼叫相等）→ 能抓 line 108 sorted() 被移除的回歸。
+    # a 最高 indeg → start；a 的鄰居 b/c 同 indeg、按 node_id 序 b 先 c 後。
     adj = {"a": {"b", "c"}, "b": {"a"}, "c": {"a"}}
     indeg = {"a": 5, "b": 0, "c": 0}
-    assert cp._bfs_order(["a", "b", "c"], adj, indeg) == \
-           cp._bfs_order(["a", "b", "c"], adj, indeg)
+    assert cp._bfs_order(["a", "b", "c"], adj, indeg) == ["a", "b", "c"]
+
+
+def test_slice_by_order_exact_fit_stays_one_chunk():
+    # cur_est + e == target 不應斷（含 boundary、load-bearing off-by-one）
+    est = {"a": 60, "b": 40}
+    chunks = cp._slice_by_order(["a", "b"], est, target=100)
+    assert [c["node_ids"] for c in chunks] == [["a", "b"]]
+    assert chunks[0]["est_tokens"] == 100
 
 
 def test_pack_combines_components_under_budget():

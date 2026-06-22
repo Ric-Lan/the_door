@@ -73,7 +73,8 @@ def connected_components(adjacency: dict, node_ids) -> list:
 
 def _slice_by_order(ordered: list, est: dict, target: int) -> list:
     """沿給定序貪婪填滿 target 就斷（Tier 3 原語，總定義域）。
-    單節點 est > target → 自成 chunk 並標 oversized。"""
+    單節點 est > target → 自成 chunk 並標 oversized。
+    前置：est 須涵蓋 ordered 內每個 node_id（呼叫端以同一 node 宇宙建 est）。"""
     chunks: list = []
     cur: list = []
     cur_est = 0
@@ -97,7 +98,9 @@ def _slice_by_order(ordered: list, est: dict, target: int) -> list:
 
 def _bfs_order(component: list, adjacency: dict, indeg: dict) -> list:
     """從分量內最高 in_degree 節點起 BFS（鄰居按 (-in_degree, node_id) 序入列）。
-    圖鄰近者在序列中相鄰 → 之後依序切時切口落在較稀疏處。決定性。"""
+    圖鄰近者在序列中相鄰 → 之後依序切時切口落在較稀疏處。決定性。
+    前置：component 須為連通分量（由 connected_components 產出）；非連通則自 start
+    不可達的節點會被略過。"""
     start = sorted(component, key=lambda n: (-indeg.get(n, 0), n))[0]
     seen = {start}
     queue = deque([start])
@@ -118,6 +121,7 @@ def _pack(fitting: list, target: int) -> list:
     items = sorted(fitting, key=lambda ce: (-ce[1], ce[0][0]))
     bins: list = []
     for comp, comp_est in items:
+        assert comp_est <= target, "_pack only takes components that fit (oversized go to _slice_by_order)"
         placed = False
         for b in bins:
             if b["est_tokens"] + comp_est <= target:
