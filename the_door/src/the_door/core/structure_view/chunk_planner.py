@@ -46,3 +46,25 @@ def build_adjacency(views: dict) -> dict:
                 adj[nid].add(tid)
                 adj[tid].add(nid)
     return adj
+
+
+def connected_components(adjacency: dict, node_ids) -> list:
+    """回連通分量列表；每分量內按 node_id 排序、分量間按首元素排序（決定性）。"""
+    seen: set = set()
+    comps: list = []
+    for start in sorted(node_ids):
+        if start in seen:
+            continue
+        stack = [start]
+        seen.add(start)
+        comp = []
+        while stack:
+            n = stack.pop()
+            comp.append(n)
+            for nb in adjacency.get(n, ()):
+                if nb not in seen:
+                    seen.add(nb)
+                    stack.append(nb)
+        comps.append(sorted(comp))
+    comps.sort(key=lambda c: c[0])
+    return comps

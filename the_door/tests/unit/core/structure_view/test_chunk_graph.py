@@ -24,3 +24,22 @@ def test_build_adjacency_is_undirected_and_skips_external():
     assert adj["a::f"] == {"b::g"}
     assert adj["b::g"] == {"a::f"}        # 無向：反向也有
     assert "ext::x" not in adj
+
+
+def test_connected_components_groups_and_isolates():
+    views = {
+        "a::f": _v("a::f", out=("b::g",)),
+        "b::g": _v("b::g"),
+        "z::lone": _v("z::lone"),          # 零邊 → 自成一分量
+    }
+    adj = cp.build_adjacency(views)
+    comps = cp.connected_components(adj, views.keys())
+    # 每分量已排序、分量間按首元素排序（決定性）
+    assert comps == [["a::f", "b::g"], ["z::lone"]]
+
+
+def test_connected_components_deterministic():
+    views = {f"m::n{i}": _v(f"m::n{i}") for i in range(20)}
+    adj = cp.build_adjacency(views)
+    assert cp.connected_components(adj, views.keys()) == \
+           cp.connected_components(adj, views.keys())
