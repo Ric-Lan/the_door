@@ -29,6 +29,7 @@ from the_door.mcp.tools import snapshot_patch_tool
 from the_door.mcp.tools import localize_datamodel_tool, verify_contract_tool
 from the_door.mcp.tools import edge_residue_tool
 from the_door.mcp.tools import integration_check_tool
+from the_door.mcp.tools import locate_tool
 
 
 def _build_tools() -> list[Tool]:
@@ -189,6 +190,11 @@ def _build_tools() -> list[Tool]:
             description="Verify each feature's claimed 'static' dependency against the actual structure graph; returns backed/gap/undetermined per relation + rollup.",
             inputSchema=integration_check_tool.TOOL_SCHEMA,
         ),
+        Tool(
+            name="locate",
+            description="(Secondary) Symbol locate point-queries over existing structure-view: action=search finds symbols by name/path; action=node returns one node's location + callers/callees. Data is not live (re-run extract_structure after edits); freshness signal included.",
+            inputSchema=locate_tool.TOOL_SCHEMA,
+        ),
     ]
 
 
@@ -255,6 +261,8 @@ class TheDoorMCPServer:
                 return await self._dispatch_tool(edge_residue_tool, arguments)
             elif name == "integration_check":
                 return await self._dispatch_tool(integration_check_tool, arguments)
+            elif name == "locate":
+                return await self._dispatch_tool(locate_tool, arguments)
             else:
                 return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
