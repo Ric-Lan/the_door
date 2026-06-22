@@ -52,6 +52,8 @@ def search_views(views: dict[str, dict], query: str,
     q = query.strip()
     if not q:
         raise LocateError("query is required")
+    if limit is None or limit < 0:
+        limit = SEARCH_DEFAULT_LIMIT
     ql = q.lower()
     matched: list[tuple[str, dict, str]] = []
     for node_id, view in views.items():
@@ -88,8 +90,12 @@ def node_detail(views: dict[str, dict], node_id: str) -> dict:
             ref["start_line"] = ov.get("start_line")
         return ref
 
-    callers = [_ref(e["from_node_id"], e.get("type")) for e in view.get("in_edges", [])]
-    callees = [_ref(e["to_node_id"], e.get("type")) for e in view.get("out_edges", [])]
+    callers = [_ref(fid, e.get("type"))
+               for e in view.get("in_edges", [])
+               if (fid := e.get("from_node_id")) is not None]
+    callees = [_ref(tid, e.get("type"))
+               for e in view.get("out_edges", [])
+               if (tid := e.get("to_node_id")) is not None]
     return {
         "node_id": node_id, "name": view.get("name"), "type": view.get("type"),
         "file": view.get("file"), "start_line": view.get("start_line"),

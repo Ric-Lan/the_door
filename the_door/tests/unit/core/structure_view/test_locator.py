@@ -96,3 +96,37 @@ def test_node_detail_unresolved_edge_target_is_fail_soft():
 def test_node_detail_missing_raises():
     with pytest.raises(locator.LocateError, match="not found"):
         locator.node_detail({}, "nope::x")
+
+
+def test_search_views_none_limit_uses_default():
+    views = {f"f.py::n{i}": _view(f"f.py::n{i}", f"n{i}", i) for i in range(25)}
+    out = locator.search_views(views, "n", limit=None)
+    assert out["returned"] == 20
+
+
+def test_search_views_negative_limit_uses_default():
+    views = {f"f.py::n{i}": _view(f"f.py::n{i}", f"n{i}", i) for i in range(25)}
+    out = locator.search_views(views, "n", limit=-5)
+    assert out["returned"] == 20
+
+
+def test_search_views_zero_limit_returns_empty_but_reports_total():
+    views = {f"f.py::n{i}": _view(f"f.py::n{i}", f"n{i}", i) for i in range(3)}
+    out = locator.search_views(views, "n", limit=0)
+    assert out["returned"] == 0
+    assert out["total_matched"] == 3
+
+
+def test_node_detail_skips_malformed_edge_missing_endpoint():
+    views = {
+        "a.py::t": {
+            "node_id": "a.py::t", "name": "t", "type": "function", "file": "a.py",
+            "language": "python", "start_line": 1, "end_line": 2, "topology": None,
+            "in_edges": [{"type": "calls"}],   # 缺 from_node_id → 跳過
+            "out_edges": [{"to_node_id": "b.py::ok", "type": "calls"}],
+        },
+        "b.py::ok": _view("b.py::ok", "ok", 0),
+    }
+    out = locator.node_detail(views, "a.py::t")
+    assert out["callers"] == []                      # 壞邊被跳過
+    assert out["callees"][0]["node_id"] == "b.py::ok"

@@ -33,7 +33,7 @@ async def execute(arguments: dict) -> dict:
             payload = locator.search(
                 codebase_path,
                 arguments.get("query", ""),
-                arguments.get("limit") or locator.SEARCH_DEFAULT_LIMIT,
+                arguments.get("limit"),
             )
         elif action == "node":
             node_id = arguments.get("node_id")
