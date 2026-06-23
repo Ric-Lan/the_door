@@ -10,6 +10,74 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.7.9 — 2026-06-23
+
+L1.5 功能分類層 ＋ Locate Query 定位點查 ＋ 大專案分塊翻譯全套（切分原則 + dispatch + merge）。
+全為**純加法**，契約版號不動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）；未動 gate / 既有單-agent 路徑。
+
+### Added
+- **大專案分塊翻譯（best-effort「略微往上支援」）**：當專案大到塞不進單一 agent context 時，
+  分塊派 subagent 逐塊翻譯、再決定性合併。
+  - `core/structure_view/chunk_planner.py`：`plan()` 把 structure-view 切成 token 預算內的 chunk
+    ——triage（small/medium/large）＋ 三層階梯（Tier1 連通分量打包 / Tier2 BFS 排序切 /
+    Tier3 size-slice 保底原語）＋ 逐節點 CJK-aware token 實估（不寫死常數）；純決定性。
+  - **feasibility 守衛**：`max_total_tokens`（預設 2,000,000）；超過 → `regime="too_large"` /
+    `feasible=False`，協定據以回饋使用者「專案過大、無法使用 LLM 翻譯」；`chunk_count` 高時軟提醒
+    派發成本（不硬擋）。
+  - `core/structure_view/chunk_merge.py` ＋ MCP **`chunk_merge`** 工具（唯讀、不入 C3 gate）：
+    收齊各 chunk 的 features（驗 feature_id 全域唯一、node→feature 決定性映射）→
+    **從結構邊決定性推導 feature 層 `static` relations**（按 (from,to,relation) 聚合）→
+    回傳可寫入 `snapshot_write` 的 payload。設計：subagent 只產 features（命名空間 id、不產 relations），
+    relations 全由工具從結構推導（結構性分析走純程式）。
+  - `CLAUDE.md` 新增「大專案分塊翻譯協定」段（前置鏈 `extract_structure→plan→分塊 dispatch→
+    chunk_merge→edge_residue→snapshot_write`；The Door 不 spawn subagent，派發是執行 agent 的事）。
+- **Locate Query 定位點查（secondary，非主打）**：對既有 structure-view 做 symbol 點查。
+  - `core/structure_view/locator.py`（純函式 `load_views`/`search`/`node`/`compute_freshness`）；
+    search 排序＝name 命中 > path 命中 > in_degree。
+  - MCP **`locate`** 工具（`action=search|node`）＋ CLI **`the-door locate`** 群組；零重抽取、純加法。
+  - `freshness` 三態軟訊號（fresh/stale/unknown，複用 checklist `source_files` 指紋）。
+  - `docs/locate-query.md`：明標 secondary＋兩條限制（資料非即時、名稱比對非語意搜尋）。
+- **L1.5 功能分類層（區塊）**：把 L1 功能歸類成最多兩層的區塊，存進快照、viewer 折疊。
+  - `BlockSummary` 加 `related_features`/`parent_block_id`/`is_new_this_version`；
+    `core/classification/block_validator.py` 五結構不變量；`snapshot_patch` 接受 validated blocks；
+    `GET /api/blocks` 端點；前端 `ui-blocks.js` 兩層折疊。零新 MCP 工具（複用 snapshot_patch + agent-as-LLM）。
+- **Viewer 整合圖例**：integration legend popup（static/AST 名詞解釋）；L1/filter-active 併為一列 + accent legend 按鈕。
+
+### Notes
+- 全程 spike→spec→雙審→plan→雙審/code-review→subagent-driven TDD→本地 ff-merge。
+- 誠實限制：分塊翻譯產出 feature 較細、可能碎裂（稠密專案 calls ~84% 跨塊、切不乾淨）；
+  只產 `static` 結構 relation（無 inferred）；天花板被推高但仍有限（`too_large` 明確回饋）。
+- 三量級真實專案實測切分機制可行（ms-ts 7 / radicli 135 / v170 2782 nodes）。
+- specs：`docs/superpowers/specs/2026-06-21-locate-query-design.md`、
+  `2026-06-22-chunk-split-principle-design.md`、`2026-06-23-chunk-dispatch-merge-design.md`。
+
+---
+
+## v1.7.8 — 2026-06-21
+
+整合落差驗證工具 ＋ viewer 健檢面板 ＋ 控制紀律強化。（CHANGELOG 補錄；發版當下未記。）
+
+### Added
+- MCP **`integration_check`** 工具：驗每條功能宣稱 `static` 依賴是否有結構連線支撐 →
+  逐條 backed/gap/undetermined ＋ rollup；`RelationSummary` 加法持久化 `relation_type`/`inferred_reason`。
+- Viewer 整合健檢面板＋徽章（`GET /api/integration`），判定抽到 `core/integration/checker.py` 共用。
+- **C5 工具選擇 hook**（`.claude/hooks/c5_tool_selection.py`）：擋 Bash 誤用 grep/cat/find 等。
+- `CLAUDE.md`「動手前三問」三閘門（工具選擇 / relation_type 標記 / 破壞性操作順序）。
+
+### Fixed
+- `snapshot_write_tool.py` inherit_from 忽略 `relations` 的 bug。
+
+---
+
+## v1.7.7 — 2026-06-14
+
+多專案群組支援。（CHANGELOG 補錄；發版當下未記。）
+
+### Added
+- 多專案群組（project group）＋ viewer 專案 switcher 修正。
+
+---
+
 ## v1.7.6 — 2026-06-14
 
 `ASTNode` 行號支援（`start_line`/`end_line`）＋ body_hash 變動偵測。
