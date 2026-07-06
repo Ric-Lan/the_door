@@ -30,6 +30,7 @@ document.body.innerHTML = `
     <div id="diff-mode-banner" hidden></div>
     <div id="version-narrative-band" hidden></div>
     <div id="breadcrumb"></div>
+    <section id="integration-panel"></section>
 
     <main class="workspace">
       <section class="cards-panel">

@@ -11,7 +11,7 @@ import {
 } from '../js/graph.js';
 import { edgeKey } from '../js/flow-layout.js';
 
-// NOTE: 圖層已從 cytoscape 遷移為 DOM grid（graph.js renderGridGraph）。原 cytoscape/mermaid/zoom
+// NOTE: 圖層已從 cytoscape 遷移為 DOM 流程圖（graph.js renderFlowGraph）。原 cytoscape/mermaid/zoom
 // 機制（buildCytoscapeElements/Style、buildMermaidText、renderMermaidFallback、bindCytoscapeEvents、
 // initZoomControls/hideZoomControls、syncFeatureListSelection）已連同其測一併移除（無 production caller）。
 

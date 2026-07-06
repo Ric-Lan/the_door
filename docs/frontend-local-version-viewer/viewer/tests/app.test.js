@@ -37,6 +37,11 @@ vi.mock('../js/viewmodel.js', () => ({
   snapshotLabel: vi.fn((s) => s?.label || s?.version_id || 'unknown'),
 }));
 
+vi.mock('../js/ui-integration.js', () => ({
+  renderIntegrationPanel: vi.fn(),
+  initIntegrationLegend: vi.fn(),
+}));
+
 import {
   render,
   setMode,
@@ -50,6 +55,7 @@ import * as uiDetail from '../js/ui-detail.js';
 import * as layers from '../js/layers.js';
 import * as graph from '../js/graph.js';
 import * as viewmodel from '../js/viewmodel.js';
+import * as uiIntegration from '../js/ui-integration.js';
 
 function resetState() {
   state.updateModel = null;
@@ -191,6 +197,27 @@ describe('render', () => {
       banner.id = 'diff-mode-banner';
     }
   });
+
+  it('re-renders the integration panel from current state.integration', () => {
+    state.integration = { rollup: { gap: 1 }, features: {} };
+    render();
+    expect(uiIntegration.renderIntegrationPanel).toHaveBeenCalledWith(
+      els.integrationPanel,
+      state.integration,
+      expect.objectContaining({ onSelectFeature: expect.any(Function) })
+    );
+  });
+
+  it('does not throw and skips the integration panel when els.integrationPanel is absent', () => {
+    const original = els.integrationPanel;
+    els.integrationPanel = null;
+    try {
+      expect(() => render()).not.toThrow();
+      expect(uiIntegration.renderIntegrationPanel).not.toHaveBeenCalled();
+    } finally {
+      els.integrationPanel = original;
+    }
+  });
 });
 
 // ── setMode ──────────────────────────────────────────────────────
@@ -218,6 +245,25 @@ describe('setMode', () => {
     await setMode('baseline');
     expect(state.mode).toBe('baseline');
     expect(layers.loadL1Graph).toHaveBeenCalledWith('v1');
+  });
+
+  it('re-renders the integration panel (fresh state.integration) after a version-compare mode switch', async () => {
+    state.versionA = 'v1';
+    state.versionB = 'v2';
+    uiIntegration.renderIntegrationPanel.mockClear();
+    layers.loadL1Graph.mockImplementation(async () => {
+      // Simulate loadL1Graph's real side effect: it refreshes state.integration
+      // for the new version before app.js calls render() again.
+      state.integration = { rollup: { gap: 2 }, features: {} };
+    });
+    await setMode('baseline');
+    expect(uiIntegration.renderIntegrationPanel).toHaveBeenCalledWith(
+      els.integrationPanel,
+      state.integration,
+      expect.objectContaining({ onSelectFeature: expect.any(Function) })
+    );
+    // must reflect the NEW version's integration, not stale data from before the switch
+    expect(state.integration).toEqual({ rollup: { gap: 2 }, features: {} });
   });
 
   it('switches and reloads L1 for current when hasVersionCompare', async () => {
@@ -894,6 +940,28 @@ describe('populateVersionSelectors (via init flow)', () => {
     expect(state.mode).toBe('diff');
     expect(uiTopbar.renderTopBar).toHaveBeenCalled();
     expect(layers.loadL1Graph).toHaveBeenCalledWith('B');
+  });
+
+  it('selA onchange re-renders the integration panel with the freshly loaded state.integration (no stale panel)', async () => {
+    setupSnapshots([
+      { version_id: 'B', label: 'B' },
+      { version_id: 'A', label: 'A' },
+    ]);
+    init();
+    await new Promise(r => setTimeout(r, 10));
+    state.integration = { rollup: { gap: 0 }, features: {} }; // stale from initial load
+    uiIntegration.renderIntegrationPanel.mockClear();
+    layers.loadL1Graph.mockImplementation(async () => {
+      state.integration = { rollup: { gap: 5 }, features: {} }; // fresh for the new version
+    });
+    const selA = document.getElementById('select-version-a');
+    selA.value = 'B';
+    await selA.onchange();
+    expect(uiIntegration.renderIntegrationPanel).toHaveBeenCalledWith(
+      els.integrationPanel,
+      { rollup: { gap: 5 }, features: {} },
+      expect.objectContaining({ onSelectFeature: expect.any(Function) })
+    );
   });
 
   it('selA onchange falls back to versionA when versionB null', async () => {

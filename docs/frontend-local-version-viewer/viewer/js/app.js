@@ -43,6 +43,19 @@ export function render() {
     ?.classList.toggle("diff-mode", state.mode === "diff");
   const banner = document.getElementById("diff-mode-banner");
   if (banner) banner.hidden = state.mode !== "diff";
+  renderIntegrationPanelIfPresent();
+}
+
+// Re-renders the integration health panel from current state.integration.
+// Called from render() — the single seam that runs after every loadL1Graph()
+// call (initial load, version-select switches, setMode's version-compare
+// branch) — so the panel never shows a stale version's rollup/gap list while
+// edges/badges already reflect the new one.
+function renderIntegrationPanelIfPresent() {
+  if (!els.integrationPanel) return;
+  renderIntegrationPanel(els.integrationPanel, state.integration, {
+    onSelectFeature: (featureId) => selectFeatureById(featureId),
+  });
 }
 
 // Diff-mode card click: full re-render via renderDiffDetailPanel.
@@ -176,11 +189,6 @@ async function loadFromApi() {
       state.blocks = await fetchBlocks(versionId);
     } catch (e) {
       state.blocks = null; // 失敗不阻斷；render 會 fallback 平鋪
-    }
-    if (els.integrationPanel) {
-      renderIntegrationPanel(els.integrationPanel, state.integration, {
-        onSelectFeature: (featureId) => selectFeatureById(featureId),
-      });
     }
     render();
   }
