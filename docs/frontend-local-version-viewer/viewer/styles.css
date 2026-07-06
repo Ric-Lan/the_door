@@ -1615,11 +1615,23 @@ h1 {
 
 /* Graph flow layout */
 .gv-flow-wrapper {
-  flex: 1;
-  overflow: auto;
+  /* 貼滿 #graph-container（position:relative）：flex:1 在普通 block 父層無效，
+     曾導致 wrapper 被內容撐高、拉把被推出畫面 */
+  position: absolute;
+  inset: 0;
+  overflow: scroll; /* 上下左右拉把常駐，畫布超出視窗即可拖動 */
   padding: 24px 28px 48px;
   background: var(--bg, #f6f7f9);
 }
+.gv-flow-wrapper::-webkit-scrollbar { width: 12px; height: 12px; }
+.gv-flow-wrapper::-webkit-scrollbar-track { background: rgba(16, 24, 40, .04); }
+.gv-flow-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(16, 24, 40, .25);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.gv-flow-wrapper::-webkit-scrollbar-thumb:hover { background-color: rgba(16, 24, 40, .4); }
 .gv-flow { position: relative; }
 .gv-bands {
   display: flex;
