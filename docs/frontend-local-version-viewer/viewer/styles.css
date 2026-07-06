@@ -1614,22 +1614,46 @@ h1 {
   margin-bottom: 12px;
 }
 
-/* Graph grid layout */
-.gv-grid-wrapper {
+/* Graph flow layout */
+.gv-flow-wrapper {
   flex: 1;
   overflow: auto;
   padding: 24px 28px 48px;
   background: var(--bg, #f6f7f9);
 }
-.gv-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(160px, 1fr));
-  grid-auto-rows: 90px;
-  column-gap: 20px;
-  row-gap: 48px;
-  max-width: 1100px;
-  margin: 0 auto;
+.gv-flow { position: relative; }
+.gv-bands {
+  display: flex;
+  align-items: flex-start;
+  gap: 56px;              /* 欄間距＝邊的呼吸空間 */
+}
+.gv-band {
+  display: flex;
+  gap: 16px;              /* 子欄間距 */
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(16, 24, 40, .03);  /* band 視覺分隔（spec D2） */
+}
+.gv-subcol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 180px;
+}
+.gv-isolated-row {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border, #d7dde5);
+}
+.gv-isolated-title {
+  font: 600 12px var(--font-sans, sans-serif);
+  color: var(--muted, #667085);
+  margin-bottom: 10px;
+}
+.gv-isolated-row .gv-subcol {
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: auto;
 }
 .gv-node {
   position: relative;
@@ -1679,6 +1703,7 @@ h1 {
 .gv-node.dependency_changed { background: var(--modified-bg, #ffe0cc); border-color: var(--modified-border, #fd7e14); }
 .gv-node.conf-medium { border-style: dashed; }
 .gv-node.conf-low    { border-style: dotted; }
+.gv-subcol .gv-node { min-height: 90px; }
 .gv-edges {
   position: absolute;
   inset: 0;
