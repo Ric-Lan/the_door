@@ -218,4 +218,18 @@ describe('H1 confidence honesty', () => {
     expect(card.classList.contains('conf-high')).toBe(false);
     expect(card.classList.contains('conf-unknown')).toBe(true);
   });
+
+  it('card meta renders confidence-badge with same classes as main list', () => {
+    const container = document.createElement('div');
+    renderFlowGraph(container,
+      { nodes: [{ id: 'n1', label: 'N1', confidence: 'high' },
+                { id: 'n2', label: 'N2', confidence: 'low' },
+                { id: 'n3', label: 'N3' }], edges: [] }, () => {});
+    const badges = container.querySelectorAll('.gv-node-meta .confidence-badge');
+    expect(badges).toHaveLength(3);
+    expect(container.querySelector('.confidence-badge-high').textContent).toBe('高信心');
+    expect(container.querySelector('.confidence-badge-low').textContent).toBe('低信心');
+    // 缺值＝unknown：badge 掛 -unknown（無專屬色規則、落基底灰），不得掛 high 色
+    expect(container.querySelector('.confidence-badge-unknown').textContent).toBe('未評估');
+  });
 });

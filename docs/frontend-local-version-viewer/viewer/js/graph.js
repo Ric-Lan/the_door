@@ -89,9 +89,14 @@ function _buildNodeCard(node, onNodeClick) {
   card.appendChild(title);
   const meta = document.createElement('div');
   meta.className = 'gv-node-meta';
-  const parts = [CONF_LABEL[conf] || conf];
-  if (node.source_node_count) parts.push(node.source_node_count + ' nodes');
-  meta.textContent = parts.join(' · ');
+  // 信心徽章：與主頁 list 同一套 confidence-badge 色（unknown 落基底灰）
+  const badge = document.createElement('span');
+  badge.className = 'confidence-badge confidence-badge-' + conf;
+  badge.textContent = CONF_LABEL[conf] || conf;
+  meta.appendChild(badge);
+  if (node.source_node_count) {
+    meta.appendChild(document.createTextNode(' ' + node.source_node_count + ' nodes'));
+  }
   card.appendChild(meta);
   if (onNodeClick) card.addEventListener('click', () => onNodeClick(node));
   return card;
