@@ -4,7 +4,7 @@ import {
   openGraphDrawer,
   closeGraphDrawer,
   initGraph,
-  renderGridGraph,
+  renderFlowGraph,
   buildDisplayLabel,
 } from '../js/graph.js';
 
@@ -94,9 +94,9 @@ describe('initGraph', () => {
     expect(document.querySelectorAll('#graph-container .gv-node')).toHaveLength(2);
   });
 
-  it('renders a .gv-grid-wrapper into the container', () => {
+  it('renders a .gv-flow-wrapper into the container', () => {
     initGraph('graph-container', { nodes: [{ id: 'n1', label: 'N1' }], edges: [] });
-    expect(document.querySelector('#graph-container .gv-grid-wrapper')).not.toBeNull();
+    expect(document.querySelector('#graph-container .gv-flow-wrapper')).not.toBeNull();
   });
 
   it('node card title reflects the node label', () => {
@@ -123,19 +123,60 @@ describe('buildDisplayLabel', () => {
   });
 });
 
+describe('renderFlowGraph 分層布局', () => {
+  it('鏈 a→b 產生兩個 .gv-band，a 在第一欄', () => {
+    const container = document.createElement('div');
+    renderFlowGraph(container,
+      { nodes: [{ id: 'b', label: 'B' }, { id: 'a', label: 'A' }],
+        edges: [{ source: 'a', target: 'b' }] }, () => {});
+    const bands = container.querySelectorAll('.gv-band');
+    expect(bands).toHaveLength(2);
+    expect(bands[0].querySelector('.gv-node-title').textContent).toBe('A');
+    expect(bands[1].querySelector('.gv-node-title').textContent).toBe('B');
+  });
+
+  it('無邊節點進 .gv-isolated-row，標題為 未宣告關聯', () => {
+    const container = document.createElement('div');
+    renderFlowGraph(container,
+      { nodes: [{ id: 'a', label: 'A' }, { id: 'x', label: 'X' }, { id: 'b', label: 'B' }],
+        edges: [{ source: 'a', target: 'b' }] }, () => {});
+    const iso = container.querySelector('.gv-isolated-row');
+    expect(iso).not.toBeNull();
+    expect(iso.querySelector('.gv-isolated-title').textContent).toBe('未宣告關聯');
+    expect(iso.querySelectorAll('.gv-node')).toHaveLength(1);
+  });
+
+  it('無孤島時不渲染 .gv-isolated-row', () => {
+    const container = document.createElement('div');
+    renderFlowGraph(container,
+      { nodes: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
+        edges: [{ source: 'a', target: 'b' }] }, () => {});
+    expect(container.querySelector('.gv-isolated-row')).toBeNull();
+  });
+
+  it('卡片 click handler 保留（點擊回傳 node）', () => {
+    const container = document.createElement('div');
+    let clicked = null;
+    renderFlowGraph(container,
+      { nodes: [{ id: 'a', label: 'A' }], edges: [] }, (n) => { clicked = n; });
+    container.querySelector('.gv-node').click();
+    expect(clicked.id).toBe('a');
+  });
+});
+
 // ── H1 confidence honesty (未評估 ≠ 謊報等級) ──────────────────────
 describe('H1 confidence honesty', () => {
-  it('grid node with confidence="unknown" gets conf-unknown class, not conf-high', () => {
+  it('flow node with confidence="unknown" gets conf-unknown class, not conf-high', () => {
     const container = document.createElement('div');
-    renderGridGraph(container, { nodes: [{ id: 'n1', label: 'N1', confidence: 'unknown' }], edges: [] }, () => {});
+    renderFlowGraph(container, { nodes: [{ id: 'n1', label: 'N1', confidence: 'unknown' }], edges: [] }, () => {});
     const card = container.querySelector('.gv-node');
     expect(card.classList.contains('conf-unknown')).toBe(true);
     expect(card.classList.contains('conf-high')).toBe(false);
   });
 
-  it('grid node with MISSING confidence does NOT fall back to conf-high (no lying)', () => {
+  it('flow node with MISSING confidence does NOT fall back to conf-high (no lying)', () => {
     const container = document.createElement('div');
-    renderGridGraph(container, { nodes: [{ id: 'n1', label: 'N1' }], edges: [] }, () => {});
+    renderFlowGraph(container, { nodes: [{ id: 'n1', label: 'N1' }], edges: [] }, () => {});
     const card = container.querySelector('.gv-node');
     expect(card.classList.contains('conf-high')).toBe(false);
     expect(card.classList.contains('conf-unknown')).toBe(true);

@@ -1,3 +1,5 @@
+import { computeFlowLayout } from './flow-layout.js';
+
 const TYPE_TAG = {
   added:              '+ 新增',
   removed:            '− 移除',
@@ -47,75 +49,90 @@ const TYPE_TAG_CLASS = {
   attribute_changed: 'tag-modified', dependency_changed: 'tag-modified',
 };
 
-function _drawGridEdges(grid, edges, cardMap) {
-  const gridRect = grid.getBoundingClientRect();
-  if (!gridRect.width) return;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.classList.add('gv-edges');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('width', grid.scrollWidth);
-  svg.setAttribute('height', grid.scrollHeight);
-  edges.forEach(edge => {
-    const src = cardMap[edge.source];
-    const tgt = cardMap[edge.target];
-    if (!src || !tgt) return;
-    const sr = src.getBoundingClientRect();
-    const tr = tgt.getBoundingClientRect();
-    const x1 = sr.left - gridRect.left + sr.width / 2;
-    const y1 = sr.top  - gridRect.top  + sr.height / 2;
-    const x2 = tr.left - gridRect.left + tr.width / 2;
-    const y2 = tr.top  - gridRect.top  + tr.height / 2;
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-    line.setAttribute('stroke', '#94a3b8');
-    line.setAttribute('stroke-width', '1.5');
-    const conf = edge.lowestConfidence || 'unknown';
-    if (conf === 'medium')  line.setAttribute('stroke-dasharray', '5 4');
-    if (conf === 'low')     line.setAttribute('stroke-dasharray', '2 4');
-    if (conf === 'unknown') line.setAttribute('stroke-dasharray', '1 3');  // 未評估：與 high 實線可區分
-    svg.appendChild(line);
-  });
-  grid.insertBefore(svg, grid.firstChild);
+function _buildNodeCard(node, onNodeClick) {
+  const card = document.createElement('div');
+  const conf = node.confidence || 'unknown';  // 未評估誠實化：缺值不謊報 high
+  card.className = 'gv-node conf-' + conf;
+  if (node.change_type) card.classList.add(node.change_type);
+  card.dataset.nodeId = node.id;
+  if (node.change_type && TYPE_TAG[node.change_type]) {
+    const tag = document.createElement('div');
+    tag.className = 'gv-node-tag ' + (TYPE_TAG_CLASS[node.change_type] || '');
+    tag.textContent = TYPE_TAG[node.change_type];
+    card.appendChild(tag);
+  }
+  const title = document.createElement('div');
+  title.className = 'gv-node-title';
+  title.textContent = node.label || node.id;
+  card.appendChild(title);
+  const meta = document.createElement('div');
+  meta.className = 'gv-node-meta';
+  const parts = [CONF_LABEL[conf] || conf];
+  if (node.source_node_count) parts.push(node.source_node_count + ' nodes');
+  meta.textContent = parts.join(' · ');
+  card.appendChild(meta);
+  if (onNodeClick) card.addEventListener('click', () => onNodeClick(node));
+  return card;
 }
 
-export function renderGridGraph(container, viewModel, onNodeClick) {
+function _drawFlowEdges(_flow, _edges, _cardMap, _integration, _backEdges) {
+  // Task 3 實作：SVG 箭頭邊 + integration 色 + back-edge 虛線
+}
+
+export function renderFlowGraph(container, viewModel, onNodeClick) {
   container.textContent = '';
   const wrapper = document.createElement('div');
-  wrapper.className = 'gv-grid-wrapper';
-  const grid = document.createElement('div');
-  grid.className = 'gv-grid';
+  wrapper.className = 'gv-flow-wrapper';
+  const flow = document.createElement('div');
+  flow.className = 'gv-flow';
+  const nodeById = new Map((viewModel.nodes || []).map(n => [n.id, n]));
+  const layout = computeFlowLayout(viewModel);
   const cardMap = {};
-  (viewModel.nodes || []).forEach(node => {
-    const card = document.createElement('div');
-    const conf = node.confidence || 'unknown';  // 未評估誠實化：缺值不謊報 high
-    card.className = 'gv-node conf-' + conf;
-    if (node.change_type) card.classList.add(node.change_type);
-    card.dataset.nodeId = node.id;
-    if (node.change_type && TYPE_TAG[node.change_type]) {
-      const tag = document.createElement('div');
-      tag.className = 'gv-node-tag ' + (TYPE_TAG_CLASS[node.change_type] || '');
-      tag.textContent = TYPE_TAG[node.change_type];
-      card.appendChild(tag);
-    }
-    const title = document.createElement('div');
-    title.className = 'gv-node-title';
-    title.textContent = node.label || node.id;
-    card.appendChild(title);
-    const meta = document.createElement('div');
-    meta.className = 'gv-node-meta';
-    const parts = [CONF_LABEL[conf] || conf];
-    if (node.source_node_count) parts.push(node.source_node_count + ' nodes');
-    meta.textContent = parts.join(' · ');
-    card.appendChild(meta);
-    if (onNodeClick) card.addEventListener('click', () => onNodeClick(node));
-    grid.appendChild(card);
-    cardMap[node.id] = card;
+
+  const bandsRow = document.createElement('div');
+  bandsRow.className = 'gv-bands';
+  layout.bands.forEach(subs => {
+    const band = document.createElement('div');
+    band.className = 'gv-band';
+    subs.forEach(ids => {
+      const sub = document.createElement('div');
+      sub.className = 'gv-subcol';
+      ids.forEach(id => {
+        const card = _buildNodeCard(nodeById.get(id), onNodeClick);
+        sub.appendChild(card);
+        cardMap[id] = card;
+      });
+      band.appendChild(sub);
+    });
+    bandsRow.appendChild(band);
   });
-  wrapper.appendChild(grid);
+  flow.appendChild(bandsRow);
+
+  if (layout.isolated.length) {
+    const iso = document.createElement('div');
+    iso.className = 'gv-isolated-row';
+    const title = document.createElement('div');
+    title.className = 'gv-isolated-title';
+    title.textContent = '未宣告關聯';
+    iso.appendChild(title);
+    const sub = document.createElement('div');
+    sub.className = 'gv-subcol';
+    layout.isolated.forEach(id => {
+      const card = _buildNodeCard(nodeById.get(id), onNodeClick);
+      sub.appendChild(card);
+      cardMap[id] = card;
+    });
+    iso.appendChild(sub);
+    flow.appendChild(iso);
+  }
+
+  wrapper.appendChild(flow);
   container.appendChild(wrapper);
   const edges = viewModel.edges || [];
-  if (edges.length) requestAnimationFrame(() => _drawGridEdges(grid, edges, cardMap));
+  if (edges.length) {
+    requestAnimationFrame(() =>
+      _drawFlowEdges(flow, edges, cardMap, viewModel.integration, layout.backEdges));
+  }
 }
 
 export function closeGraphDrawer() {
@@ -139,5 +156,5 @@ export function initGraph(containerId, viewModel, onNodeClick) {
     return;
   }
 
-  renderGridGraph(container, viewModel, onNodeClick);
+  renderFlowGraph(container, viewModel, onNodeClick);
 }
