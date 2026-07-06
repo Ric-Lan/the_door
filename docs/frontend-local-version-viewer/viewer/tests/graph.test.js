@@ -6,7 +6,10 @@ import {
   initGraph,
   renderFlowGraph,
   buildDisplayLabel,
+  buildIntegrationIndex,
+  edgeStyle,
 } from '../js/graph.js';
+import { edgeKey } from '../js/flow-layout.js';
 
 // NOTE: 圖層已從 cytoscape 遷移為 DOM grid（graph.js renderGridGraph）。原 cytoscape/mermaid/zoom
 // 機制（buildCytoscapeElements/Style、buildMermaidText、renderMermaidFallback、bindCytoscapeEvents、
@@ -63,11 +66,45 @@ describe('closeGraphDrawer', () => {
   });
 });
 
+describe('buildIntegrationIndex / edgeStyle', () => {
+  const integration = { relations: [
+    { from_feature: 'feat-a', to_feature: 'feat-db', verdict: 'gap' },
+    { from_feature: 'feat-a', to_feature: 'feat-b',  verdict: 'backed' },
+    { from_feature: 'feat-a', to_feature: 'feat-c',  verdict: 'not_assessed' },
+  ] };
+
+  it('gap 邊為紅', () => {
+    const idx = buildIntegrationIndex(integration);
+    expect(edgeStyle({ source: 'feat-a', target: 'feat-db' }, idx, new Set()).color).toBe('#dc2626');
+  });
+  it('backed 邊為綠', () => {
+    const idx = buildIntegrationIndex(integration);
+    expect(edgeStyle({ source: 'feat-a', target: 'feat-b' }, idx, new Set()).color).toBe('#16a34a');
+  });
+  it('not_assessed 與查無資料皆為灰（不洗成綠）', () => {
+    const idx = buildIntegrationIndex(integration);
+    expect(edgeStyle({ source: 'feat-a', target: 'feat-c' }, idx, new Set()).color).toBe('#94a3b8');
+    expect(edgeStyle({ source: 'zz', target: 'yy' }, idx, new Set()).color).toBe('#94a3b8');
+  });
+  it('integration 為 null → 空 index → 全灰', () => {
+    const idx = buildIntegrationIndex(null);
+    expect(idx.size).toBe(0);
+    expect(edgeStyle({ source: 'feat-a', target: 'feat-db' }, idx, new Set()).color).toBe('#94a3b8');
+  });
+  it('back-edge 標 dashed', () => {
+    const be = new Set([edgeKey('b', 'a')]);
+    expect(edgeStyle({ source: 'b', target: 'a' }, buildIntegrationIndex(null), be).dashed).toBe(true);
+    expect(edgeStyle({ source: 'a', target: 'b' }, buildIntegrationIndex(null), be).dashed).toBe(false);
+  });
+});
+
 describe('renderLegend', () => {
-  it('inserts 4 .legend-item elements into #legend-panel', () => {
+  it('包含方向/整合/循環三個新圖例項（共 7 項）', () => {
     renderLegend();
-    const items = document.querySelectorAll('#legend-panel .legend-item');
-    expect(items).toHaveLength(4);
+    expect(document.querySelectorAll('#legend-panel .legend-item')).toHaveLength(7);
+    expect(document.getElementById('legend-panel').textContent).toContain('左＝入口');
+    expect(document.getElementById('legend-panel').textContent).toContain('沒接上');
+    expect(document.getElementById('legend-panel').textContent).toContain('循環');
   });
 
   it('does not throw when #legend-panel is missing', () => {
