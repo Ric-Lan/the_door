@@ -10,6 +10,42 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## v1.8.0 — 2026-07-06
+
+**Flow View**：viewer 圖形視圖從無向平鋪網格**替換**為拓撲分層有向布局（資訊流順序：
+左＝入口、右＝底層），讓「client → API → 服務 → DB」這類端到端閱讀感能一眼看出。
+純前端加法——零後端 / API / 契約 / gate 改動（`SNAPSHOT_CONTRACT_VERSION` 仍 `"1"`）。
+
+### Added
+- **拓撲分層布局**（`docs/frontend-local-version-viewer/viewer/js/flow-layout.js`，新純函式模組）：
+  決定性 DFS back-edge 偵測 ＋ 記憶化 longest-path 分欄（顯示欄反轉：depth 最大的 entry 落最左、
+  被依賴最深的底層落最右）＋ 孤島分離 ＋ 每欄超過 8 卡折子欄。零依賴、同輸入同輸出。
+- **有向邊繪製**（`js/graph.js` `renderFlowGraph` 取代 `renderGridGraph`）：SVG `<marker>` 箭頭
+  （指向被依賴者）＋ integration verdict 邊色（`gap`＝紅、`backed`＝綠、其餘一律灰，不把未評估洗成綠）
+  ＋ 循環回邊虛線。信心自邊上退場（改由卡片徽章承載，避免雙重計數）。
+- **孤島列**：無任何依賴邊的功能集中於「未宣告關聯」列，誠實呈現「沒有資訊流資料」，
+  不隨機塞欄假裝有位置語意。
+- **信心徽章**：flow 卡片的信心以彩色 `confidence-badge` 呈現（與主頁 list 共用同一套 CSS 類別：
+  高＝綠 / 中＝黃 / 低＝紅 / 未評估＝灰）。
+- **7 項圖例**：既有 diff 四色 ＋ 方向語意（左＝入口、右＝底層）＋ 紅邊＝整合落差 ＋ 虛線＝循環。
+
+### Changed
+- **integration 資料生命週期收進 `loadL1Graph`**（`js/layers.js`）：改為每個版本以同一 `versionId`
+  重抓、且在 `initGraph` 之前就緒——修正首繪時序與版本切換後的過期 verdict 問題。
+  整合健檢面板亦隨版本切換重繪，與邊色一致。
+- **關聯圖改為全視窗**（`styles.css`）：drawer 接管整個 viewport（獨立頁面體驗），
+  分層 band 有完整橫向空間。
+- **flow 畫布常駐上下左右拉把**：wrapper 絕對定位貼滿容器（修 `flex:1` 在 block 父層失效導致
+  拉把被推出畫面的 bug），畫布超出視窗即可雙向拖動。
+
+### Notes
+- 誠實限制：分欄＝依賴深度序，**不是**架構角色標籤（圖不知道誰是「DB」誰是「佇列」）；
+  角色標籤是語意判斷、結構算不出，本刀不做。邊不做交叉最小化（feature 圖規模天生有界）。
+- 全程 brainstorming → spec 雙審 → plan 雙審 → subagent-driven TDD（5 task）→ 全支線終審 →
+  真瀏覽器 e2e 驗收。最終 595 前端測試全綠。
+
+---
+
 ## v1.7.9 — 2026-06-23
 
 L1.5 功能分類層 ＋ Locate Query 定位點查 ＋ 大專案分塊翻譯全套（切分原則 + dispatch + merge）。
