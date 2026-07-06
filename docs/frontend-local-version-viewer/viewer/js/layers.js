@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { els } from "./dom.js";
-import { API_BASE } from "./api.js";
+import { API_BASE, fetchIntegration } from "./api.js";
 import { initGraph, renderLegend } from "./graph.js";
 import { updateLogoMark, renderVersionNarrativeBand } from "./ui-topbar.js";
 import { changeSymbol } from "./ui-list.js";
@@ -45,6 +45,15 @@ export async function loadL1Graph(versionId = null) {
     }
     state.l1GraphViewModel = await res.json();
     state.layerState = "L1";
+
+    // integration 生命週期收於此（單一權威）：同 versionId、fail-soft、先於 initGraph 就緒
+    // ——修正 spec D5 記載的首繪時序與版本切換過期資料問題。
+    try {
+      state.integration = await fetchIntegration(versionId);
+    } catch (_) {
+      state.integration = null; // 失敗不阻斷主畫面；邊全灰、面板顯示未評估
+    }
+    state.l1GraphViewModel.integration = state.integration;
 
     state.l1Model = {
       features: (state.l1GraphViewModel.nodes || []).map((n) => ({

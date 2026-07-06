@@ -231,10 +231,11 @@ describe('loadL1Graph', () => {
     state.versionB = 'v2';
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ nodes: [] }) });
+    fetchSpy.mockResolvedValueOnce({ ok: true, status: 200, json: async () => (null) }); // integration
     fetchSpy.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ summary: {} }) });
     await loadL1Graph();
-    expect(fetchSpy.mock.calls.length).toBe(2);
-    expect(fetchSpy.mock.calls[1][0]).toContain('/api/diff?baseline=v1&current=v2');
+    expect(fetchSpy.mock.calls.length).toBe(3);
+    expect(fetchSpy.mock.calls[2][0]).toContain('/api/diff?baseline=v1&current=v2');
   });
 
   it('does not trigger loadDiffOverlay when versionA === versionB', async () => {
@@ -244,7 +245,7 @@ describe('loadL1Graph', () => {
       ok: true, status: 200, json: async () => ({ nodes: [] }),
     });
     await loadL1Graph();
-    expect(fetchSpy.mock.calls.length).toBe(1);
+    expect(fetchSpy.mock.calls.length).toBe(2); // l1 + integration, no diff
   });
 
   it('does not trigger loadDiffOverlay when versionA missing', async () => {
@@ -254,7 +255,7 @@ describe('loadL1Graph', () => {
       ok: true, status: 200, json: async () => ({ nodes: [] }),
     });
     await loadL1Graph();
-    expect(fetchSpy.mock.calls.length).toBe(1);
+    expect(fetchSpy.mock.calls.length).toBe(2); // l1 + integration, no diff
   });
 
   it('maps confidence_reason and source_nodes from graph view model nodes', async () => {
@@ -297,6 +298,41 @@ describe('loadL1Graph', () => {
 
     expect(state.l1Model.features[0].source_nodes).toEqual([]);
     expect(state.l1Model.features[0].confidence_reason).toBeUndefined();
+  });
+});
+
+describe('loadL1Graph attaches integration', () => {
+  it('成功時 viewModel.integration 與 state.integration 同值且先於渲染就緒', async () => {
+    const integrationPayload = { relations: [
+      { from_feature: 'feat-a', to_feature: 'feat-b', verdict: 'gap' }], rollup: { gap: 1 } };
+    global.fetch = vi.fn((url) => {
+      if (String(url).includes('/api/integration')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(integrationPayload) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(
+        { nodes: [{ id: 'feat-a', label: 'A' }, { id: 'feat-b', label: 'B' }],
+          edges: [{ source: 'feat-a', target: 'feat-b' }] }) });
+    });
+    await loadL1Graph('ver-123');
+    expect(state.integration).toEqual(integrationPayload);
+    expect(state.l1GraphViewModel.integration).toEqual(integrationPayload);
+    // versionId 有傳遞給 integration endpoint
+    const urls = global.fetch.mock.calls.map(c => String(c[0]));
+    expect(urls.some(u => u.includes('/api/integration') && u.includes('ver-123'))).toBe(true);
+  });
+
+  it('integration fetch 失敗 → null fail-soft、不阻斷圖渲染', async () => {
+    global.fetch = vi.fn((url) => {
+      if (String(url).includes('/api/integration')) return Promise.reject(new Error('boom'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(
+        { nodes: [{ id: 'feat-a', label: 'A' }], edges: [] }) });
+    });
+    await loadL1Graph(null);
+    expect(state.integration).toBeNull();
+    expect(state.l1GraphViewModel.integration).toBeNull();
+    // initGraph is mocked in this file (see top-of-file vi.mock('../js/graph.js')),
+    // so we assert rendering proceeded via the mock call rather than real DOM nodes.
+    expect(graph.initGraph).toHaveBeenCalled();
   });
 });
 

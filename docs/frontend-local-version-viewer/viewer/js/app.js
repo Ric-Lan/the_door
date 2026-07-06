@@ -19,7 +19,7 @@ import {
   closeGraphDrawer,
 } from "./graph.js";
 import { renderOnboardingCard } from "./onboarding.js";
-import { fetchGroup, setProject, fetchIntegration, fetchBlocks } from "./api.js";
+import { fetchGroup, setProject, fetchBlocks } from "./api.js";
 import { renderIntegrationPanel, initIntegrationLegend } from "./ui-integration.js";
 import { shouldShowSwitcher, buildSwitcherItems, renderSwitcherDropdown } from "./project-switcher.js";
 
@@ -172,11 +172,6 @@ async function loadFromApi() {
   if (ad.has_snapshots) {
     const versionId = hasVersionCompare ? state.versionB : null;
     await loadL1Graph(versionId);
-    try {
-      state.integration = await fetchIntegration(versionId);
-    } catch (e) {
-      state.integration = null; // 失敗不阻斷主畫面；面板顯示未評估
-    }
     try {
       state.blocks = await fetchBlocks(versionId);
     } catch (e) {
