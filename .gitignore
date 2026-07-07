@@ -142,6 +142,8 @@ scripts/integration-test/data/
 
 # Local historical planning / design scratch (kept on disk, not tracked)
 .claude/plans/
+.claude/launch.json
+.superpowers/
 design/
 docs/frontend-local-version-viewer/_planning/
 docs/frontend-local-version-viewer/intent-inference-spec.md
